@@ -154,13 +154,29 @@ ${generateSchema()}
                   : 'Cần tối ưu SEO nhiều hơn.'}
             </p>
 
-            {/* Title - Full display */}
+            {/* Title - Full display with clickable URL */}
             <div className="bg-[#252525] rounded-xl p-4 mb-4">
               <div className="flex items-start gap-3">
                 <FileText className="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-[#888] mb-1">Tiêu đề bài viết</p>
-                  <p className="text-[#f5f5f5] font-medium text-base leading-relaxed">{result.title}</p>
+                  <a
+                    href={result.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#f5f5f5] font-medium text-base leading-relaxed hover:text-amber-400 transition-colors block"
+                  >
+                    {result.title}
+                  </a>
+                  <a
+                    href={result.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-amber-400 text-sm hover:underline mt-1 inline-flex items-center gap-1"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    {result.url}
+                  </a>
                 </div>
               </div>
             </div>
