@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { FileText, Globe, Hash, Tag, Sparkles, Loader2 } from 'lucide-react';
+import { FileText, Globe, Hash, Tag, Sparkles, Loader2, AlertCircle } from 'lucide-react';
 import ScoreCircle from './ScoreCircle';
 import ModuleCard from './ModuleCard';
 import { SEOCheckResult } from '@/types';
@@ -11,9 +11,10 @@ interface ResultSectionProps {
   result: SEOCheckResult;
   keywords: string[];
   brandName: string;
+  geminiApiKey: string;
 }
 
-export default function ResultSection({ result, keywords, brandName }: ResultSectionProps) {
+export default function ResultSection({ result, keywords, brandName, geminiApiKey }: ResultSectionProps) {
   const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
@@ -32,6 +33,11 @@ export default function ResultSection({ result, keywords, brandName }: ResultSec
   const { grade, color } = getGrade();
 
   const handleGetAISuggestion = async () => {
+    if (!geminiApiKey) {
+      setAiError('Vui lòng nhập Gemini API Key ở form phía trên để sử dụng tính năng AI Suggestions');
+      return;
+    }
+
     setIsLoadingAI(true);
     setAiError(null);
 
@@ -43,6 +49,7 @@ export default function ResultSection({ result, keywords, brandName }: ResultSec
           result,
           keywords,
           brandName,
+          geminiApiKey,
         }),
       });
 
@@ -94,21 +101,21 @@ export default function ResultSection({ result, keywords, brandName }: ResultSec
             {/* Article Info */}
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="flex items-center gap-2 text-gray-400">
-                <FileText className="w-4 h-4" />
+                <FileText className="w-4 h-4 shrink-0" />
                 <span className="truncate" title={result.title}>
-                  {result.title.slice(0, 40)}...
+                  {result.title.length > 40 ? result.title.slice(0, 40) + '...' : result.title}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-gray-400">
-                <Globe className="w-4 h-4" />
+                <Globe className="w-4 h-4 shrink-0" />
                 <span className="truncate">{new URL(result.url).hostname}</span>
               </div>
               <div className="flex items-center gap-2 text-gray-400">
-                <Hash className="w-4 h-4" />
+                <Hash className="w-4 h-4 shrink-0" />
                 <span>{result.wordCount.toLocaleString()} từ</span>
               </div>
               <div className="flex items-center gap-2 text-gray-400">
-                <Tag className="w-4 h-4" />
+                <Tag className="w-4 h-4 shrink-0" />
                 <span>{articleTypeLabels[result.articleType] || result.articleType}</span>
               </div>
             </div>
@@ -126,7 +133,7 @@ export default function ResultSection({ result, keywords, brandName }: ResultSec
 
       {/* AI Suggestions */}
       <div className="bg-[#1a1a1a] border border-[#333333] rounded-lg p-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-[#F7C600]" />
             AI Suggestions
@@ -134,13 +141,35 @@ export default function ResultSection({ result, keywords, brandName }: ResultSec
           {!aiSuggestion && !isLoadingAI && (
             <button
               onClick={handleGetAISuggestion}
-              className="px-4 py-2 bg-[#F7C600] text-[#0D0D0D] font-medium rounded-lg hover:bg-[#e5b600] transition-colors flex items-center gap-2"
+              disabled={!geminiApiKey}
+              className="px-4 py-2 bg-[#F7C600] text-[#0D0D0D] font-medium rounded-lg hover:bg-[#e5b600] transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Sparkles className="w-4 h-4" />
               Nhận đề xuất từ AI
             </button>
           )}
         </div>
+
+        {!geminiApiKey && !aiSuggestion && !isLoadingAI && (
+          <div className="p-4 bg-[#F7C600]/10 border border-[#F7C600]/30 rounded-lg flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-[#F7C600] shrink-0 mt-0.5" />
+            <div>
+              <p className="text-[#F7C600] font-medium">Cần Gemini API Key</p>
+              <p className="text-gray-400 text-sm mt-1">
+                Nhập Gemini API Key ở form phía trên để sử dụng tính năng AI Suggestions.
+                Lấy key miễn phí tại{' '}
+                <a
+                  href="https://aistudio.google.com/app/apikey"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#F7C600] hover:underline"
+                >
+                  aistudio.google.com
+                </a>
+              </p>
+            </div>
+          </div>
+        )}
 
         {isLoadingAI && (
           <div className="flex items-center justify-center py-12">

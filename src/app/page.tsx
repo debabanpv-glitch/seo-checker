@@ -15,23 +15,29 @@ export default function Home() {
   const [formData, setFormData] = useState<{
     keywords: string[];
     brandName: string;
+    geminiApiKey: string;
   } | null>(null);
 
   const handleSubmit = async (data: {
     url: string;
     keywords: string[];
     brandName: string;
+    geminiApiKey: string;
   }) => {
     setIsLoading(true);
     setError(null);
     setResult(null);
-    setFormData({ keywords: data.keywords, brandName: data.brandName });
+    setFormData({ keywords: data.keywords, brandName: data.brandName, geminiApiKey: data.geminiApiKey });
 
     try {
       const response = await fetch('/api/check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          url: data.url,
+          keywords: data.keywords,
+          brandName: data.brandName,
+        }),
       });
 
       const responseData = await response.json();
@@ -119,6 +125,7 @@ export default function Home() {
             result={result}
             keywords={formData.keywords}
             brandName={formData.brandName}
+            geminiApiKey={formData.geminiApiKey}
           />
         )}
       </main>

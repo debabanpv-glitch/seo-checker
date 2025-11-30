@@ -1,17 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AISuggestionRequest, Module, Check } from '@/types';
+import { Module, Check } from '@/types';
+
+interface AISuggestionRequestBody {
+  result: {
+    title: string;
+    url: string;
+    wordCount: number;
+    articleType: string;
+    totalScore: number;
+    maxScore: number;
+    modules: Module[];
+  };
+  keywords: string[];
+  brandName: string;
+  geminiApiKey?: string;
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const body: AISuggestionRequest = await request.json();
-    const { result, keywords, brandName } = body;
+    const body: AISuggestionRequestBody = await request.json();
+    const { result, keywords, brandName, geminiApiKey } = body;
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    // Use API key from request body first, then fallback to env variable
+    const apiKey = geminiApiKey || process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'Gemini API key chưa được cấu hình' },
-        { status: 500 }
+        { error: 'Vui lòng nhập Gemini API Key để sử dụng tính năng AI Suggestions' },
+        { status: 400 }
       );
     }
 
@@ -38,16 +54,38 @@ export async function POST(request: NextRequest) {
     );
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Gemini API Error:', errorText);
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Gemini API Error:', errorData);
+
+      // Check for specific error types
+      if (response.status === 400) {
+        return NextResponse.json(
+          { error: 'API Key không hợp lệ. Vui lòng kiểm tra lại Gemini API Key.' },
+          { status: 400 }
+        );
+      }
+      if (response.status === 429) {
+        return NextResponse.json(
+          { error: 'Đã vượt quá giới hạn request. Vui lòng thử lại sau.' },
+          { status: 429 }
+        );
+      }
+
       return NextResponse.json(
-        { error: 'Không thể gọi Gemini API' },
+        { error: 'Không thể gọi Gemini API. Vui lòng thử lại.' },
         { status: 500 }
       );
     }
 
     const data = await response.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    if (!text) {
+      return NextResponse.json(
+        { error: 'Không nhận được phản hồi từ AI. Vui lòng thử lại.' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ suggestion: text });
   } catch (error) {
