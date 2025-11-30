@@ -244,6 +244,15 @@ export default function ResultSection({ result, keywords, brandName, geminiApiKe
                 </div>
               )}
 
+              {geminiApiKey && !aiSuggestion && !isLoadingAI && !aiError && (
+                <button
+                  onClick={handleGetAISuggestion}
+                  className="w-full py-2 bg-amber-400 hover:bg-amber-500 text-neutral-900 font-medium rounded-lg transition-colors"
+                >
+                  Phân tích với AI
+                </button>
+              )}
+
               {isLoadingAI && (
                 <div className="text-center py-6">
                   <div className="w-8 h-8 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin mx-auto"></div>

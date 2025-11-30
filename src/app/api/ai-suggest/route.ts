@@ -55,13 +55,21 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      console.error('Gemini API Error:', errorData);
+      console.error('Gemini API Error:', response.status, errorData);
+
+      const errorMessage = errorData?.error?.message || '';
 
       // Check for specific error types
-      if (response.status === 400) {
+      if (response.status === 400 || errorMessage.includes('API_KEY_INVALID')) {
         return NextResponse.json(
           { error: 'API Key không hợp lệ. Vui lòng kiểm tra lại Gemini API Key.' },
           { status: 400 }
+        );
+      }
+      if (response.status === 403) {
+        return NextResponse.json(
+          { error: 'API Key không có quyền truy cập. Hãy enable Generative Language API trong Google Cloud Console.' },
+          { status: 403 }
         );
       }
       if (response.status === 429) {
@@ -72,7 +80,7 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json(
-        { error: 'Không thể gọi Gemini API. Vui lòng thử lại.' },
+        { error: `Lỗi Gemini API: ${errorMessage || 'Vui lòng thử lại.'}` },
         { status: 500 }
       );
     }
