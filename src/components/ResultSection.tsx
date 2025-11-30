@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FileText, Hash, Tag, Globe, Sparkles, AlertCircle, ExternalLink, Check, Copy, Code } from 'lucide-react';
+import { FileText, Hash, Tag, Globe, Sparkles, AlertCircle, ExternalLink, Check, Copy, Code, Search } from 'lucide-react';
 import ScoreCircle from './ScoreCircle';
 import ModuleCard from './ModuleCard';
 import { SEOCheckResult } from '@/types';
@@ -154,19 +154,48 @@ ${generateSchema()}
                   : 'Cần tối ưu SEO nhiều hơn.'}
             </p>
 
-            {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-[#252525] rounded-xl p-4">
-                <FileText className="w-5 h-5 text-amber-400 mb-2" />
-                <p className="text-sm text-[#888]">Tiêu đề</p>
-                <p className="text-[#f5f5f5] font-medium truncate" title={result.title}>
-                  {result.title.length > 20 ? result.title.slice(0, 20) + '...' : result.title}
-                </p>
+            {/* Title - Full display */}
+            <div className="bg-[#252525] rounded-xl p-4 mb-4">
+              <div className="flex items-start gap-3">
+                <FileText className="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-[#888] mb-1">Tiêu đề bài viết</p>
+                  <p className="text-[#f5f5f5] font-medium text-base leading-relaxed">{result.title}</p>
+                </div>
               </div>
+            </div>
+
+            {/* Keywords */}
+            <div className="bg-[#252525] rounded-xl p-4 mb-4">
+              <div className="flex items-start gap-3">
+                <Search className="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm text-[#888] mb-2">Từ khóa kiểm tra</p>
+                  <div className="flex flex-wrap gap-2">
+                    {keywords.map((kw, i) => (
+                      <span
+                        key={i}
+                        className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          i === 0
+                            ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                            : 'bg-[#333] text-[#d4d4d4]'
+                        }`}
+                      >
+                        {i === 0 && <span className="mr-1">★</span>}
+                        {kw}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="bg-[#252525] rounded-xl p-4">
                 <Hash className="w-5 h-5 text-amber-400 mb-2" />
                 <p className="text-sm text-[#888]">Số từ</p>
-                <p className="text-[#f5f5f5] font-medium">{result.wordCount.toLocaleString()}</p>
+                <p className="text-[#f5f5f5] font-medium text-lg">{result.wordCount.toLocaleString()}</p>
               </div>
               <div className="bg-[#252525] rounded-xl p-4">
                 <Tag className="w-5 h-5 text-amber-400 mb-2" />
@@ -177,9 +206,14 @@ ${generateSchema()}
                 <Globe className="w-5 h-5 text-amber-400 mb-2" />
                 <p className="text-sm text-[#888]">URL</p>
                 <div className="flex items-center gap-2">
-                  <p className="text-[#f5f5f5] font-medium truncate">{new URL(result.url).hostname}</p>
+                  <p className="text-[#f5f5f5] font-medium truncate text-sm">{new URL(result.url).hostname}</p>
                   {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4 text-[#666]" />}
                 </div>
+              </div>
+              <div className="bg-[#252525] rounded-xl p-4">
+                <FileText className="w-5 h-5 text-amber-400 mb-2" />
+                <p className="text-sm text-[#888]">Thương hiệu</p>
+                <p className="text-[#f5f5f5] font-medium truncate">{brandName}</p>
               </div>
             </div>
           </div>
