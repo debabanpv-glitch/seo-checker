@@ -6,6 +6,7 @@ import ScoreCircle from './ScoreCircle';
 import ModuleCard from './ModuleCard';
 import { SEOCheckResult } from '@/types';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ResultSectionProps {
   result: SEOCheckResult;
@@ -324,20 +325,8 @@ ${generateSchema()}
             )}
 
             {aiSuggestion && (
-              <div className="prose prose-invert max-w-none
-                prose-headings:text-amber-400 prose-headings:font-bold prose-headings:text-lg prose-headings:mt-6 prose-headings:mb-3
-                prose-h3:text-base
-                prose-p:text-[#d4d4d4] prose-p:text-[15px] prose-p:leading-relaxed prose-p:my-3
-                prose-strong:text-[#f5f5f5] prose-strong:font-semibold
-                prose-code:text-amber-400 prose-code:bg-[#333] prose-code:px-2 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:font-mono
-                prose-pre:bg-[#0d0d0d] prose-pre:border prose-pre:border-[#333] prose-pre:rounded-xl prose-pre:p-4
-                prose-ul:text-[#d4d4d4] prose-ol:text-[#d4d4d4]
-                prose-li:text-[15px] prose-li:my-1 prose-li:marker:text-amber-400
-                prose-table:border-collapse prose-th:bg-[#252525] prose-th:p-3 prose-th:text-left prose-th:border prose-th:border-[#333] prose-th:text-[#f5f5f5]
-                prose-td:p-3 prose-td:border prose-td:border-[#333] prose-td:text-[#d4d4d4]
-                prose-a:text-amber-400 prose-a:no-underline hover:prose-a:underline"
-              >
-                <ReactMarkdown>{aiSuggestion}</ReactMarkdown>
+              <div className="ai-content">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{aiSuggestion}</ReactMarkdown>
               </div>
             )}
           </div>
