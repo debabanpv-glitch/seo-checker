@@ -37,9 +37,9 @@ export async function POST(request: NextRequest) {
 
     const prompt = buildPrompt(result, failedChecks, warningChecks, keywords, brandName);
 
-    // Call Gemini API
+    // Call Gemini API - using gemini-2.0-flash
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
