@@ -74,16 +74,16 @@ export default function ModuleCard({ module, defaultExpanded = false }: ModuleCa
           <div className="flex items-center gap-3 text-xs">
             <span className="text-green-400 flex items-center gap-1">
               <Check className="w-3 h-3" />
-              {passCount} pass
+              {passCount} đạt
             </span>
             {failCount > 0 && (
               <span className="text-red-400 flex items-center gap-1">
                 <X className="w-3 h-3" />
-                {failCount} fail
+                {failCount} chưa đạt
               </span>
             )}
             <span className="text-gray-500">
-              {module.score}/{module.maxScore}đ
+              {module.score}/{module.maxScore} điểm
             </span>
           </div>
         </div>
