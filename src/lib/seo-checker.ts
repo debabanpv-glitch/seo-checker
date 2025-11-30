@@ -957,12 +957,19 @@ function checkInternalLinks(pageData: PageData): Module {
   // 9.1 Link count >= 3 per 1000 words (2 points)
   const requiredLinks = Math.max(3, Math.floor((wordCount / 1000) * 3));
   const hasEnoughLinks = internalLinks.length >= requiredLinks;
+
+  // Build link list for display (max 8)
+  const linkListDisplay = internalLinks.slice(0, 8).map((l) =>
+    `• "${l.text.slice(0, 30) || '(no text)'}" → ${l.href.slice(0, 50)}${l.href.length > 50 ? '...' : ''}`
+  ).join(' | ');
+  const moreLinks = internalLinks.length > 8 ? ` (+${internalLinks.length - 8} khác)` : '';
+
   checks.push(
     createCheck(
       '9.1',
       'Số lượng ≥3 links/1000 từ',
       hasEnoughLinks,
-      internalLinks.length,
+      `${internalLinks.length} links: ${linkListDisplay}${moreLinks}`,
       `≥${requiredLinks} links`,
       hasEnoughLinks
         ? 'Đủ internal links'
@@ -979,7 +986,7 @@ function checkInternalLinks(pageData: PageData): Module {
       '9.2',
       'Có link trong 300 từ đầu',
       linksInFirst300.length > 0,
-      linksInFirst300.length > 0 ? 'Có' : 'Không',
+      linksInFirst300.length > 0 ? `Có (${linksInFirst300.length} links)` : 'Không',
       'Có ≥1 link',
       linksInFirst300.length > 0
         ? 'Có link ở đầu bài'
@@ -1026,13 +1033,19 @@ function checkExternalLinks(pageData: PageData): Module {
   const { externalLinks } = pageData;
   const checks: Check[] = [];
 
+  // Build external link list for display (max 5)
+  const extLinkDisplay = externalLinks.slice(0, 5).map((l) =>
+    `• "${l.text.slice(0, 25) || '(no text)'}" → ${l.href.slice(0, 40)}${l.href.length > 40 ? '...' : ''}`
+  ).join(' | ');
+  const moreExtLinks = externalLinks.length > 5 ? ` (+${externalLinks.length - 5} khác)` : '';
+
   // 10.1 Has >= 1 external link (1 point)
   checks.push(
     createCheck(
       '10.1',
       'Có ≥1 external link',
       externalLinks.length >= 1,
-      externalLinks.length,
+      externalLinks.length > 0 ? `${externalLinks.length} links: ${extLinkDisplay}${moreExtLinks}` : '0 links',
       '≥1 link',
       externalLinks.length >= 1
         ? 'Có external link'
@@ -1045,12 +1058,15 @@ function checkExternalLinks(pageData: PageData): Module {
   const trustedLinks = externalLinks.filter((l) =>
     TRUSTED_DOMAINS.some((domain) => l.href.includes(domain))
   );
+
+  const trustedDisplay = trustedLinks.slice(0, 3).map((l) => l.href.slice(0, 40)).join(', ');
+
   checks.push(
     createCheck(
       '10.2',
       'Nguồn uy tín: .gov, .edu, báo lớn',
       trustedLinks.length >= 1,
-      trustedLinks.length,
+      trustedLinks.length > 0 ? `${trustedLinks.length}: ${trustedDisplay}` : '0 nguồn',
       '≥1 nguồn uy tín',
       trustedLinks.length >= 1
         ? 'Có link đến nguồn uy tín'

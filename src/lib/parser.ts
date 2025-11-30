@@ -48,14 +48,32 @@ export function parseHTML(html: string, url: string): PageData {
     .get()
     .filter((p) => p.length > 0);
 
-  // Get body text
-  const bodyText = $('article, .content, .entry-content, main, .post-content, body')
-    .first()
+  // Get main content area, remove unwanted elements
+  let $contentArea = $('article, .content, .entry-content, main, .post-content').first();
+  if ($contentArea.length === 0) {
+    $contentArea = $('body');
+  }
+
+  // Clone to avoid modifying original DOM
+  const $cleanContent = $contentArea.clone();
+
+  // Remove navigation, sidebar, footer, ads, comments, scripts
+  $cleanContent.find([
+    'nav', 'header', 'footer', 'aside',
+    '.sidebar', '.navigation', '.menu', '.nav',
+    '.header', '.footer', '.comments', '.comment',
+    '.advertisement', '.ads', '.social-share',
+    '.related-posts', '.widget', '.breadcrumb',
+    'script', 'style', 'noscript', 'iframe'
+  ].join(', ')).remove();
+
+  // Get body text from cleaned content
+  const bodyText = $cleanContent
     .text()
     .replace(/\s+/g, ' ')
     .trim();
 
-  // Word count
+  // Word count - count words separated by spaces
   const wordCount = bodyText
     .split(/\s+/)
     .filter((w) => w.length > 0).length;
