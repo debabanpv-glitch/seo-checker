@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Loader2, Key, Eye, EyeOff } from 'lucide-react';
+import { Search, Loader2, Key, Eye, EyeOff, FileText } from 'lucide-react';
 
 interface SEOFormProps {
   onSubmit: (data: { url: string; keywords: string[]; brandName: string; geminiApiKey: string }) => void;
@@ -31,6 +31,15 @@ export default function SEOForm({ onSubmit, isLoading }: SEOFormProps) {
     }
   };
 
+  const fillSampleData = () => {
+    setUrl('https://dulichbinhminh.com/dia-diem-du-lich-chau-doc');
+    setKeywords(`châu đốc có gì chơi
+chùa bà châu đốc
+núi sam châu đốc
+địa điểm du lịch châu đốc`);
+    setBrandName('Du Lịch Bình Minh');
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const keywordList = keywords
@@ -48,6 +57,18 @@ export default function SEOForm({ onSubmit, isLoading }: SEOFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      {/* Sample Button */}
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={fillSampleData}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-amber-400 hover:text-amber-300 border border-amber-400/30 hover:border-amber-400/50 rounded-lg transition-colors"
+        >
+          <FileText className="w-3.5 h-3.5" />
+          Nhập mẫu
+        </button>
+      </div>
+
       {/* URL Input */}
       <div>
         <label className="block text-sm font-medium text-neutral-200 mb-2">
