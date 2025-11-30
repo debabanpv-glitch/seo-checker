@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FileText, Hash, Tag, Globe, Sparkles, AlertCircle, ExternalLink, Check, Copy } from 'lucide-react';
+import { FileText, Hash, Tag, Globe, Sparkles, AlertCircle, ExternalLink, Check, Copy, Code, ChevronDown } from 'lucide-react';
 import ScoreCircle from './ScoreCircle';
 import ModuleCard from './ModuleCard';
 import { SEOCheckResult } from '@/types';
@@ -19,6 +19,8 @@ export default function ResultSection({ result, keywords, brandName, geminiApiKe
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [schemaCopied, setSchemaCopied] = useState(false);
+  const [expandedModules, setExpandedModules] = useState<string[]>([]);
 
   const percentage = Math.round((result.totalScore / result.maxScore) * 100);
 
@@ -81,19 +83,68 @@ export default function ResultSection({ result, keywords, brandName, geminiApiKe
     article: 'Bài viết',
   };
 
-  // Get suggestions from failed checks
-  const allSuggestions = result.modules.flatMap(module =>
-    module.checks
-      .filter(check => check.status !== 'pass' && check.suggestion)
-      .map(check => ({
-        module: module.name,
-        suggestion: check.suggestion,
-        status: check.status,
-      }))
-  );
+  // Group suggestions by module
+  const groupedSuggestions = result.modules
+    .filter(module => module.checks.some(check => check.status !== 'pass' && check.suggestion))
+    .map(module => ({
+      moduleName: module.name,
+      moduleId: module.id,
+      suggestions: module.checks
+        .filter(check => check.status !== 'pass' && check.suggestion)
+        .map(check => ({
+          suggestion: check.suggestion,
+          status: check.status,
+        }))
+    }));
+
+  const toggleModule = (moduleId: string) => {
+    setExpandedModules(prev =>
+      prev.includes(moduleId)
+        ? prev.filter(id => id !== moduleId)
+        : [...prev, moduleId]
+    );
+  };
+
+  // Generate Schema JSON-LD
+  const generateSchema = () => {
+    const schemaType = result.articleType === 'faq' ? 'FAQPage' : 'Article';
+    const schema = {
+      "@context": "https://schema.org",
+      "@type": schemaType,
+      "headline": result.title,
+      "description": `${keywords[0]} - Hướng dẫn chi tiết từ ${brandName}`,
+      "author": {
+        "@type": "Organization",
+        "name": brandName,
+        "url": `https://${brandName.toLowerCase().replace(/\s/g, '')}.com`
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": brandName
+      },
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": result.url
+      },
+      "keywords": keywords.join(", "),
+      "wordCount": result.wordCount,
+      "inLanguage": "vi-VN"
+    };
+    return JSON.stringify(schema, null, 2);
+  };
+
+  const copySchema = () => {
+    const schemaCode = `<script type="application/ld+json">
+${generateSchema()}
+</script>`;
+    navigator.clipboard.writeText(schemaCode);
+    setSchemaCopied(true);
+    setTimeout(() => setSchemaCopied(false), 2000);
+  };
 
   const needsWorkModules = result.modules.filter(m => (m.score / m.maxScore) < 0.8);
   const goodModules = result.modules.filter(m => (m.score / m.maxScore) >= 0.8);
+  const totalSuggestions = groupedSuggestions.reduce((acc, g) => acc + g.suggestions.length, 0);
 
   return (
     <div className="space-y-6">
@@ -183,27 +234,44 @@ export default function ResultSection({ result, keywords, brandName, geminiApiKe
         {/* Right - Suggestions (1/3) */}
         <div className="lg:w-1/3">
           <div className="lg:sticky lg:top-20 space-y-4">
-            {/* Quick Suggestions */}
+            {/* Quick Suggestions - Grouped by Module */}
             <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
               <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
                 <span className="text-amber-400">💡</span>
                 Gợi ý nhanh
-                <span className="text-xs text-neutral-500 font-normal">({allSuggestions.length})</span>
+                <span className="text-xs text-neutral-500 font-normal">({totalSuggestions})</span>
               </h3>
 
-              {allSuggestions.length > 0 ? (
+              {groupedSuggestions.length > 0 ? (
                 <div className="space-y-2 max-h-80 overflow-y-auto custom-scrollbar">
-                  {allSuggestions.map((item, i) => (
-                    <div
-                      key={i}
-                      className={`p-3 rounded-lg text-sm ${
-                        item.status === 'fail'
-                          ? 'bg-red-500/10 border border-red-500/20'
-                          : 'bg-yellow-500/10 border border-yellow-500/20'
-                      }`}
-                    >
-                      <p className="text-xs text-neutral-500 mb-1">{item.module}</p>
-                      <p className="text-amber-200">{item.suggestion}</p>
+                  {groupedSuggestions.map((group) => (
+                    <div key={group.moduleId} className="border border-neutral-700 rounded-lg overflow-hidden">
+                      <button
+                        onClick={() => toggleModule(group.moduleId)}
+                        className="w-full px-3 py-2 bg-neutral-800 flex items-center justify-between text-left hover:bg-neutral-750 transition-colors"
+                      >
+                        <span className="text-sm font-medium text-white">{group.moduleName}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-neutral-500">{group.suggestions.length}</span>
+                          <ChevronDown className={`w-4 h-4 text-neutral-500 transition-transform ${expandedModules.includes(group.moduleId) ? 'rotate-180' : ''}`} />
+                        </div>
+                      </button>
+                      {expandedModules.includes(group.moduleId) && (
+                        <div className="p-2 space-y-1.5 bg-neutral-850">
+                          {group.suggestions.map((item, i) => (
+                            <div
+                              key={i}
+                              className={`p-2 rounded text-xs ${
+                                item.status === 'fail'
+                                  ? 'bg-red-500/10 text-red-300'
+                                  : 'bg-yellow-500/10 text-yellow-300'
+                              }`}
+                            >
+                              💡 {item.suggestion}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -214,6 +282,31 @@ export default function ResultSection({ result, keywords, brandName, geminiApiKe
                   <p className="text-sm text-neutral-500">Không có đề xuất</p>
                 </div>
               )}
+            </div>
+
+            {/* Schema Markup */}
+            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-white flex items-center gap-2">
+                  <Code className="w-4 h-4 text-amber-400" />
+                  Schema Markup
+                </h3>
+                <button
+                  onClick={copySchema}
+                  className="flex items-center gap-1 px-2 py-1 text-xs bg-amber-400 hover:bg-amber-500 text-neutral-900 rounded transition-colors"
+                >
+                  {schemaCopied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                  {schemaCopied ? 'Đã copy' : 'Copy'}
+                </button>
+              </div>
+              <p className="text-xs text-neutral-400 mb-3">
+                Dán vào <code className="bg-neutral-800 px-1 rounded">&lt;head&gt;</code> của bài viết
+              </p>
+              <pre className="bg-neutral-950 border border-neutral-700 rounded-lg p-3 text-xs text-green-400 overflow-x-auto max-h-48 custom-scrollbar">
+                <code>{`<script type="application/ld+json">
+${generateSchema()}
+</script>`}</code>
+              </pre>
             </div>
 
             {/* AI Analysis */}
