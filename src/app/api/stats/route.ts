@@ -95,6 +95,17 @@ export async function GET(request: NextRequest) {
       t.status_content?.includes('Doing')
     );
 
+    // Get fixing tasks for workflow display
+    const fixingOutlineTasks = activeTasks.filter((t) =>
+      t.status_outline && (t.status_outline.includes('Fixing') || t.status_outline.includes('fix'))
+    );
+    const fixingContentTasks = activeTasks.filter((t) =>
+      t.status_content && (t.status_content.includes('Fixing') || t.status_content.includes('fix'))
+    );
+    const doingOutlineTasks = activeTasks.filter((t) =>
+      t.status_outline === '1. Doing Outline'
+    );
+
     const bottleneck = {
       content: {
         doingOutline: activeTasks.filter((t) =>
@@ -154,6 +165,42 @@ export async function GET(request: NextRequest) {
           };
         }),
         doingContent: doingContentTasks.slice(0, 10).map((t) => {
+          const waitDays = t.updated_at
+            ? Math.floor((Date.now() - new Date(t.updated_at).getTime()) / (1000 * 60 * 60 * 24))
+            : 0;
+          return {
+            id: t.id,
+            title: t.title || t.keyword_sub,
+            pic: t.pic,
+            project: t.project?.name,
+            waitDays,
+          };
+        }),
+        fixingOutline: fixingOutlineTasks.slice(0, 10).map((t) => {
+          const waitDays = t.updated_at
+            ? Math.floor((Date.now() - new Date(t.updated_at).getTime()) / (1000 * 60 * 60 * 24))
+            : 0;
+          return {
+            id: t.id,
+            title: t.title || t.keyword_sub,
+            pic: t.pic,
+            project: t.project?.name,
+            waitDays,
+          };
+        }),
+        fixingContent: fixingContentTasks.slice(0, 10).map((t) => {
+          const waitDays = t.updated_at
+            ? Math.floor((Date.now() - new Date(t.updated_at).getTime()) / (1000 * 60 * 60 * 24))
+            : 0;
+          return {
+            id: t.id,
+            title: t.title || t.keyword_sub,
+            pic: t.pic,
+            project: t.project?.name,
+            waitDays,
+          };
+        }),
+        doingOutline: doingOutlineTasks.slice(0, 10).map((t) => {
           const waitDays = t.updated_at
             ? Math.floor((Date.now() - new Date(t.updated_at).getTime()) / (1000 * 60 * 60 * 24))
             : 0;

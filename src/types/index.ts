@@ -103,6 +103,9 @@ export interface BottleneckData {
     qcOutline: BottleneckTask[];
     waitPublish: BottleneckTask[];
     doingContent: BottleneckTask[];
+    fixingOutline: BottleneckTask[];
+    fixingContent: BottleneckTask[];
+    doingOutline: BottleneckTask[];
   };
   biggest: string;
 }

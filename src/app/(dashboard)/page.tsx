@@ -15,10 +15,12 @@ import {
   Medal,
   Crown,
   User,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import {
-  LineChart,
-  Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -31,7 +33,6 @@ import { PageLoading } from '@/components/LoadingSpinner';
 import { formatDate, isOverdue } from '@/lib/utils';
 import { Task, ProjectStats, BottleneckData, Stats, BottleneckTask } from '@/types';
 
-type ChartGroupBy = 'project' | 'person';
 type ChartTimeRange = 'day' | 'week';
 
 export default function DashboardPage() {
@@ -58,7 +59,6 @@ export default function DashboardPage() {
   const [expandedWorkflow, setExpandedWorkflow] = useState<string | null>(null);
 
   // Chart settings
-  const [chartGroupBy, setChartGroupBy] = useState<ChartGroupBy>('project');
   const [chartTimeRange, setChartTimeRange] = useState<ChartTimeRange>('day');
 
   // Get month/year from date range for API
@@ -116,69 +116,58 @@ export default function DashboardPage() {
     };
   }, [stats, dateRange, allTasks]);
 
-  // Generate chart data based on groupBy and timeRange
+  // Generate chart data - stacked bar by status per day/week
   const chartData = useMemo(() => {
     const fromDate = new Date(dateRange.from);
     const toDate = new Date(dateRange.to);
-    const data: Record<string, Record<string, number>> = {};
+    const data: Record<string, { published: number; inProgress: number; qc: number; fixing: number }> = {};
 
-    // Get all published tasks
-    const publishedTasks = allTasks.filter(
-      (t) => t.status_content === '4. Publish' && t.publish_date
-    );
-
-    // Group tasks by date (day or week)
-    publishedTasks.forEach((task) => {
-      const pubDate = new Date(task.publish_date);
-      if (pubDate < fromDate || pubDate > toDate) return;
+    // Group all tasks by date
+    allTasks.forEach((task) => {
+      const taskDate = task.publish_date ? new Date(task.publish_date) :
+                       task.deadline ? new Date(task.deadline) : null;
+      if (!taskDate || taskDate < fromDate || taskDate > toDate) return;
 
       let dateKey: string;
       if (chartTimeRange === 'week') {
-        // Get week number
-        const weekStart = new Date(pubDate);
-        weekStart.setDate(pubDate.getDate() - pubDate.getDay() + 1);
-        dateKey = `${weekStart.getDate()}/${weekStart.getMonth() + 1}`;
+        const weekStart = new Date(taskDate);
+        weekStart.setDate(taskDate.getDate() - taskDate.getDay() + 1);
+        dateKey = `W${Math.ceil(weekStart.getDate() / 7)}`;
       } else {
-        dateKey = `${pubDate.getDate()}/${pubDate.getMonth() + 1}`;
+        dateKey = `${taskDate.getDate()}/${taskDate.getMonth() + 1}`;
       }
 
-      const groupKey = chartGroupBy === 'project'
-        ? (task.project?.name || 'Khác')
-        : (task.pic || 'Chưa assign');
+      if (!data[dateKey]) {
+        data[dateKey] = { published: 0, inProgress: 0, qc: 0, fixing: 0 };
+      }
 
-      if (!data[dateKey]) data[dateKey] = {};
-      if (!data[dateKey][groupKey]) data[dateKey][groupKey] = 0;
-      data[dateKey][groupKey]++;
+      const status = task.status_content || '';
+      if (status === '4. Publish') {
+        data[dateKey].published++;
+      } else if (status.includes('QC')) {
+        data[dateKey].qc++;
+      } else if (status.includes('Fixing') || status.includes('fix')) {
+        data[dateKey].fixing++;
+      } else if (status.includes('Doing')) {
+        data[dateKey].inProgress++;
+      }
     });
 
-    // Convert to array format for recharts
-    const result: Array<{ date: string; [key: string]: string | number }> = [];
-    const allGroups = new Set<string>();
-
-    Object.entries(data).forEach(([, groups]) => {
-      Object.keys(groups).forEach((g) => allGroups.add(g));
-    });
-
-    // Sort dates
-    const sortedDates = Object.keys(data).sort((a, b) => {
-      const [dayA, monthA] = a.split('/').map(Number);
-      const [dayB, monthB] = b.split('/').map(Number);
-      if (monthA !== monthB) return monthA - monthB;
-      return dayA - dayB;
-    });
-
-    sortedDates.forEach((date) => {
-      const entry: { date: string; [key: string]: string | number } = { date };
-      allGroups.forEach((group) => {
-        entry[group] = data[date][group] || 0;
+    // Convert to array and sort
+    return Object.entries(data)
+      .map(([date, counts]) => ({ date, ...counts }))
+      .sort((a, b) => {
+        if (chartTimeRange === 'week') {
+          return parseInt(a.date.slice(1)) - parseInt(b.date.slice(1));
+        }
+        const [dayA, monthA] = a.date.split('/').map(Number);
+        const [dayB, monthB] = b.date.split('/').map(Number);
+        if (monthA !== monthB) return monthA - monthB;
+        return dayA - dayB;
       });
-      result.push(entry);
-    });
+  }, [allTasks, dateRange, chartTimeRange]);
 
-    return { data: result, groups: Array.from(allGroups) };
-  }, [allTasks, dateRange, chartGroupBy, chartTimeRange]);
-
-  // Calculate leaderboard
+  // Calculate leaderboard - person + published count
   const leaderboard = useMemo(() => {
     const fromDate = new Date(dateRange.from);
     const toDate = new Date(dateRange.to);
@@ -221,15 +210,12 @@ export default function DashboardPage() {
       qcOutline: bottleneck.tasks.qcOutline || [],
       waitPublish: bottleneck.tasks.waitPublish || [],
       doingContent: bottleneck.tasks.doingContent || [],
+      fixingOutline: bottleneck.tasks.fixingOutline || [],
+      fixingContent: bottleneck.tasks.fixingContent || [],
+      doingOutline: bottleneck.tasks.doingOutline || [],
     };
     return taskMap[type] || [];
   };
-
-  // Chart colors
-  const chartColors = [
-    '#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6',
-    '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#14b8a6',
-  ];
 
   if (isLoading) {
     return <PageLoading />;
@@ -350,7 +336,7 @@ export default function DashboardPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-white text-sm font-medium truncate">{item.name}</p>
                   </div>
-                  <span className="text-accent font-bold">{item.count}</span>
+                  <span className="text-accent font-bold text-sm">{item.count} bài</span>
                 </div>
               ))
             ) : (
@@ -360,57 +346,36 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Timeline Chart */}
+      {/* Timeline Chart - Status based */}
       <div className="bg-card border border-border rounded-xl p-4 md:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-2">
             <BarChart3 className="w-5 h-5 text-accent" />
-            <h2 className="text-base md:text-lg font-semibold text-white">Tiến độ publish</h2>
+            <h2 className="text-base md:text-lg font-semibold text-white">Tiến độ dự án</h2>
           </div>
 
-          {/* Chart Controls */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex gap-1 p-1 bg-secondary rounded-lg">
-              <button
-                onClick={() => setChartGroupBy('project')}
-                className={`px-2 py-1 text-xs rounded ${chartGroupBy === 'project' ? 'bg-accent text-white' : 'text-[#8888a0]'}`}
-              >
-                Dự án
-              </button>
-              <button
-                onClick={() => setChartGroupBy('person')}
-                className={`px-2 py-1 text-xs rounded ${chartGroupBy === 'person' ? 'bg-accent text-white' : 'text-[#8888a0]'}`}
-              >
-                Người
-              </button>
-            </div>
-            <div className="flex gap-1 p-1 bg-secondary rounded-lg">
-              <button
-                onClick={() => setChartTimeRange('day')}
-                className={`px-2 py-1 text-xs rounded ${chartTimeRange === 'day' ? 'bg-accent text-white' : 'text-[#8888a0]'}`}
-              >
-                Ngày
-              </button>
-              <button
-                onClick={() => setChartTimeRange('week')}
-                className={`px-2 py-1 text-xs rounded ${chartTimeRange === 'week' ? 'bg-accent text-white' : 'text-[#8888a0]'}`}
-              >
-                Tuần
-              </button>
-            </div>
+          {/* Chart Controls - only day/week */}
+          <div className="flex gap-1 p-1 bg-secondary rounded-lg">
+            <button
+              onClick={() => setChartTimeRange('day')}
+              className={`px-3 py-1 text-xs rounded ${chartTimeRange === 'day' ? 'bg-accent text-white' : 'text-[#8888a0]'}`}
+            >
+              Ngày
+            </button>
+            <button
+              onClick={() => setChartTimeRange('week')}
+              className={`px-3 py-1 text-xs rounded ${chartTimeRange === 'week' ? 'bg-accent text-white' : 'text-[#8888a0]'}`}
+            >
+              Tuần
+            </button>
           </div>
         </div>
 
         <div className="h-[250px] md:h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData.data} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+            <BarChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-              <XAxis
-                dataKey="date"
-                stroke="#8888a0"
-                fontSize={11}
-                tickLine={false}
-              />
+              <XAxis dataKey="date" stroke="#8888a0" fontSize={11} tickLine={false} />
               <YAxis stroke="#8888a0" fontSize={11} tickLine={false} />
               <Tooltip
                 contentStyle={{
@@ -421,18 +386,11 @@ export default function DashboardPage() {
                 }}
               />
               <Legend wrapperStyle={{ fontSize: '11px' }} />
-              {chartData.groups.map((group, index) => (
-                <Line
-                  key={group}
-                  type="monotone"
-                  dataKey={group}
-                  stroke={chartColors[index % chartColors.length]}
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
-                  activeDot={{ r: 5 }}
-                />
-              ))}
-            </LineChart>
+              <Bar dataKey="published" name="Đã publish" fill="#22c55e" stackId="a" />
+              <Bar dataKey="qc" name="Chờ QC" fill="#6366f1" stackId="a" />
+              <Bar dataKey="inProgress" name="Đang viết" fill="#f59e0b" stackId="a" />
+              <Bar dataKey="fixing" name="Đang sửa" fill="#ef4444" stackId="a" />
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
@@ -444,7 +402,7 @@ export default function DashboardPage() {
           <h2 className="text-base md:text-lg font-semibold text-white mb-4">Workflow Status</h2>
 
           {bottleneck ? (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {/* Workflow Items */}
               <WorkflowItem
                 label="SEO QC Outline"
@@ -479,23 +437,26 @@ export default function DashboardPage() {
                 onToggle={() => setExpandedWorkflow(expandedWorkflow === 'waitPublish' ? null : 'waitPublish')}
               />
 
-              {/* Fixing counts */}
-              {(bottleneck.content.fixingOutline > 0 || bottleneck.content.fixingContent > 0) && (
-                <div className="pt-2 border-t border-border">
-                  <p className="text-xs text-[#8888a0] mb-2">Đang sửa:</p>
-                  <div className="flex gap-2 flex-wrap">
-                    {bottleneck.content.fixingOutline > 0 && (
-                      <span className="px-2 py-1 bg-orange-500/20 text-orange-400 text-xs rounded">
-                        Outline: {bottleneck.content.fixingOutline}
-                      </span>
-                    )}
-                    {bottleneck.content.fixingContent > 0 && (
-                      <span className="px-2 py-1 bg-orange-500/20 text-orange-400 text-xs rounded">
-                        Content: {bottleneck.content.fixingContent}
-                      </span>
-                    )}
-                  </div>
-                </div>
+              {/* Fixing items - now clickable with task details */}
+              {bottleneck.content.fixingOutline > 0 && (
+                <WorkflowItem
+                  label="Đang sửa Outline"
+                  count={bottleneck.content.fixingOutline}
+                  color="orange"
+                  tasks={getWorkflowTasks('fixingOutline')}
+                  isExpanded={expandedWorkflow === 'fixingOutline'}
+                  onToggle={() => setExpandedWorkflow(expandedWorkflow === 'fixingOutline' ? null : 'fixingOutline')}
+                />
+              )}
+              {bottleneck.content.fixingContent > 0 && (
+                <WorkflowItem
+                  label="Đang sửa Content"
+                  count={bottleneck.content.fixingContent}
+                  color="orange"
+                  tasks={getWorkflowTasks('fixingContent')}
+                  isExpanded={expandedWorkflow === 'fixingContent'}
+                  onToggle={() => setExpandedWorkflow(expandedWorkflow === 'fixingContent' ? null : 'fixingContent')}
+                />
               )}
             </div>
           ) : (
@@ -503,26 +464,28 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Project Progress */}
+        {/* Project Progress - Compact */}
         <div className="bg-card border border-border rounded-xl p-4 md:p-6">
           <div className="flex items-center gap-2 mb-4">
             <TrendingUp className="w-5 h-5 text-accent" />
             <h2 className="text-base md:text-lg font-semibold text-white">Tiến độ dự án</h2>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {projectStats.length > 0 ? (
               projectStats.map((project) => {
                 const progress = project.target ? Math.round((project.actual / project.target) * 100) : 0;
                 return (
-                  <div key={project.id} className="p-3 bg-secondary rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-white font-medium text-sm">{project.name}</h3>
-                      <span className={`text-sm font-bold ${progress >= 100 ? 'text-success' : progress >= 70 ? 'text-warning' : 'text-white'}`}>
-                        {project.actual}/{project.target}
-                      </span>
+                  <div key={project.id} className="flex items-center gap-3 p-2 bg-secondary rounded-lg">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-sm font-medium truncate">{project.name}</p>
                     </div>
-                    <ProgressBar value={project.actual} max={project.target} showLabel={false} size="sm" />
+                    <div className="w-24">
+                      <ProgressBar value={project.actual} max={project.target} showLabel={false} size="sm" />
+                    </div>
+                    <span className={`text-sm font-bold w-16 text-right ${progress >= 100 ? 'text-success' : progress >= 70 ? 'text-warning' : 'text-white'}`}>
+                      {project.actual}/{project.target}
+                    </span>
                   </div>
                 );
               })
@@ -602,31 +565,28 @@ export default function DashboardPage() {
               recentTasks.slice(0, 10).map((task) => (
                 <div
                   key={task.id}
-                  className="p-3 bg-secondary rounded-lg border border-border"
+                  className="flex items-center gap-3 p-2 bg-secondary rounded-lg"
                 >
-                  <div className="flex items-start gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white text-sm font-medium">
-                        {task.title || task.keyword_sub || 'Không có tiêu đề'}
-                      </p>
-                      <p className="text-xs text-[#8888a0] mt-1">
-                        <span className="text-accent">{task.project?.name || '-'}</span>
-                        {' • '}{task.pic || 'N/A'}
-                        {task.publish_date && ` • ${formatDate(task.publish_date)}`}
-                      </p>
-                    </div>
-                    {task.link_publish && (
-                      <a
-                        href={task.link_publish}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-1.5 text-accent hover:bg-accent/20 rounded transition-colors flex-shrink-0"
-                        title="Xem bài viết"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
-                    )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-medium truncate">
+                      {task.title || task.keyword_sub || 'Không có tiêu đề'}
+                    </p>
+                    <p className="text-xs text-[#8888a0]">
+                      {task.pic || 'N/A'}
+                      {task.publish_date && ` • ${formatDate(task.publish_date)}`}
+                    </p>
                   </div>
+                  {task.link_publish && (
+                    <a
+                      href={task.link_publish}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1.5 text-accent hover:bg-accent/20 rounded transition-colors flex-shrink-0"
+                      title="Xem bài viết"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  )}
                 </div>
               ))
             ) : (
@@ -676,7 +636,7 @@ function WorkflowItem({
 }: {
   label: string;
   count: number;
-  color: 'warning' | 'accent' | 'success';
+  color: 'warning' | 'accent' | 'success' | 'orange';
   tasks: BottleneckTask[];
   isExpanded: boolean;
   onToggle: () => void;
@@ -685,31 +645,40 @@ function WorkflowItem({
     warning: 'bg-warning/10 border-warning/30 hover:bg-warning/20',
     accent: 'bg-accent/10 border-accent/30 hover:bg-accent/20',
     success: 'bg-success/10 border-success/30 hover:bg-success/20',
+    orange: 'bg-orange-500/10 border-orange-500/30 hover:bg-orange-500/20',
   };
 
   const textColors = {
     warning: 'text-warning',
     accent: 'text-accent',
     success: 'text-success',
+    orange: 'text-orange-400',
   };
 
   return (
     <div>
       <button
         onClick={onToggle}
-        className={`w-full flex items-center justify-between p-3 rounded-lg border transition-colors ${colorClasses[color]}`}
+        className={`w-full flex items-center justify-between p-2.5 rounded-lg border transition-colors ${colorClasses[color]}`}
       >
-        <span className="text-white text-sm font-medium">{label}</span>
-        <span className={`text-lg font-bold ${textColors[color]}`}>{count} bài</span>
+        <div className="flex items-center gap-2">
+          {isExpanded ? (
+            <ChevronUp className="w-4 h-4 text-[#8888a0]" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-[#8888a0]" />
+          )}
+          <span className="text-white text-sm font-medium">{label}</span>
+        </div>
+        <span className={`text-base font-bold ${textColors[color]}`}>{count} bài</span>
       </button>
 
       {/* Expanded Task List */}
       {isExpanded && tasks.length > 0 && (
-        <div className="mt-2 ml-2 pl-3 border-l-2 border-border space-y-2">
+        <div className="mt-2 ml-6 pl-3 border-l-2 border-border space-y-1.5">
           {tasks.map((task, idx) => (
-            <div key={task.id || idx} className="flex items-center gap-2 text-sm py-1">
+            <div key={task.id || idx} className="flex items-center gap-2 text-sm py-1 px-2 bg-secondary/50 rounded">
               <User className="w-3 h-3 text-[#8888a0] flex-shrink-0" />
-              <span className="text-white flex-1 truncate">{task.title}</span>
+              <span className="text-white flex-1 truncate text-xs">{task.title}</span>
               <span className="text-xs text-[#8888a0] flex-shrink-0">{task.pic}</span>
               {task.waitDays !== undefined && task.waitDays > 0 && (
                 <span className={`text-xs px-1.5 py-0.5 rounded flex-shrink-0 ${
@@ -732,6 +701,13 @@ function WorkflowItem({
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Empty state when expanded but no tasks */}
+      {isExpanded && tasks.length === 0 && (
+        <div className="mt-2 ml-6 pl-3 border-l-2 border-border">
+          <p className="text-xs text-[#8888a0] py-2">Không có chi tiết</p>
         </div>
       )}
     </div>
