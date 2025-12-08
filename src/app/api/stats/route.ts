@@ -6,42 +6,62 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const filter = searchParams.get('filter') || 'month';
 
-    // Calculate date range based on filter
     const now = new Date();
-    let startDate: Date | null = null;
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
 
-    switch (filter) {
-      case 'today':
-        startDate = new Date(now.setHours(0, 0, 0, 0));
-        break;
-      case 'week':
-        const dayOfWeek = now.getDay();
-        startDate = new Date(now);
-        startDate.setDate(now.getDate() - dayOfWeek);
-        startDate.setHours(0, 0, 0, 0);
-        break;
-      case 'month':
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        break;
-      default:
-        startDate = null;
-    }
-
-    // Fetch all tasks
-    let query = supabase.from('tasks').select('*, project:projects(*)');
-
-    if (startDate) {
-      query = query.gte('created_at', startDate.toISOString());
-    }
-
-    const { data: tasks, error } = await query;
+    // Fetch all tasks with project info
+    const { data: allTasks, error } = await supabase
+      .from('tasks')
+      .select('*, project:projects(*)');
 
     if (error) {
       console.error('Error fetching tasks:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const taskList = tasks || [];
+    // Filter tasks based on date filter using month/year fields in data
+    let taskList = allTasks || [];
+
+    switch (filter) {
+      case 'today':
+        // Tasks có deadline hôm nay hoặc được cập nhật hôm nay
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        taskList = taskList.filter((t) => {
+          if (t.deadline) {
+            const deadline = new Date(t.deadline);
+            deadline.setHours(0, 0, 0, 0);
+            return deadline.getTime() === today.getTime();
+          }
+          return false;
+        });
+        break;
+      case 'week':
+        // Tasks trong tuần này
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - now.getDay());
+        startOfWeek.setHours(0, 0, 0, 0);
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 7);
+        taskList = taskList.filter((t) => {
+          if (t.deadline) {
+            const deadline = new Date(t.deadline);
+            return deadline >= startOfWeek && deadline < endOfWeek;
+          }
+          return false;
+        });
+        break;
+      case 'month':
+        // Tasks của tháng hiện tại (dựa vào field month và year)
+        taskList = taskList.filter(
+          (t) => t.month === currentMonth && t.year === currentYear
+        );
+        break;
+      default:
+        // 'all' - giữ nguyên tất cả
+        break;
+    }
 
     // Calculate stats
     const stats = {
@@ -49,7 +69,7 @@ export async function GET(request: NextRequest) {
       published: taskList.filter((t) => t.status_content === '4. Publish').length,
       inProgress: taskList.filter((t) =>
         t.status_content &&
-        !['4. Publish', '3. Done QC'].includes(t.status_content)
+        !['4. Publish', '3. Done QC', ''].includes(t.status_content)
       ).length,
       overdue: taskList.filter((t) => {
         if (!t.deadline || t.status_content === '4. Publish') return false;
@@ -57,14 +77,20 @@ export async function GET(request: NextRequest) {
       }).length,
     };
 
-    // Fetch project stats
+    // Fetch all projects
     const { data: projects } = await supabase.from('projects').select('*');
 
-    const currentMonth = new Date().getMonth() + 1;
-    const currentYear = new Date().getFullYear();
+    // Fetch monthly targets
+    const { data: monthlyTargets } = await supabase
+      .from('monthly_targets')
+      .select('*')
+      .eq('month', currentMonth)
+      .eq('year', currentYear);
 
+    // Calculate project stats for current month
     const projectStats = (projects || []).map((project) => {
-      const projectTasks = taskList.filter(
+      // Lấy tất cả tasks của project trong tháng hiện tại
+      const projectTasks = (allTasks || []).filter(
         (t) =>
           t.project_id === project.id &&
           t.month === currentMonth &&
@@ -72,29 +98,46 @@ export async function GET(request: NextRequest) {
       );
       const published = projectTasks.filter((t) => t.status_content === '4. Publish').length;
 
+      // Lấy target từ monthly_targets, nếu không có thì dùng default từ project
+      const monthlyTarget = monthlyTargets?.find((mt) => mt.project_id === project.id);
+      const target = monthlyTarget?.target || project.monthly_target || 20;
+
       return {
-        ...project,
+        id: project.id,
+        name: project.name,
         actual: published,
-        target: project.monthly_target || 20,
+        target: target,
       };
     });
 
-    // Calculate bottleneck
+    // Calculate bottleneck from ALL tasks (not filtered)
+    const activeTasks = (allTasks || []).filter(
+      (t) => t.status_content && t.status_content !== '4. Publish'
+    );
+
     const bottleneck = {
       content: {
-        doingOutline: taskList.filter((t) => t.status_outline === '1. Doing Outline').length,
-        fixingOutline: taskList.filter((t) =>
-          ['1.1 Fixing Outline', '1.2 Đã fix'].includes(t.status_outline)
+        doingOutline: activeTasks.filter((t) => t.status_outline === '1. Doing Outline').length,
+        fixingOutline: activeTasks.filter((t) =>
+          t.status_outline && (t.status_outline.includes('Fixing') || t.status_outline.includes('fix'))
         ).length,
-        doingContent: taskList.filter((t) => t.status_content === '1. Doing').length,
-        fixingContent: taskList.filter((t) =>
-          ['1.1 Fixing', '1.2 Đã fix'].includes(t.status_content)
+        doingContent: activeTasks.filter((t) =>
+          t.status_content === '1. Doing' || t.status_content === '1. Doing Content'
+        ).length,
+        fixingContent: activeTasks.filter((t) =>
+          t.status_content && (t.status_content.includes('Fixing') || t.status_content.includes('fix'))
         ).length,
       },
       seo: {
-        qcOutline: taskList.filter((t) => t.status_outline === '2. QC Outline').length,
-        qcContent: taskList.filter((t) => t.status_content === '2. QC Content').length,
-        waitPublish: taskList.filter((t) => t.status_content === '3. Done QC').length,
+        qcOutline: activeTasks.filter((t) =>
+          t.status_outline && t.status_outline.includes('QC')
+        ).length,
+        qcContent: activeTasks.filter((t) =>
+          t.status_content && t.status_content.includes('QC')
+        ).length,
+        waitPublish: activeTasks.filter((t) =>
+          t.status_content === '3. Done QC' || t.status_content === '3. Done'
+        ).length,
       },
       biggest: '',
     };
@@ -107,28 +150,36 @@ export async function GET(request: NextRequest) {
       bottleneck.biggest = `Content viết bài (${bottleneck.content.doingContent} bài)`;
     } else if (bottleneck.seo.qcContent > 3) {
       bottleneck.biggest = `SEO QC content (${bottleneck.seo.qcContent} bài)`;
-    } else if (contentTotal > seoTotal) {
+    } else if (contentTotal > seoTotal && contentTotal > 0) {
       bottleneck.biggest = `Content đang giữ ${contentTotal} bài`;
     } else if (seoTotal > 0) {
       bottleneck.biggest = `SEO đang giữ ${seoTotal} bài`;
+    } else {
+      bottleneck.biggest = 'Không có nghẽn';
     }
 
-    // Get alerts (overdue and due soon tasks)
-    const alerts = taskList
+    // Get alerts (overdue and due soon tasks) - only active tasks
+    const alerts = activeTasks
       .filter((t) => {
-        if (!t.deadline || t.status_content === '4. Publish') return false;
+        if (!t.deadline) return false;
         const deadline = new Date(t.deadline);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-        return diffDays <= 3;
+        return diffDays <= 3; // Sắp đến hạn trong 3 ngày hoặc đã trễ
       })
       .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime())
       .slice(0, 10);
 
-    // Get recent tasks
+    // Get recent tasks with actual data
     const recentTasks = taskList
-      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+      .filter((t) => t.title || t.keyword_sub || t.parent_keyword) // Chỉ lấy tasks có data
+      .sort((a, b) => {
+        // Ưu tiên sort theo publish_date, rồi deadline, rồi updated_at
+        const dateA = a.publish_date || a.deadline || a.updated_at;
+        const dateB = b.publish_date || b.deadline || b.updated_at;
+        return new Date(dateB).getTime() - new Date(dateA).getTime();
+      })
       .slice(0, 10);
 
     return NextResponse.json({
