@@ -113,34 +113,58 @@ export async function GET(request: NextRequest) {
         qcContent: qcContentTasks.length,
         waitPublish: waitPublishTasks.length,
       },
-      // Include task details for popup
+      // Include task details for popup with waiting time
       tasks: {
-        qcContent: qcContentTasks.slice(0, 10).map((t) => ({
-          id: t.id,
-          title: t.title || t.keyword_sub,
-          pic: t.pic,
-          project: t.project?.name,
-          link: t.link_publish || t.content_file,
-        })),
-        qcOutline: qcOutlineTasks.slice(0, 10).map((t) => ({
-          id: t.id,
-          title: t.title || t.keyword_sub,
-          pic: t.pic,
-          project: t.project?.name,
-        })),
-        waitPublish: waitPublishTasks.slice(0, 10).map((t) => ({
-          id: t.id,
-          title: t.title || t.keyword_sub,
-          pic: t.pic,
-          project: t.project?.name,
-          link: t.link_publish || t.content_file,
-        })),
-        doingContent: doingContentTasks.slice(0, 10).map((t) => ({
-          id: t.id,
-          title: t.title || t.keyword_sub,
-          pic: t.pic,
-          project: t.project?.name,
-        })),
+        qcContent: qcContentTasks.slice(0, 10).map((t) => {
+          const waitDays = t.updated_at
+            ? Math.floor((Date.now() - new Date(t.updated_at).getTime()) / (1000 * 60 * 60 * 24))
+            : 0;
+          return {
+            id: t.id,
+            title: t.title || t.keyword_sub,
+            pic: t.pic,
+            project: t.project?.name,
+            link: t.link_publish || t.content_file,
+            waitDays,
+          };
+        }),
+        qcOutline: qcOutlineTasks.slice(0, 10).map((t) => {
+          const waitDays = t.updated_at
+            ? Math.floor((Date.now() - new Date(t.updated_at).getTime()) / (1000 * 60 * 60 * 24))
+            : 0;
+          return {
+            id: t.id,
+            title: t.title || t.keyword_sub,
+            pic: t.pic,
+            project: t.project?.name,
+            waitDays,
+          };
+        }),
+        waitPublish: waitPublishTasks.slice(0, 10).map((t) => {
+          const waitDays = t.updated_at
+            ? Math.floor((Date.now() - new Date(t.updated_at).getTime()) / (1000 * 60 * 60 * 24))
+            : 0;
+          return {
+            id: t.id,
+            title: t.title || t.keyword_sub,
+            pic: t.pic,
+            project: t.project?.name,
+            link: t.link_publish || t.content_file,
+            waitDays,
+          };
+        }),
+        doingContent: doingContentTasks.slice(0, 10).map((t) => {
+          const waitDays = t.updated_at
+            ? Math.floor((Date.now() - new Date(t.updated_at).getTime()) / (1000 * 60 * 60 * 24))
+            : 0;
+          return {
+            id: t.id,
+            title: t.title || t.keyword_sub,
+            pic: t.pic,
+            project: t.project?.name,
+            waitDays,
+          };
+        }),
       },
       biggest: '',
     };

@@ -83,6 +83,7 @@ export interface BottleneckTask {
   pic: string;
   project: string;
   link?: string;
+  waitDays?: number;
 }
 
 export interface BottleneckData {
