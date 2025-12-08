@@ -184,12 +184,26 @@ export async function GET(request: NextRequest) {
       })
       .slice(0, 10);
 
+    // Return all tasks for chart (with project info)
+    const allTasksWithProject = validTasks.map((t) => ({
+      id: t.id,
+      title: t.title,
+      keyword_sub: t.keyword_sub,
+      pic: t.pic,
+      status_content: t.status_content,
+      publish_date: t.publish_date,
+      deadline: t.deadline,
+      link_publish: t.link_publish,
+      project: t.project,
+    }));
+
     return NextResponse.json({
       stats,
       projectStats,
       bottleneck,
       alerts,
       recentTasks,
+      allTasks: allTasksWithProject,
     });
   } catch (error) {
     console.error('Stats API error:', error);

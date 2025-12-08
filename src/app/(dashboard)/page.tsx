@@ -9,34 +9,43 @@ import {
   TrendingUp,
   Target,
   Calendar,
-  ChevronRight,
   BarChart3,
   ExternalLink,
-  X,
+  Trophy,
+  Medal,
+  Crown,
+  User,
 } from 'lucide-react';
 import {
-  AreaChart,
-  Area,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Legend,
 } from 'recharts';
 import ProgressBar from '@/components/ProgressBar';
-import StatusBadge from '@/components/StatusBadge';
 import { PageLoading } from '@/components/LoadingSpinner';
 import { formatDate, isOverdue, truncate } from '@/lib/utils';
 import { Task, ProjectStats, BottleneckData, Stats, BottleneckTask } from '@/types';
 
-type TimeFilter = 'month' | 'week' | 'day';
+type ChartGroupBy = 'project' | 'person';
+type ChartTimeRange = 'day' | 'week';
 
 export default function DashboardPage() {
-  const [selectedMonth, setSelectedMonth] = useState(() => {
+  // Date range state
+  const [dateRange, setDateRange] = useState(() => {
     const now = new Date();
-    return `${now.getMonth() + 1}-${now.getFullYear()}`;
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return {
+      from: firstDay.toISOString().split('T')[0],
+      to: lastDay.toISOString().split('T')[0],
+    };
   });
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>('month');
+
   const [stats, setStats] = useState<Stats | null>(null);
   const [projectStats, setProjectStats] = useState<ProjectStats[]>([]);
   const [bottleneck, setBottleneck] = useState<BottleneckData | null>(null);
@@ -44,21 +53,19 @@ export default function DashboardPage() {
   const [alerts, setAlerts] = useState<Task[]>([]);
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showTasksModal, setShowTasksModal] = useState<{
-    title: string;
-    tasks: BottleneckTask[];
-  } | null>(null);
 
-  // Generate month options
-  const monthOptions = [];
-  const now = new Date();
-  for (let i = 0; i < 12; i++) {
-    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    monthOptions.push({
-      value: `${date.getMonth() + 1}-${date.getFullYear()}`,
-      label: `T${date.getMonth() + 1}/${date.getFullYear()}`,
-    });
-  }
+  // Workflow expanded state
+  const [expandedWorkflow, setExpandedWorkflow] = useState<string | null>(null);
+
+  // Chart settings
+  const [chartGroupBy, setChartGroupBy] = useState<ChartGroupBy>('project');
+  const [chartTimeRange, setChartTimeRange] = useState<ChartTimeRange>('day');
+
+  // Get month/year from date range for API
+  const selectedMonth = useMemo(() => {
+    const fromDate = new Date(dateRange.from);
+    return `${fromDate.getMonth() + 1}-${fromDate.getFullYear()}`;
+  }, [dateRange.from]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -77,7 +84,7 @@ export default function DashboardPage() {
       setBottleneck(data.bottleneck);
       setRecentTasks((data.recentTasks || []).filter((t: Task) => t.title || t.keyword_sub));
       setAlerts((data.alerts || []).filter((t: Task) => t.title || t.keyword_sub));
-      setAllTasks((data.recentTasks || []).concat(data.alerts || []));
+      setAllTasks((data.allTasks || data.recentTasks || []).concat(data.alerts || []));
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
     } finally {
@@ -85,74 +92,116 @@ export default function DashboardPage() {
     }
   };
 
-  // Filter stats based on time filter
+  // Filter stats based on date range
   const filteredStats = useMemo(() => {
     if (!stats) return null;
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const fromDate = new Date(dateRange.from);
+    const toDate = new Date(dateRange.to);
+    fromDate.setHours(0, 0, 0, 0);
+    toDate.setHours(23, 59, 59, 999);
 
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Monday
-
-    if (timeFilter === 'month') {
-      return stats;
-    }
-
-    // Filter tasks based on time
+    // Filter all tasks by date range
     const filteredTasks = allTasks.filter((task) => {
       const taskDate = task.publish_date ? new Date(task.publish_date) : null;
       if (!taskDate) return false;
-
-      if (timeFilter === 'day') {
-        return taskDate.toDateString() === today.toDateString();
-      } else if (timeFilter === 'week') {
-        return taskDate >= startOfWeek && taskDate <= today;
-      }
-      return true;
+      return taskDate >= fromDate && taskDate <= toDate;
     });
 
     return {
-      total: filteredTasks.length,
+      total: stats.total,
       published: filteredTasks.filter((t) => t.status_content === '4. Publish').length,
       inProgress: stats.inProgress,
       overdue: stats.overdue,
     };
-  }, [stats, timeFilter, allTasks]);
+  }, [stats, dateRange, allTasks]);
 
-  // Generate timeline chart data
+  // Generate chart data based on groupBy and timeRange
   const chartData = useMemo(() => {
-    const [month, year] = selectedMonth.split('-').map(Number);
-    const daysInMonth = new Date(year, month, 0).getDate();
-    const data = [];
+    const fromDate = new Date(dateRange.from);
+    const toDate = new Date(dateRange.to);
+    const data: Record<string, Record<string, number>> = {};
 
-    // Create data for each day
-    for (let day = 1; day <= daysInMonth; day++) {
-      const published = recentTasks.filter((t) => {
-        if (!t.publish_date || t.status_content !== '4. Publish') return false;
-        const pubDate = new Date(t.publish_date);
-        return pubDate.getDate() === day &&
-               pubDate.getMonth() === month - 1 &&
-               pubDate.getFullYear() === year;
-      }).length;
+    // Get all published tasks
+    const publishedTasks = allTasks.filter(
+      (t) => t.status_content === '4. Publish' && t.publish_date
+    );
 
-      data.push({
-        day: day,
-        date: `${day}/${month}`,
-        published: published,
-        cumulative: 0,
-      });
-    }
+    // Group tasks by date (day or week)
+    publishedTasks.forEach((task) => {
+      const pubDate = new Date(task.publish_date);
+      if (pubDate < fromDate || pubDate > toDate) return;
 
-    // Calculate cumulative
-    let total = 0;
-    data.forEach((d) => {
-      total += d.published;
-      d.cumulative = total;
+      let dateKey: string;
+      if (chartTimeRange === 'week') {
+        // Get week number
+        const weekStart = new Date(pubDate);
+        weekStart.setDate(pubDate.getDate() - pubDate.getDay() + 1);
+        dateKey = `${weekStart.getDate()}/${weekStart.getMonth() + 1}`;
+      } else {
+        dateKey = `${pubDate.getDate()}/${pubDate.getMonth() + 1}`;
+      }
+
+      const groupKey = chartGroupBy === 'project'
+        ? (task.project?.name || 'Khác')
+        : (task.pic || 'Chưa assign');
+
+      if (!data[dateKey]) data[dateKey] = {};
+      if (!data[dateKey][groupKey]) data[dateKey][groupKey] = 0;
+      data[dateKey][groupKey]++;
     });
 
-    return data;
-  }, [selectedMonth, recentTasks]);
+    // Convert to array format for recharts
+    const result: Array<{ date: string; [key: string]: string | number }> = [];
+    const allGroups = new Set<string>();
+
+    Object.entries(data).forEach(([, groups]) => {
+      Object.keys(groups).forEach((g) => allGroups.add(g));
+    });
+
+    // Sort dates
+    const sortedDates = Object.keys(data).sort((a, b) => {
+      const [dayA, monthA] = a.split('/').map(Number);
+      const [dayB, monthB] = b.split('/').map(Number);
+      if (monthA !== monthB) return monthA - monthB;
+      return dayA - dayB;
+    });
+
+    sortedDates.forEach((date) => {
+      const entry: { date: string; [key: string]: string | number } = { date };
+      allGroups.forEach((group) => {
+        entry[group] = data[date][group] || 0;
+      });
+      result.push(entry);
+    });
+
+    return { data: result, groups: Array.from(allGroups) };
+  }, [allTasks, dateRange, chartGroupBy, chartTimeRange]);
+
+  // Calculate leaderboard
+  const leaderboard = useMemo(() => {
+    const fromDate = new Date(dateRange.from);
+    const toDate = new Date(dateRange.to);
+
+    const publishedTasks = allTasks.filter((t) => {
+      if (t.status_content !== '4. Publish' || !t.publish_date) return false;
+      const pubDate = new Date(t.publish_date);
+      return pubDate >= fromDate && pubDate <= toDate;
+    });
+
+    // Count by PIC
+    const picCount: Record<string, number> = {};
+    publishedTasks.forEach((t) => {
+      const pic = t.pic || 'Unknown';
+      picCount[pic] = (picCount[pic] || 0) + 1;
+    });
+
+    return Object.entries(picCount)
+      .filter(([name]) => name !== 'Unknown')
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([name, count], index) => ({ name, count, rank: index + 1 }));
+  }, [allTasks, dateRange]);
 
   // Calculate completion rate
   const completionRate = filteredStats?.total
@@ -164,21 +213,23 @@ export default function DashboardPage() {
   const totalActual = projectStats.reduce((sum, p) => sum + p.actual, 0);
   const targetProgress = totalTarget ? Math.round((totalActual / totalTarget) * 100) : 0;
 
-  // Handle workflow pill click
-  const handleWorkflowClick = (type: string) => {
-    if (!bottleneck?.tasks) return;
-
-    const taskMap: Record<string, { title: string; tasks: BottleneckTask[] }> = {
-      qcContent: { title: 'Chờ QC Content', tasks: bottleneck.tasks.qcContent },
-      qcOutline: { title: 'Chờ QC Outline', tasks: bottleneck.tasks.qcOutline },
-      waitPublish: { title: 'Chờ Publish', tasks: bottleneck.tasks.waitPublish },
-      doingContent: { title: 'Đang viết Content', tasks: bottleneck.tasks.doingContent },
+  // Get tasks for workflow section
+  const getWorkflowTasks = (type: string): BottleneckTask[] => {
+    if (!bottleneck?.tasks) return [];
+    const taskMap: Record<string, BottleneckTask[]> = {
+      qcContent: bottleneck.tasks.qcContent || [],
+      qcOutline: bottleneck.tasks.qcOutline || [],
+      waitPublish: bottleneck.tasks.waitPublish || [],
+      doingContent: bottleneck.tasks.doingContent || [],
     };
-
-    if (taskMap[type] && taskMap[type].tasks.length > 0) {
-      setShowTasksModal(taskMap[type]);
-    }
+    return taskMap[type] || [];
   };
+
+  // Chart colors
+  const chartColors = [
+    '#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6',
+    '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#14b8a6',
+  ];
 
   if (isLoading) {
     return <PageLoading />;
@@ -186,57 +237,36 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-4 md:space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl md:text-2xl font-bold text-white">Dashboard</h1>
-            <p className="text-[#8888a0] text-xs md:text-sm">Tổng quan tiến độ công việc</p>
-          </div>
-
-          {/* Month Selector */}
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-[#8888a0] hidden sm:block" />
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="px-2 md:px-3 py-1.5 md:py-2 bg-card border border-border rounded-lg text-white text-sm"
-            >
-              {monthOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
+      {/* Header with Date Range */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold text-white">Dashboard</h1>
+          <p className="text-[#8888a0] text-xs md:text-sm">Tổng quan tiến độ công việc</p>
         </div>
 
-        {/* Time Filter Tabs */}
-        <div className="flex gap-1 p-1 bg-secondary rounded-lg w-fit">
-          {[
-            { value: 'day', label: 'Hôm nay' },
-            { value: 'week', label: 'Tuần này' },
-            { value: 'month', label: 'Tháng' },
-          ].map((tab) => (
-            <button
-              key={tab.value}
-              onClick={() => setTimeFilter(tab.value as TimeFilter)}
-              className={`px-3 py-1.5 text-xs md:text-sm font-medium rounded-md transition-colors ${
-                timeFilter === tab.value
-                  ? 'bg-accent text-white'
-                  : 'text-[#8888a0] hover:text-white'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        {/* Date Range Picker */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Calendar className="w-4 h-4 text-[#8888a0]" />
+          <input
+            type="date"
+            value={dateRange.from}
+            onChange={(e) => setDateRange({ ...dateRange, from: e.target.value })}
+            className="px-2 py-1.5 bg-card border border-border rounded-lg text-white text-sm"
+          />
+          <span className="text-[#8888a0]">-</span>
+          <input
+            type="date"
+            value={dateRange.to}
+            onChange={(e) => setDateRange({ ...dateRange, to: e.target.value })}
+            className="px-2 py-1.5 bg-card border border-border rounded-lg text-white text-sm"
+          />
         </div>
       </div>
 
       {/* Key Metrics */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <MetricCard
-          label={timeFilter === 'day' ? 'Bài hôm nay' : timeFilter === 'week' ? 'Bài tuần này' : 'Tổng bài tháng'}
+          label="Tổng bài"
           value={filteredStats?.total || 0}
           icon={<FileText className="w-4 h-4 md:w-5 md:h-5 text-accent" />}
         />
@@ -261,10 +291,10 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* KPI Progress + Timeline Chart */}
-      <div className="grid lg:grid-cols-2 gap-4 md:gap-6">
+      {/* KPI Progress + Leaderboard */}
+      <div className="grid lg:grid-cols-3 gap-4 md:gap-6">
         {/* Target Progress */}
-        <div className="bg-gradient-to-r from-accent/20 to-accent/5 border border-accent/30 rounded-xl p-4 md:p-6">
+        <div className="lg:col-span-2 bg-gradient-to-r from-accent/20 to-accent/5 border border-accent/30 rounded-xl p-4 md:p-6">
           <div className="flex items-center gap-2 mb-3 md:mb-4">
             <Target className="w-5 h-5 text-accent" />
             <h2 className="text-base md:text-lg font-semibold text-white">Tiến độ KPI tháng</h2>
@@ -289,89 +319,210 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Timeline Chart */}
+        {/* Leaderboard */}
         <div className="bg-card border border-border rounded-xl p-4 md:p-6">
-          <div className="flex items-center gap-2 mb-3 md:mb-4">
-            <BarChart3 className="w-5 h-5 text-accent" />
-            <h2 className="text-base md:text-lg font-semibold text-white">Tiến độ publish theo ngày</h2>
+          <div className="flex items-center gap-2 mb-3">
+            <Trophy className="w-5 h-5 text-yellow-500" />
+            <h2 className="text-base md:text-lg font-semibold text-white">Top dẫn đầu</h2>
           </div>
-          <div className="h-[150px] md:h-[180px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorPublish" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                <XAxis
-                  dataKey="day"
-                  stroke="#8888a0"
-                  fontSize={10}
-                  tickLine={false}
-                  interval="preserveStartEnd"
-                />
-                <YAxis stroke="#8888a0" fontSize={10} tickLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#1a1a2e',
-                    border: '1px solid #333',
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                  }}
-                  labelFormatter={(value) => `Ngày ${value}`}
-                  formatter={(value: number, name: string) => [
-                    value,
-                    name === 'cumulative' ? 'Tổng cộng' : 'Publish',
-                  ]}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="cumulative"
-                  stroke="#6366f1"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#colorPublish)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+          <div className="space-y-2">
+            {leaderboard.length > 0 ? (
+              leaderboard.map((item) => (
+                <div
+                  key={item.name}
+                  className={`flex items-center gap-3 p-2 rounded-lg ${
+                    item.rank === 1 ? 'bg-yellow-500/10' :
+                    item.rank === 2 ? 'bg-gray-400/10' :
+                    item.rank === 3 ? 'bg-orange-500/10' : 'bg-secondary'
+                  }`}
+                >
+                  <div className="w-6 h-6 flex items-center justify-center">
+                    {item.rank === 1 ? (
+                      <Crown className="w-5 h-5 text-yellow-500" />
+                    ) : item.rank === 2 ? (
+                      <Medal className="w-5 h-5 text-gray-400" />
+                    ) : item.rank === 3 ? (
+                      <Medal className="w-5 h-5 text-orange-500" />
+                    ) : (
+                      <span className="text-sm text-[#8888a0]">{item.rank}</span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-medium truncate">{item.name}</p>
+                  </div>
+                  <span className="text-accent font-bold">{item.count}</span>
+                </div>
+              ))
+            ) : (
+              <p className="text-[#8888a0] text-center py-4 text-sm">Chưa có dữ liệu</p>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Projects + Workflow Row */}
-      <div className="grid lg:grid-cols-3 gap-4 md:gap-6">
-        {/* Project Progress */}
-        <div className="lg:col-span-2 bg-card border border-border rounded-xl p-4 md:p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="w-5 h-5 text-accent" />
-            <h2 className="text-base md:text-lg font-semibold text-white">Tiến độ từng dự án</h2>
+      {/* Timeline Chart */}
+      <div className="bg-card border border-border rounded-xl p-4 md:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-5 h-5 text-accent" />
+            <h2 className="text-base md:text-lg font-semibold text-white">Tiến độ publish</h2>
           </div>
 
-          <div className="space-y-3 md:space-y-4">
+          {/* Chart Controls */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex gap-1 p-1 bg-secondary rounded-lg">
+              <button
+                onClick={() => setChartGroupBy('project')}
+                className={`px-2 py-1 text-xs rounded ${chartGroupBy === 'project' ? 'bg-accent text-white' : 'text-[#8888a0]'}`}
+              >
+                Dự án
+              </button>
+              <button
+                onClick={() => setChartGroupBy('person')}
+                className={`px-2 py-1 text-xs rounded ${chartGroupBy === 'person' ? 'bg-accent text-white' : 'text-[#8888a0]'}`}
+              >
+                Người
+              </button>
+            </div>
+            <div className="flex gap-1 p-1 bg-secondary rounded-lg">
+              <button
+                onClick={() => setChartTimeRange('day')}
+                className={`px-2 py-1 text-xs rounded ${chartTimeRange === 'day' ? 'bg-accent text-white' : 'text-[#8888a0]'}`}
+              >
+                Ngày
+              </button>
+              <button
+                onClick={() => setChartTimeRange('week')}
+                className={`px-2 py-1 text-xs rounded ${chartTimeRange === 'week' ? 'bg-accent text-white' : 'text-[#8888a0]'}`}
+              >
+                Tuần
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="h-[250px] md:h-[300px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartData.data} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+              <XAxis
+                dataKey="date"
+                stroke="#8888a0"
+                fontSize={11}
+                tickLine={false}
+              />
+              <YAxis stroke="#8888a0" fontSize={11} tickLine={false} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#1a1a2e',
+                  border: '1px solid #333',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                }}
+              />
+              <Legend wrapperStyle={{ fontSize: '11px' }} />
+              {chartData.groups.map((group, index) => (
+                <Line
+                  key={group}
+                  type="monotone"
+                  dataKey={group}
+                  stroke={chartColors[index % chartColors.length]}
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                  activeDot={{ r: 5 }}
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Workflow + Projects Row */}
+      <div className="grid lg:grid-cols-2 gap-4 md:gap-6">
+        {/* Workflow with Inline Tasks */}
+        <div className="bg-card border border-border rounded-xl p-4 md:p-6">
+          <h2 className="text-base md:text-lg font-semibold text-white mb-4">Workflow Status</h2>
+
+          {bottleneck ? (
+            <div className="space-y-3">
+              {/* Workflow Items */}
+              <WorkflowItem
+                label="SEO QC Outline"
+                count={bottleneck.seo.qcOutline}
+                color="accent"
+                tasks={getWorkflowTasks('qcOutline')}
+                isExpanded={expandedWorkflow === 'qcOutline'}
+                onToggle={() => setExpandedWorkflow(expandedWorkflow === 'qcOutline' ? null : 'qcOutline')}
+              />
+              <WorkflowItem
+                label="Content đang viết"
+                count={bottleneck.content.doingContent}
+                color="warning"
+                tasks={getWorkflowTasks('doingContent')}
+                isExpanded={expandedWorkflow === 'doingContent'}
+                onToggle={() => setExpandedWorkflow(expandedWorkflow === 'doingContent' ? null : 'doingContent')}
+              />
+              <WorkflowItem
+                label="SEO QC Content"
+                count={bottleneck.seo.qcContent}
+                color="accent"
+                tasks={getWorkflowTasks('qcContent')}
+                isExpanded={expandedWorkflow === 'qcContent'}
+                onToggle={() => setExpandedWorkflow(expandedWorkflow === 'qcContent' ? null : 'qcContent')}
+              />
+              <WorkflowItem
+                label="Chờ Publish"
+                count={bottleneck.seo.waitPublish}
+                color="success"
+                tasks={getWorkflowTasks('waitPublish')}
+                isExpanded={expandedWorkflow === 'waitPublish'}
+                onToggle={() => setExpandedWorkflow(expandedWorkflow === 'waitPublish' ? null : 'waitPublish')}
+              />
+
+              {/* Fixing counts */}
+              {(bottleneck.content.fixingOutline > 0 || bottleneck.content.fixingContent > 0) && (
+                <div className="pt-2 border-t border-border">
+                  <p className="text-xs text-[#8888a0] mb-2">Đang sửa:</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {bottleneck.content.fixingOutline > 0 && (
+                      <span className="px-2 py-1 bg-orange-500/20 text-orange-400 text-xs rounded">
+                        Outline: {bottleneck.content.fixingOutline}
+                      </span>
+                    )}
+                    {bottleneck.content.fixingContent > 0 && (
+                      <span className="px-2 py-1 bg-orange-500/20 text-orange-400 text-xs rounded">
+                        Content: {bottleneck.content.fixingContent}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-[#8888a0] text-center py-4 text-sm">Không có dữ liệu</p>
+          )}
+        </div>
+
+        {/* Project Progress */}
+        <div className="bg-card border border-border rounded-xl p-4 md:p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <TrendingUp className="w-5 h-5 text-accent" />
+            <h2 className="text-base md:text-lg font-semibold text-white">Tiến độ dự án</h2>
+          </div>
+
+          <div className="space-y-3">
             {projectStats.length > 0 ? (
               projectStats.map((project) => {
                 const progress = project.target ? Math.round((project.actual / project.target) * 100) : 0;
                 return (
-                  <div key={project.id} className="p-3 md:p-4 bg-secondary rounded-lg">
+                  <div key={project.id} className="p-3 bg-secondary rounded-lg">
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-white font-medium text-sm md:text-base">{project.name}</h3>
+                      <h3 className="text-white font-medium text-sm">{project.name}</h3>
                       <span className={`text-sm font-bold ${progress >= 100 ? 'text-success' : progress >= 70 ? 'text-warning' : 'text-white'}`}>
-                        {progress}%
+                        {project.actual}/{project.target}
                       </span>
                     </div>
                     <ProgressBar value={project.actual} max={project.target} showLabel={false} size="sm" />
-                    <div className="flex items-center justify-between mt-1.5 text-xs md:text-sm">
-                      <span className="text-[#8888a0]">
-                        {project.actual} / {project.target} bài
-                      </span>
-                      {progress < 100 && (
-                        <span className="text-[#8888a0]">
-                          Còn {project.target - project.actual}
-                        </span>
-                      )}
-                    </div>
                   </div>
                 );
               })
@@ -379,87 +530,6 @@ export default function DashboardPage() {
               <p className="text-[#8888a0] text-center py-6">Chưa có dự án nào</p>
             )}
           </div>
-        </div>
-
-        {/* Compact Workflow Status */}
-        <div className="bg-card border border-border rounded-xl p-4 md:p-6">
-          <h2 className="text-base md:text-lg font-semibold text-white mb-3 md:mb-4">Workflow</h2>
-
-          {bottleneck ? (
-            <div className="space-y-2">
-              {/* Horizontal Workflow Pipeline */}
-              <div className="flex items-center gap-1 overflow-x-auto pb-2">
-                <WorkflowPill label="Outline" count={bottleneck.content.doingOutline} color="warning" />
-                <ChevronRight className="w-3 h-3 text-[#666] flex-shrink-0" />
-                <WorkflowPill
-                  label="QC OL"
-                  count={bottleneck.seo.qcOutline}
-                  color="accent"
-                  onClick={() => handleWorkflowClick('qcOutline')}
-                />
-                <ChevronRight className="w-3 h-3 text-[#666] flex-shrink-0" />
-                <WorkflowPill
-                  label="Content"
-                  count={bottleneck.content.doingContent}
-                  color="warning"
-                  onClick={() => handleWorkflowClick('doingContent')}
-                />
-                <ChevronRight className="w-3 h-3 text-[#666] flex-shrink-0" />
-                <WorkflowPill
-                  label="QC"
-                  count={bottleneck.seo.qcContent}
-                  color="accent"
-                  onClick={() => handleWorkflowClick('qcContent')}
-                />
-                <ChevronRight className="w-3 h-3 text-[#666] flex-shrink-0" />
-                <WorkflowPill
-                  label="Publish"
-                  count={bottleneck.seo.waitPublish}
-                  color="success"
-                  onClick={() => handleWorkflowClick('waitPublish')}
-                />
-              </div>
-
-              {/* Summary Stats */}
-              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border">
-                <div className="text-center p-2 bg-warning/10 rounded-lg">
-                  <p className="text-lg md:text-xl font-bold text-warning">
-                    {bottleneck.content.doingOutline + bottleneck.content.doingContent +
-                     (bottleneck.content.fixingOutline || 0) + (bottleneck.content.fixingContent || 0)}
-                  </p>
-                  <p className="text-xs text-[#8888a0]">Content đang giữ</p>
-                </div>
-                <div className="text-center p-2 bg-accent/10 rounded-lg">
-                  <p className="text-lg md:text-xl font-bold text-accent">
-                    {bottleneck.seo.qcOutline + bottleneck.seo.qcContent + bottleneck.seo.waitPublish}
-                  </p>
-                  <p className="text-xs text-[#8888a0]">SEO đang giữ</p>
-                </div>
-              </div>
-
-              {/* Bottleneck Alert - Clickable */}
-              {bottleneck.biggest && bottleneck.biggest !== 'Không có nghẽn' && (
-                <button
-                  onClick={() => {
-                    if (bottleneck.biggest.includes('QC content')) {
-                      handleWorkflowClick('qcContent');
-                    } else if (bottleneck.biggest.includes('viết bài')) {
-                      handleWorkflowClick('doingContent');
-                    }
-                  }}
-                  className="w-full p-2 bg-warning/10 border border-warning/20 rounded-lg hover:bg-warning/20 transition-colors"
-                >
-                  <p className="text-warning text-xs font-medium flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3" />
-                    {bottleneck.biggest}
-                    <ExternalLink className="w-3 h-3 ml-auto" />
-                  </p>
-                </button>
-              )}
-            </div>
-          ) : (
-            <p className="text-[#8888a0] text-center py-4 text-sm">Không có dữ liệu</p>
-          )}
         </div>
       </div>
 
@@ -469,7 +539,7 @@ export default function DashboardPage() {
         <div className="bg-card border border-border rounded-xl p-4 md:p-6">
           <div className="flex items-center gap-2 mb-3 md:mb-4">
             <AlertTriangle className="w-4 h-4 md:w-5 md:h-5 text-danger" />
-            <h2 className="text-base md:text-lg font-semibold text-white">Cần chú ý</h2>
+            <h2 className="text-base md:text-lg font-semibold text-white">Cần lưu ý</h2>
             {alerts.length > 0 && (
               <span className="ml-auto text-xs bg-danger/20 text-danger px-2 py-0.5 rounded-full">
                 {alerts.length}
@@ -477,12 +547,12 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className="space-y-2 max-h-[250px] md:max-h-[300px] overflow-y-auto">
+          <div className="space-y-2 max-h-[300px] overflow-y-auto">
             {alerts.length > 0 ? (
               alerts.map((task) => (
                 <div
                   key={task.id}
-                  className={`p-2 md:p-3 rounded-lg border ${
+                  className={`p-3 rounded-lg border ${
                     isOverdue(task.deadline)
                       ? 'bg-danger/10 border-danger/30'
                       : 'bg-warning/10 border-warning/30'
@@ -490,22 +560,23 @@ export default function DashboardPage() {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="text-white text-xs md:text-sm font-medium line-clamp-1">
-                        {truncate(task.title || task.keyword_sub || '', 40)}
+                      <p className="text-white text-sm font-medium">
+                        {task.title || task.keyword_sub || 'Không có tiêu đề'}
                       </p>
-                      <p className="text-xs text-[#8888a0] mt-0.5">
-                        {task.pic || 'Chưa assign'}
-                        {task.deadline && ` • ${formatDate(task.deadline)}`}
+                      <p className="text-xs text-[#8888a0] mt-1">
+                        <span className="text-accent">{task.project?.name || '-'}</span>
+                        {' • '}{task.pic || 'Chưa assign'}
+                        {task.deadline && ` • DL: ${formatDate(task.deadline)}`}
                       </p>
                     </div>
                     <span
-                      className={`text-[10px] md:text-xs px-1.5 py-0.5 rounded font-medium whitespace-nowrap ${
+                      className={`text-xs px-2 py-1 rounded font-medium whitespace-nowrap ${
                         isOverdue(task.deadline)
                           ? 'bg-danger/20 text-danger'
                           : 'bg-warning/20 text-warning'
                       }`}
                     >
-                      {isOverdue(task.deadline) ? 'Trễ' : 'Sắp hạn'}
+                      {isOverdue(task.deadline) ? 'Trễ hạn' : 'Sắp đến hạn'}
                     </span>
                   </div>
                 </div>
@@ -526,24 +597,35 @@ export default function DashboardPage() {
             <h2 className="text-base md:text-lg font-semibold text-white">Bài viết gần đây</h2>
           </div>
 
-          <div className="space-y-2 max-h-[250px] md:max-h-[300px] overflow-y-auto">
+          <div className="space-y-2 max-h-[300px] overflow-y-auto">
             {recentTasks.length > 0 ? (
-              recentTasks.map((task) => (
+              recentTasks.slice(0, 10).map((task) => (
                 <div
                   key={task.id}
-                  className="p-2 md:p-3 bg-secondary rounded-lg border border-border"
+                  className="p-3 bg-secondary rounded-lg border border-border"
                 >
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="text-white text-xs md:text-sm font-medium line-clamp-1">
-                        {truncate(task.title || task.keyword_sub || '', 35)}
+                      <p className="text-white text-sm font-medium">
+                        {task.title || task.keyword_sub || 'Không có tiêu đề'}
                       </p>
-                      <p className="text-xs text-[#8888a0] mt-0.5">
-                        {task.pic || 'N/A'}
+                      <p className="text-xs text-[#8888a0] mt-1">
+                        <span className="text-accent">{task.project?.name || '-'}</span>
+                        {' • '}{task.pic || 'N/A'}
                         {task.publish_date && ` • ${formatDate(task.publish_date)}`}
                       </p>
                     </div>
-                    <StatusBadge status={task.status_content || ''} size="sm" />
+                    {task.link_publish && (
+                      <a
+                        href={task.link_publish}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 text-accent hover:bg-accent/20 rounded transition-colors flex-shrink-0"
+                        title="Xem bài viết"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    )}
                   </div>
                 </div>
               ))
@@ -553,58 +635,6 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
-
-      {/* Tasks Modal */}
-      {showTasksModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-2xl w-full max-w-lg max-h-[80vh] overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-border">
-              <h3 className="text-lg font-semibold text-white">{showTasksModal.title}</h3>
-              <button
-                onClick={() => setShowTasksModal(null)}
-                className="p-1 text-[#8888a0] hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-4 overflow-y-auto max-h-[60vh]">
-              <div className="space-y-2">
-                {showTasksModal.tasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className="p-3 bg-secondary rounded-lg border border-border"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-medium">
-                          {truncate(task.title || '', 50)}
-                        </p>
-                        <p className="text-xs text-[#8888a0] mt-1">
-                          <span className="text-accent">{task.project}</span>
-                          {task.pic && ` • ${task.pic}`}
-                        </p>
-                      </div>
-                      {task.link && (
-                        <a
-                          href={task.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-1.5 text-accent hover:bg-accent/20 rounded-lg transition-colors"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {showTasksModal.tasks.length === 0 && (
-                  <p className="text-[#8888a0] text-center py-4">Không có bài viết nào</p>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -635,33 +665,66 @@ function MetricCard({
   );
 }
 
-// Workflow Pill Component (compact horizontal)
-function WorkflowPill({
+// Workflow Item Component with inline task list
+function WorkflowItem({
   label,
   count,
   color,
-  onClick,
+  tasks,
+  isExpanded,
+  onToggle,
 }: {
   label: string;
   count: number;
   color: 'warning' | 'accent' | 'success';
-  onClick?: () => void;
+  tasks: BottleneckTask[];
+  isExpanded: boolean;
+  onToggle: () => void;
 }) {
   const colorClasses = {
-    warning: 'bg-warning/20 text-warning border-warning/30',
-    accent: 'bg-accent/20 text-accent border-accent/30',
-    success: 'bg-success/20 text-success border-success/30',
+    warning: 'bg-warning/10 border-warning/30 hover:bg-warning/20',
+    accent: 'bg-accent/10 border-accent/30 hover:bg-accent/20',
+    success: 'bg-success/10 border-success/30 hover:bg-success/20',
   };
 
-  const Component = onClick ? 'button' : 'div';
+  const textColors = {
+    warning: 'text-warning',
+    accent: 'text-accent',
+    success: 'text-success',
+  };
 
   return (
-    <Component
-      onClick={onClick}
-      className={`flex flex-col items-center px-2 py-1.5 rounded-lg border flex-shrink-0 ${colorClasses[color]} ${onClick ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
-    >
-      <span className="text-sm md:text-base font-bold">{count}</span>
-      <span className="text-[10px] whitespace-nowrap">{label}</span>
-    </Component>
+    <div>
+      <button
+        onClick={onToggle}
+        className={`w-full flex items-center justify-between p-3 rounded-lg border transition-colors ${colorClasses[color]}`}
+      >
+        <span className="text-white text-sm font-medium">{label}</span>
+        <span className={`text-lg font-bold ${textColors[color]}`}>{count} bài</span>
+      </button>
+
+      {/* Expanded Task List */}
+      {isExpanded && tasks.length > 0 && (
+        <div className="mt-2 ml-2 pl-3 border-l-2 border-border space-y-2">
+          {tasks.map((task, idx) => (
+            <div key={task.id || idx} className="flex items-center gap-2 text-sm">
+              <User className="w-3 h-3 text-[#8888a0] flex-shrink-0" />
+              <span className="text-white flex-1 truncate">{truncate(task.title, 40)}</span>
+              <span className="text-xs text-[#8888a0] flex-shrink-0">{task.pic}</span>
+              {task.link && (
+                <a
+                  href={task.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-accent hover:underline flex-shrink-0"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
