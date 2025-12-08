@@ -9,8 +9,18 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+        primary: '#0a0a0f',
+        secondary: '#12121a',
+        card: '#1a1a24',
+        border: '#2a2a3a',
+        accent: '#6366f1',
+        success: '#10b981',
+        warning: '#f59e0b',
+        danger: '#ef4444',
+      },
+      fontFamily: {
+        sans: ['Inter', 'Be Vietnam Pro', 'sans-serif'],
+        mono: ['JetBrains Mono', 'monospace'],
       },
     },
   },

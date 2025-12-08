@@ -1,0 +1,168 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabase';
+import { parseSheetDate } from '@/lib/utils';
+
+// Google Sheets API endpoint (using public CSV export)
+async function fetchGoogleSheet(sheetId: string, sheetName: string) {
+  // Use Google Sheets API v4 or public CSV export
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch sheet: ${response.status}`);
+    }
+
+    const text = await response.text();
+
+    // Parse the JSONP response
+    const jsonMatch = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\);?$/);
+    if (!jsonMatch) {
+      throw new Error('Invalid response format');
+    }
+
+    const data = JSON.parse(jsonMatch[1]);
+    return data.table;
+  } catch (error) {
+    console.error('Error fetching Google Sheet:', error);
+    throw error;
+  }
+}
+
+// Map sheet columns to task fields
+function mapRowToTask(row: { c: Array<{ v: string | number | null }> }, projectId: string) {
+  const getValue = (index: number) => {
+    const cell = row.c[index];
+    return cell?.v ?? null;
+  };
+
+  const getStringValue = (index: number): string => {
+    const val = getValue(index);
+    return val !== null ? String(val) : '';
+  };
+
+  const getNumberValue = (index: number): number => {
+    const val = getValue(index);
+    return typeof val === 'number' ? val : parseInt(String(val)) || 0;
+  };
+
+  // Column mapping based on typical content tracking sheet structure
+  // Adjust indices based on actual sheet structure
+  const stt = getNumberValue(0);
+  const year = getNumberValue(1) || new Date().getFullYear();
+  const month = getNumberValue(2) || new Date().getMonth() + 1;
+  const parentKeyword = getStringValue(3);
+  const keywordSub = getStringValue(4);
+  const searchVolume = getNumberValue(5);
+  const title = getStringValue(6);
+  const outline = getStringValue(7);
+  const timelineOutline = getStringValue(8);
+  const statusOutline = getStringValue(9);
+  const pic = getStringValue(10);
+  const contentFile = getStringValue(11);
+  const deadline = parseSheetDate(getStringValue(12));
+  const statusContent = getStringValue(13);
+  const linkPublish = getStringValue(14);
+  const publishDate = parseSheetDate(getStringValue(15));
+  const note = getStringValue(16);
+
+  return {
+    project_id: projectId,
+    stt,
+    year,
+    month,
+    parent_keyword: parentKeyword,
+    keyword_sub: keywordSub,
+    search_volume: searchVolume,
+    title,
+    outline,
+    timeline_outline: timelineOutline,
+    status_outline: statusOutline,
+    pic,
+    content_file: contentFile,
+    deadline,
+    status_content: statusContent,
+    link_publish: linkPublish,
+    publish_date: publishDate,
+    note,
+    month_year: `${month}/${year}`,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+// POST: Manual sync trigger
+export async function POST() {
+  try {
+    // Fetch all projects
+    const { data: projects, error: projectError } = await supabase
+      .from('projects')
+      .select('*');
+
+    if (projectError) {
+      return NextResponse.json({ error: projectError.message }, { status: 500 });
+    }
+
+    let totalSynced = 0;
+
+    for (const project of projects || []) {
+      try {
+        // Fetch data from Google Sheet
+        const sheetData = await fetchGoogleSheet(project.sheet_id, project.sheet_name);
+
+        if (!sheetData?.rows?.length) {
+          console.log(`No data found for project: ${project.name}`);
+          continue;
+        }
+
+        // Skip header row and map data
+        const tasks = sheetData.rows
+          .slice(1) // Skip header
+          .filter((row: { c: Array<{ v: string | number | null }> }) => row.c && row.c.some((cell: { v: string | number | null }) => cell?.v))
+          .map((row: { c: Array<{ v: string | number | null }> }) => mapRowToTask(row, project.id));
+
+        // Delete existing tasks for this project and insert new ones
+        await supabase.from('tasks').delete().eq('project_id', project.id);
+
+        // Insert in batches of 100
+        const batchSize = 100;
+        for (let i = 0; i < tasks.length; i += batchSize) {
+          const batch = tasks.slice(i, i + batchSize);
+          const { error: insertError } = await supabase.from('tasks').insert(batch);
+
+          if (insertError) {
+            console.error(`Error inserting batch for ${project.name}:`, insertError);
+          }
+        }
+
+        totalSynced += tasks.length;
+        console.log(`Synced ${tasks.length} tasks for ${project.name}`);
+      } catch (error) {
+        console.error(`Error syncing project ${project.name}:`, error);
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      syncedCount: totalSynced,
+      message: `Đồng bộ thành công ${totalSynced} tasks`,
+    });
+  } catch (error) {
+    console.error('Sync error:', error);
+    return NextResponse.json(
+      { error: 'Sync failed', details: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
+  }
+}
+
+// GET: For Vercel Cron
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function GET(_request: NextRequest) {
+  // For Vercel Cron, just run the sync
+  return POST();
+}
