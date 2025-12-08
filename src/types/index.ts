@@ -77,6 +77,14 @@ export interface ProjectStats extends Project {
   target: number;
 }
 
+export interface BottleneckTask {
+  id: string;
+  title: string;
+  pic: string;
+  project: string;
+  link?: string;
+}
+
 export interface BottleneckData {
   content: {
     doingOutline: number;
@@ -88,6 +96,12 @@ export interface BottleneckData {
     qcOutline: number;
     qcContent: number;
     waitPublish: number;
+  };
+  tasks?: {
+    qcContent: BottleneckTask[];
+    qcOutline: BottleneckTask[];
+    waitPublish: BottleneckTask[];
+    doingContent: BottleneckTask[];
   };
   biggest: string;
 }

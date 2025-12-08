@@ -79,6 +79,22 @@ export async function GET(request: NextRequest) {
         t.status_content !== '4. Publish'
     );
 
+    // Get tasks by status for bottleneck display
+    const qcContentTasks = activeTasks.filter((t) =>
+      t.status_content && t.status_content.includes('QC')
+    );
+    const qcOutlineTasks = activeTasks.filter((t) =>
+      t.status_outline && t.status_outline.includes('QC')
+    );
+    const waitPublishTasks = activeTasks.filter((t) =>
+      t.status_content === '3. Done QC' || t.status_content === '3. Done'
+    );
+    const doingContentTasks = activeTasks.filter((t) =>
+      t.status_content === '1. Doing' ||
+      t.status_content === '1. Doing Content' ||
+      t.status_content?.includes('Doing')
+    );
+
     const bottleneck = {
       content: {
         doingOutline: activeTasks.filter((t) =>
@@ -87,25 +103,44 @@ export async function GET(request: NextRequest) {
         fixingOutline: activeTasks.filter((t) =>
           t.status_outline && (t.status_outline.includes('Fixing') || t.status_outline.includes('fix'))
         ).length,
-        doingContent: activeTasks.filter((t) =>
-          t.status_content === '1. Doing' ||
-          t.status_content === '1. Doing Content' ||
-          t.status_content?.includes('Doing')
-        ).length,
+        doingContent: doingContentTasks.length,
         fixingContent: activeTasks.filter((t) =>
           t.status_content && (t.status_content.includes('Fixing') || t.status_content.includes('fix'))
         ).length,
       },
       seo: {
-        qcOutline: activeTasks.filter((t) =>
-          t.status_outline && t.status_outline.includes('QC')
-        ).length,
-        qcContent: activeTasks.filter((t) =>
-          t.status_content && t.status_content.includes('QC')
-        ).length,
-        waitPublish: activeTasks.filter((t) =>
-          t.status_content === '3. Done QC' || t.status_content === '3. Done'
-        ).length,
+        qcOutline: qcOutlineTasks.length,
+        qcContent: qcContentTasks.length,
+        waitPublish: waitPublishTasks.length,
+      },
+      // Include task details for popup
+      tasks: {
+        qcContent: qcContentTasks.slice(0, 10).map((t) => ({
+          id: t.id,
+          title: t.title || t.keyword_sub,
+          pic: t.pic,
+          project: t.project?.name,
+          link: t.link_publish || t.content_file,
+        })),
+        qcOutline: qcOutlineTasks.slice(0, 10).map((t) => ({
+          id: t.id,
+          title: t.title || t.keyword_sub,
+          pic: t.pic,
+          project: t.project?.name,
+        })),
+        waitPublish: waitPublishTasks.slice(0, 10).map((t) => ({
+          id: t.id,
+          title: t.title || t.keyword_sub,
+          pic: t.pic,
+          project: t.project?.name,
+          link: t.link_publish || t.content_file,
+        })),
+        doingContent: doingContentTasks.slice(0, 10).map((t) => ({
+          id: t.id,
+          title: t.title || t.keyword_sub,
+          pic: t.pic,
+          project: t.project?.name,
+        })),
       },
       biggest: '',
     };

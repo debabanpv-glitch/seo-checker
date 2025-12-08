@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
 // GET: Fetch all projects with stats
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const month = parseInt(searchParams.get('month') || String(new Date().getMonth() + 1));
+    const year = parseInt(searchParams.get('year') || String(new Date().getFullYear()));
+
     const { data: projects, error } = await supabase
       .from('projects')
       .select('*')
@@ -13,10 +17,12 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Get current month/year
-    const now = new Date();
-    const currentMonth = now.getMonth() + 1;
-    const currentYear = now.getFullYear();
+    // Fetch monthly targets
+    const { data: monthlyTargets } = await supabase
+      .from('monthly_targets')
+      .select('*')
+      .eq('month', month)
+      .eq('year', year);
 
     // Fetch task counts for each project
     const projectsWithStats = await Promise.all(
@@ -24,25 +30,47 @@ export async function GET() {
         // Get all tasks for this project this month
         const { data: tasks } = await supabase
           .from('tasks')
-          .select('id, status_content')
+          .select('id, status_content, status_outline, deadline, pic')
           .eq('project_id', project.id)
-          .eq('month', currentMonth)
-          .eq('year', currentYear);
+          .eq('month', month)
+          .eq('year', year);
 
         const taskList = tasks || [];
         const published = taskList.filter((t) => t.status_content === '4. Publish').length;
+        const inProgress = taskList.filter((t) =>
+          t.status_content &&
+          t.status_content !== '4. Publish' &&
+          t.status_content !== '3. Done QC'
+        ).length;
+        const doneQC = taskList.filter((t) => t.status_content === '3. Done QC').length;
+        const overdue = taskList.filter((t) => {
+          if (!t.deadline || t.status_content === '4. Publish') return false;
+          return new Date(t.deadline) < new Date();
+        }).length;
 
-        // Get total tasks
+        // Get unique PICs for this project
+        const pics = [...new Set(taskList.map((t) => t.pic).filter(Boolean))];
+
+        // Get total tasks (all time)
         const { count } = await supabase
           .from('tasks')
           .select('*', { count: 'exact', head: true })
           .eq('project_id', project.id);
 
+        // Get monthly target from monthly_targets table or fall back to project default
+        const monthlyTarget = monthlyTargets?.find((t) => t.project_id === project.id);
+        const target = monthlyTarget?.target || project.monthly_target || 20;
+
         return {
           ...project,
           actual: published,
-          target: project.monthly_target || 20,
+          target,
           totalTasks: count || 0,
+          thisMonthTotal: taskList.length,
+          inProgress,
+          doneQC,
+          overdue,
+          pics,
         };
       })
     );
@@ -85,6 +113,39 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ project: data });
   } catch (error) {
     console.error('Create project error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+// PUT: Update project
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { id, name, sheet_id, sheet_name, monthly_target } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: 'Project ID is required' }, { status: 400 });
+    }
+
+    const { data, error } = await supabase
+      .from('projects')
+      .update({
+        name,
+        sheet_id,
+        sheet_name,
+        monthly_target,
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ project: data });
+  } catch (error) {
+    console.error('Update project error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

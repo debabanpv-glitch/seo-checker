@@ -11,6 +11,8 @@ import {
   Calendar,
   ChevronRight,
   BarChart3,
+  ExternalLink,
+  X,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -25,7 +27,7 @@ import ProgressBar from '@/components/ProgressBar';
 import StatusBadge from '@/components/StatusBadge';
 import { PageLoading } from '@/components/LoadingSpinner';
 import { formatDate, isOverdue, truncate } from '@/lib/utils';
-import { Task, ProjectStats, BottleneckData, Stats } from '@/types';
+import { Task, ProjectStats, BottleneckData, Stats, BottleneckTask } from '@/types';
 
 type TimeFilter = 'month' | 'week' | 'day';
 
@@ -42,6 +44,10 @@ export default function DashboardPage() {
   const [alerts, setAlerts] = useState<Task[]>([]);
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showTasksModal, setShowTasksModal] = useState<{
+    title: string;
+    tasks: BottleneckTask[];
+  } | null>(null);
 
   // Generate month options
   const monthOptions = [];
@@ -157,6 +163,22 @@ export default function DashboardPage() {
   const totalTarget = projectStats.reduce((sum, p) => sum + p.target, 0);
   const totalActual = projectStats.reduce((sum, p) => sum + p.actual, 0);
   const targetProgress = totalTarget ? Math.round((totalActual / totalTarget) * 100) : 0;
+
+  // Handle workflow pill click
+  const handleWorkflowClick = (type: string) => {
+    if (!bottleneck?.tasks) return;
+
+    const taskMap: Record<string, { title: string; tasks: BottleneckTask[] }> = {
+      qcContent: { title: 'Chờ QC Content', tasks: bottleneck.tasks.qcContent },
+      qcOutline: { title: 'Chờ QC Outline', tasks: bottleneck.tasks.qcOutline },
+      waitPublish: { title: 'Chờ Publish', tasks: bottleneck.tasks.waitPublish },
+      doingContent: { title: 'Đang viết Content', tasks: bottleneck.tasks.doingContent },
+    };
+
+    if (taskMap[type] && taskMap[type].tasks.length > 0) {
+      setShowTasksModal(taskMap[type]);
+    }
+  };
 
   if (isLoading) {
     return <PageLoading />;
@@ -369,13 +391,33 @@ export default function DashboardPage() {
               <div className="flex items-center gap-1 overflow-x-auto pb-2">
                 <WorkflowPill label="Outline" count={bottleneck.content.doingOutline} color="warning" />
                 <ChevronRight className="w-3 h-3 text-[#666] flex-shrink-0" />
-                <WorkflowPill label="QC OL" count={bottleneck.seo.qcOutline} color="accent" />
+                <WorkflowPill
+                  label="QC OL"
+                  count={bottleneck.seo.qcOutline}
+                  color="accent"
+                  onClick={() => handleWorkflowClick('qcOutline')}
+                />
                 <ChevronRight className="w-3 h-3 text-[#666] flex-shrink-0" />
-                <WorkflowPill label="Content" count={bottleneck.content.doingContent} color="warning" />
+                <WorkflowPill
+                  label="Content"
+                  count={bottleneck.content.doingContent}
+                  color="warning"
+                  onClick={() => handleWorkflowClick('doingContent')}
+                />
                 <ChevronRight className="w-3 h-3 text-[#666] flex-shrink-0" />
-                <WorkflowPill label="QC" count={bottleneck.seo.qcContent} color="accent" />
+                <WorkflowPill
+                  label="QC"
+                  count={bottleneck.seo.qcContent}
+                  color="accent"
+                  onClick={() => handleWorkflowClick('qcContent')}
+                />
                 <ChevronRight className="w-3 h-3 text-[#666] flex-shrink-0" />
-                <WorkflowPill label="Publish" count={bottleneck.seo.waitPublish} color="success" />
+                <WorkflowPill
+                  label="Publish"
+                  count={bottleneck.seo.waitPublish}
+                  color="success"
+                  onClick={() => handleWorkflowClick('waitPublish')}
+                />
               </div>
 
               {/* Summary Stats */}
@@ -395,14 +437,24 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Bottleneck Alert */}
+              {/* Bottleneck Alert - Clickable */}
               {bottleneck.biggest && bottleneck.biggest !== 'Không có nghẽn' && (
-                <div className="p-2 bg-warning/10 border border-warning/20 rounded-lg">
+                <button
+                  onClick={() => {
+                    if (bottleneck.biggest.includes('QC content')) {
+                      handleWorkflowClick('qcContent');
+                    } else if (bottleneck.biggest.includes('viết bài')) {
+                      handleWorkflowClick('doingContent');
+                    }
+                  }}
+                  className="w-full p-2 bg-warning/10 border border-warning/20 rounded-lg hover:bg-warning/20 transition-colors"
+                >
                   <p className="text-warning text-xs font-medium flex items-center gap-1">
                     <AlertTriangle className="w-3 h-3" />
                     {bottleneck.biggest}
+                    <ExternalLink className="w-3 h-3 ml-auto" />
                   </p>
-                </div>
+                </button>
               )}
             </div>
           ) : (
@@ -501,6 +553,58 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Tasks Modal */}
+      {showTasksModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-border rounded-2xl w-full max-w-lg max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h3 className="text-lg font-semibold text-white">{showTasksModal.title}</h3>
+              <button
+                onClick={() => setShowTasksModal(null)}
+                className="p-1 text-[#8888a0] hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto max-h-[60vh]">
+              <div className="space-y-2">
+                {showTasksModal.tasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="p-3 bg-secondary rounded-lg border border-border"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white text-sm font-medium">
+                          {truncate(task.title || '', 50)}
+                        </p>
+                        <p className="text-xs text-[#8888a0] mt-1">
+                          <span className="text-accent">{task.project}</span>
+                          {task.pic && ` • ${task.pic}`}
+                        </p>
+                      </div>
+                      {task.link && (
+                        <a
+                          href={task.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 text-accent hover:bg-accent/20 rounded-lg transition-colors"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {showTasksModal.tasks.length === 0 && (
+                  <p className="text-[#8888a0] text-center py-4">Không có bài viết nào</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -536,10 +640,12 @@ function WorkflowPill({
   label,
   count,
   color,
+  onClick,
 }: {
   label: string;
   count: number;
   color: 'warning' | 'accent' | 'success';
+  onClick?: () => void;
 }) {
   const colorClasses = {
     warning: 'bg-warning/20 text-warning border-warning/30',
@@ -547,10 +653,15 @@ function WorkflowPill({
     success: 'bg-success/20 text-success border-success/30',
   };
 
+  const Component = onClick ? 'button' : 'div';
+
   return (
-    <div className={`flex flex-col items-center px-2 py-1.5 rounded-lg border flex-shrink-0 ${colorClasses[color]}`}>
+    <Component
+      onClick={onClick}
+      className={`flex flex-col items-center px-2 py-1.5 rounded-lg border flex-shrink-0 ${colorClasses[color]} ${onClick ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+    >
       <span className="text-sm md:text-base font-bold">{count}</span>
       <span className="text-[10px] whitespace-nowrap">{label}</span>
-    </div>
+    </Component>
   );
 }

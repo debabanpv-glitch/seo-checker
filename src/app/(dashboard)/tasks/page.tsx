@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, ExternalLink, Filter } from 'lucide-react';
+import { Search, ExternalLink, Filter, Calendar } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
@@ -12,6 +12,10 @@ export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getMonth() + 1}-${now.getFullYear()}`;
+  });
   const [filters, setFilters] = useState({
     project: '',
     pic: '',
@@ -20,15 +24,28 @@ export default function TasksPage() {
   });
   const [pics, setPics] = useState<string[]>([]);
 
+  // Generate month options
+  const monthOptions = [];
+  const now = new Date();
+  for (let i = 0; i < 12; i++) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    monthOptions.push({
+      value: `${date.getMonth() + 1}-${date.getFullYear()}`,
+      label: `Tháng ${date.getMonth() + 1}/${date.getFullYear()}`,
+    });
+  }
+
   useEffect(() => {
     fetchData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMonth]);
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
+      const [month, year] = selectedMonth.split('-');
       const [tasksRes, projectsRes] = await Promise.all([
-        fetch('/api/tasks'),
+        fetch(`/api/tasks?month=${month}&year=${year}`),
         fetch('/api/projects'),
       ]);
 
@@ -49,6 +66,9 @@ export default function TasksPage() {
   };
 
   const filteredTasks = tasks.filter((task) => {
+    // Filter out empty tasks
+    if (!task.title && !task.keyword_sub) return false;
+
     if (filters.project && task.project_id !== filters.project) return false;
     if (filters.pic && task.pic !== filters.pic) return false;
     if (filters.status) {
@@ -78,13 +98,31 @@ export default function TasksPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-white">Tasks</h1>
-        <p className="text-[#8888a0] text-sm">Danh sách tất cả công việc</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Tasks</h1>
+          <p className="text-[#8888a0] text-sm">Danh sách tất cả công việc</p>
+        </div>
+
+        {/* Month Selector */}
+        <div className="flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-[#8888a0]" />
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="px-4 py-2 bg-card border border-border rounded-lg text-white"
+          >
+            {monthOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-4 p-4 bg-card border border-border rounded-xl">
+      <div className="flex flex-wrap gap-3 p-4 bg-card border border-border rounded-xl">
         <div className="flex items-center gap-2 text-[#8888a0]">
           <Filter className="w-4 h-4" />
           <span className="text-sm">Lọc:</span>
@@ -173,7 +211,7 @@ export default function TasksPage() {
                     <td>
                       <div className="max-w-[300px]">
                         <p className="text-white font-medium truncate">
-                          {truncate(task.title || task.keyword_sub || 'Untitled', 50)}
+                          {truncate(task.title || task.keyword_sub || '', 50)}
                         </p>
                         {task.keyword_sub && task.title && (
                           <p className="text-xs text-[#8888a0] truncate">
@@ -230,9 +268,9 @@ export default function TasksPage() {
       )}
 
       {/* Summary */}
-      <div className="flex items-center justify-between text-sm text-[#8888a0]">
-        <span>Hiển thị {filteredTasks.length} / {tasks.length} tasks</span>
-        <div className="flex gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-sm text-[#8888a0]">
+        <span>Hiển thị {filteredTasks.length} / {tasks.filter(t => t.title || t.keyword_sub).length} tasks</span>
+        <div className="flex flex-wrap gap-4">
           <span className="flex items-center gap-2">
             <span className="w-3 h-3 rounded bg-danger/30" /> Trễ deadline
           </span>
