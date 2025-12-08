@@ -9,7 +9,6 @@ import {
   TrendingUp,
   Target,
   Calendar,
-  BarChart3,
   ExternalLink,
   Trophy,
   Medal,
@@ -18,22 +17,10 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from 'recharts';
 import ProgressBar from '@/components/ProgressBar';
 import { PageLoading } from '@/components/LoadingSpinner';
 import { formatDate, isOverdue } from '@/lib/utils';
 import { Task, ProjectStats, BottleneckData, Stats, BottleneckTask } from '@/types';
-
-type ChartTimeRange = 'day' | 'week';
 
 export default function DashboardPage() {
   // Date range state
@@ -57,9 +44,6 @@ export default function DashboardPage() {
 
   // Workflow expanded state
   const [expandedWorkflow, setExpandedWorkflow] = useState<string | null>(null);
-
-  // Chart settings
-  const [chartTimeRange, setChartTimeRange] = useState<ChartTimeRange>('day');
 
   // Get month/year from date range for API
   const selectedMonth = useMemo(() => {
@@ -115,57 +99,6 @@ export default function DashboardPage() {
       overdue: stats.overdue,
     };
   }, [stats, dateRange, allTasks]);
-
-  // Generate chart data - stacked bar by status per day/week
-  const chartData = useMemo(() => {
-    const fromDate = new Date(dateRange.from);
-    const toDate = new Date(dateRange.to);
-    const data: Record<string, { published: number; inProgress: number; qc: number; fixing: number }> = {};
-
-    // Group all tasks by date
-    allTasks.forEach((task) => {
-      const taskDate = task.publish_date ? new Date(task.publish_date) :
-                       task.deadline ? new Date(task.deadline) : null;
-      if (!taskDate || taskDate < fromDate || taskDate > toDate) return;
-
-      let dateKey: string;
-      if (chartTimeRange === 'week') {
-        const weekStart = new Date(taskDate);
-        weekStart.setDate(taskDate.getDate() - taskDate.getDay() + 1);
-        dateKey = `W${Math.ceil(weekStart.getDate() / 7)}`;
-      } else {
-        dateKey = `${taskDate.getDate()}/${taskDate.getMonth() + 1}`;
-      }
-
-      if (!data[dateKey]) {
-        data[dateKey] = { published: 0, inProgress: 0, qc: 0, fixing: 0 };
-      }
-
-      const status = task.status_content || '';
-      if (status === '4. Publish') {
-        data[dateKey].published++;
-      } else if (status.includes('QC')) {
-        data[dateKey].qc++;
-      } else if (status.includes('Fixing') || status.includes('fix')) {
-        data[dateKey].fixing++;
-      } else if (status.includes('Doing')) {
-        data[dateKey].inProgress++;
-      }
-    });
-
-    // Convert to array and sort
-    return Object.entries(data)
-      .map(([date, counts]) => ({ date, ...counts }))
-      .sort((a, b) => {
-        if (chartTimeRange === 'week') {
-          return parseInt(a.date.slice(1)) - parseInt(b.date.slice(1));
-        }
-        const [dayA, monthA] = a.date.split('/').map(Number);
-        const [dayB, monthB] = b.date.split('/').map(Number);
-        if (monthA !== monthB) return monthA - monthB;
-        return dayA - dayB;
-      });
-  }, [allTasks, dateRange, chartTimeRange]);
 
   // Calculate leaderboard - person + published count
   const leaderboard = useMemo(() => {
@@ -343,55 +276,6 @@ export default function DashboardPage() {
               <p className="text-[#8888a0] text-center py-4 text-sm">Chưa có dữ liệu</p>
             )}
           </div>
-        </div>
-      </div>
-
-      {/* Timeline Chart - Status based */}
-      <div className="bg-card border border-border rounded-xl p-4 md:p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-          <div className="flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-accent" />
-            <h2 className="text-base md:text-lg font-semibold text-white">Tiến độ dự án</h2>
-          </div>
-
-          {/* Chart Controls - only day/week */}
-          <div className="flex gap-1 p-1 bg-secondary rounded-lg">
-            <button
-              onClick={() => setChartTimeRange('day')}
-              className={`px-3 py-1 text-xs rounded ${chartTimeRange === 'day' ? 'bg-accent text-white' : 'text-[#8888a0]'}`}
-            >
-              Ngày
-            </button>
-            <button
-              onClick={() => setChartTimeRange('week')}
-              className={`px-3 py-1 text-xs rounded ${chartTimeRange === 'week' ? 'bg-accent text-white' : 'text-[#8888a0]'}`}
-            >
-              Tuần
-            </button>
-          </div>
-        </div>
-
-        <div className="h-[250px] md:h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-              <XAxis dataKey="date" stroke="#8888a0" fontSize={11} tickLine={false} />
-              <YAxis stroke="#8888a0" fontSize={11} tickLine={false} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#1a1a2e',
-                  border: '1px solid #333',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                }}
-              />
-              <Legend wrapperStyle={{ fontSize: '11px' }} />
-              <Bar dataKey="published" name="Đã publish" fill="#22c55e" stackId="a" />
-              <Bar dataKey="qc" name="Chờ QC" fill="#6366f1" stackId="a" />
-              <Bar dataKey="inProgress" name="Đang viết" fill="#f59e0b" stackId="a" />
-              <Bar dataKey="fixing" name="Đang sửa" fill="#ef4444" stackId="a" />
-            </BarChart>
-          </ResponsiveContainer>
         </div>
       </div>
 
