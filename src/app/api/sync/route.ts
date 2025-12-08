@@ -34,6 +34,16 @@ async function fetchGoogleSheet(sheetId: string, sheetName: string) {
   }
 }
 
+// Check if row has valid data (not empty/Untitled)
+function isValidRow(row: { c: Array<{ v: string | number | null }> }): boolean {
+  if (!row.c) return false;
+  const parentKeyword = row.c[3]?.v; // Column D - Parent Keyword
+  const keywordSub = row.c[4]?.v;    // Column E - Keyword phụ
+  const title = row.c[6]?.v;         // Column G - Title
+  // Row is valid if it has at least title or keyword
+  return !!(title || parentKeyword || keywordSub);
+}
+
 // Map sheet columns to task fields
 function mapRowToTask(row: { c: Array<{ v: string | number | null }> }, projectId: string) {
   const getValue = (index: number) => {
@@ -119,10 +129,10 @@ export async function POST() {
           continue;
         }
 
-        // Skip header row and map data
+        // Skip header row and map data - only include rows with valid data
         const tasks = sheetData.rows
           .slice(1) // Skip header
-          .filter((row: { c: Array<{ v: string | number | null }> }) => row.c && row.c.some((cell: { v: string | number | null }) => cell?.v))
+          .filter((row: { c: Array<{ v: string | number | null }> }) => isValidRow(row))
           .map((row: { c: Array<{ v: string | number | null }> }) => mapRowToTask(row, project.id));
 
         // Delete existing tasks for this project and insert new ones
