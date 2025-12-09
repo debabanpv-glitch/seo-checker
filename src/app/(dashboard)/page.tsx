@@ -44,6 +44,10 @@ export default function DashboardPage() {
   const [expandedWorkflow, setExpandedWorkflow] = useState<string | null>(null);
   // Overdue expanded state
   const [showOverdueDetails, setShowOverdueDetails] = useState(false);
+  // Project expanded state
+  const [expandedProject, setExpandedProject] = useState<string | null>(null);
+  // Project workflow status expanded state
+  const [expandedProjectStatus, setExpandedProjectStatus] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDashboardData();
@@ -225,6 +229,55 @@ export default function DashboardPage() {
       doingOutline: bottleneck.tasks.doingOutline || [],
     };
     return taskMap[type] || [];
+  };
+
+  // Calculate workflow status per project with task lists
+  const getProjectWorkflowStatus = (projectId: string) => {
+    const projectTasks = allTasks.filter(t => t.project?.id === projectId);
+
+    // Filter tasks by status
+    const doingOutlineTasks = projectTasks.filter(t =>
+      t.status_outline?.includes('1. Doing') && !t.status_outline?.includes('1.1')
+    );
+    const fixingOutlineTasks = projectTasks.filter(t =>
+      t.status_outline?.includes('1.1 Fixing') || t.status_outline?.includes('1.2')
+    );
+    const qcOutlineTasks = projectTasks.filter(t =>
+      t.status_outline?.includes('2. QC')
+    );
+    const doingContentTasks = projectTasks.filter(t =>
+      t.status_content?.includes('1. Doing') && !t.status_content?.includes('1.1')
+    );
+    const fixingContentTasks = projectTasks.filter(t =>
+      t.status_content?.includes('1.1 Fixing') || t.status_content?.includes('1.2')
+    );
+    const qcContentTasks = projectTasks.filter(t =>
+      t.status_content?.includes('2. QC')
+    );
+    const waitPublishTasks = projectTasks.filter(t =>
+      t.status_content?.includes('3. Done QC') && !isPublished(t.status_content)
+    );
+    const publishedTasks = projectTasks.filter(t => isPublished(t.status_content));
+
+    return {
+      doingOutline: doingOutlineTasks.length,
+      doingOutlineTasks,
+      fixingOutline: fixingOutlineTasks.length,
+      fixingOutlineTasks,
+      qcOutline: qcOutlineTasks.length,
+      qcOutlineTasks,
+      doingContent: doingContentTasks.length,
+      doingContentTasks,
+      fixingContent: fixingContentTasks.length,
+      fixingContentTasks,
+      qcContent: qcContentTasks.length,
+      qcContentTasks,
+      waitPublish: waitPublishTasks.length,
+      waitPublishTasks,
+      published: publishedTasks.length,
+      publishedTasks,
+      total: projectTasks.length,
+    };
   };
 
   if (isLoading) {
@@ -538,7 +591,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Project Progress - Compact */}
+        {/* Project Progress - Expandable */}
         <div className="bg-card border border-border rounded-xl p-4 md:p-6">
           <div className="flex items-center gap-2 mb-4">
             <TrendingUp className="w-5 h-5 text-accent" />
@@ -549,17 +602,148 @@ export default function DashboardPage() {
             {projectStats.length > 0 ? (
               projectStats.map((project) => {
                 const progress = project.target ? Math.round((project.actual / project.target) * 100) : 0;
+                const isExpanded = expandedProject === project.id;
+                const workflowStatus = isExpanded ? getProjectWorkflowStatus(project.id) : null;
+
                 return (
-                  <div key={project.id} className="flex items-center gap-3 p-2 bg-secondary rounded-lg">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white text-sm font-medium truncate">{project.name}</p>
-                    </div>
-                    <div className="w-24">
-                      <ProgressBar value={project.actual} max={project.target} showLabel={false} size="sm" />
-                    </div>
-                    <span className={`text-sm font-bold w-16 text-right ${progress >= 100 ? 'text-success' : progress >= 70 ? 'text-warning' : 'text-white'}`}>
-                      {project.actual}/{project.target}
-                    </span>
+                  <div key={project.id}>
+                    <button
+                      onClick={() => setExpandedProject(isExpanded ? null : project.id)}
+                      className="w-full flex items-center gap-3 p-2 bg-secondary rounded-lg hover:bg-secondary/80 transition-colors"
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        {isExpanded ? (
+                          <ChevronUp className="w-4 h-4 text-[#8888a0] flex-shrink-0" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-[#8888a0] flex-shrink-0" />
+                        )}
+                        <p className="text-white text-sm font-medium truncate">{project.name}</p>
+                      </div>
+                      <div className="w-24">
+                        <ProgressBar value={project.actual} max={project.target} showLabel={false} size="sm" />
+                      </div>
+                      <span className={`text-sm font-bold w-16 text-right ${progress >= 100 ? 'text-success' : progress >= 70 ? 'text-warning' : 'text-white'}`}>
+                        {project.actual}/{project.target}
+                      </span>
+                    </button>
+
+                    {/* Expanded Workflow Status */}
+                    {isExpanded && workflowStatus && (
+                      <div className="mt-2 ml-6 pl-3 border-l-2 border-border space-y-1.5">
+                        {workflowStatus.doingOutline > 0 && (
+                          <ProjectStatusItem
+                            label="Đang làm Outline"
+                            count={workflowStatus.doingOutline}
+                            color="warning"
+                            tasks={workflowStatus.doingOutlineTasks}
+                            statusKey={`${project.id}-doingOutline`}
+                            isExpanded={expandedProjectStatus === `${project.id}-doingOutline`}
+                            onToggle={() => setExpandedProjectStatus(
+                              expandedProjectStatus === `${project.id}-doingOutline` ? null : `${project.id}-doingOutline`
+                            )}
+                          />
+                        )}
+                        {workflowStatus.qcOutline > 0 && (
+                          <ProjectStatusItem
+                            label="SEO QC Outline"
+                            count={workflowStatus.qcOutline}
+                            color="accent"
+                            tasks={workflowStatus.qcOutlineTasks}
+                            statusKey={`${project.id}-qcOutline`}
+                            isExpanded={expandedProjectStatus === `${project.id}-qcOutline`}
+                            onToggle={() => setExpandedProjectStatus(
+                              expandedProjectStatus === `${project.id}-qcOutline` ? null : `${project.id}-qcOutline`
+                            )}
+                          />
+                        )}
+                        {workflowStatus.fixingOutline > 0 && (
+                          <ProjectStatusItem
+                            label="Đang sửa Outline"
+                            count={workflowStatus.fixingOutline}
+                            color="orange"
+                            tasks={workflowStatus.fixingOutlineTasks}
+                            statusKey={`${project.id}-fixingOutline`}
+                            isExpanded={expandedProjectStatus === `${project.id}-fixingOutline`}
+                            onToggle={() => setExpandedProjectStatus(
+                              expandedProjectStatus === `${project.id}-fixingOutline` ? null : `${project.id}-fixingOutline`
+                            )}
+                          />
+                        )}
+                        {workflowStatus.doingContent > 0 && (
+                          <ProjectStatusItem
+                            label="Đang viết Content"
+                            count={workflowStatus.doingContent}
+                            color="warning"
+                            tasks={workflowStatus.doingContentTasks}
+                            statusKey={`${project.id}-doingContent`}
+                            isExpanded={expandedProjectStatus === `${project.id}-doingContent`}
+                            onToggle={() => setExpandedProjectStatus(
+                              expandedProjectStatus === `${project.id}-doingContent` ? null : `${project.id}-doingContent`
+                            )}
+                          />
+                        )}
+                        {workflowStatus.qcContent > 0 && (
+                          <ProjectStatusItem
+                            label="SEO QC Content"
+                            count={workflowStatus.qcContent}
+                            color="accent"
+                            tasks={workflowStatus.qcContentTasks}
+                            statusKey={`${project.id}-qcContent`}
+                            isExpanded={expandedProjectStatus === `${project.id}-qcContent`}
+                            onToggle={() => setExpandedProjectStatus(
+                              expandedProjectStatus === `${project.id}-qcContent` ? null : `${project.id}-qcContent`
+                            )}
+                          />
+                        )}
+                        {workflowStatus.fixingContent > 0 && (
+                          <ProjectStatusItem
+                            label="Đang sửa Content"
+                            count={workflowStatus.fixingContent}
+                            color="orange"
+                            tasks={workflowStatus.fixingContentTasks}
+                            statusKey={`${project.id}-fixingContent`}
+                            isExpanded={expandedProjectStatus === `${project.id}-fixingContent`}
+                            onToggle={() => setExpandedProjectStatus(
+                              expandedProjectStatus === `${project.id}-fixingContent` ? null : `${project.id}-fixingContent`
+                            )}
+                          />
+                        )}
+                        {workflowStatus.waitPublish > 0 && (
+                          <ProjectStatusItem
+                            label="Chờ Publish"
+                            count={workflowStatus.waitPublish}
+                            color="success"
+                            tasks={workflowStatus.waitPublishTasks}
+                            statusKey={`${project.id}-waitPublish`}
+                            isExpanded={expandedProjectStatus === `${project.id}-waitPublish`}
+                            onToggle={() => setExpandedProjectStatus(
+                              expandedProjectStatus === `${project.id}-waitPublish` ? null : `${project.id}-waitPublish`
+                            )}
+                          />
+                        )}
+                        {/* Summary */}
+                        <div className="pt-2 mt-2 border-t border-border space-y-1">
+                          <ProjectStatusItem
+                            label="Đã Publish"
+                            count={workflowStatus.published}
+                            color="success"
+                            tasks={workflowStatus.publishedTasks}
+                            statusKey={`${project.id}-published`}
+                            isExpanded={expandedProjectStatus === `${project.id}-published`}
+                            onToggle={() => setExpandedProjectStatus(
+                              expandedProjectStatus === `${project.id}-published` ? null : `${project.id}-published`
+                            )}
+                            isSummary
+                          />
+                          <div className="flex justify-between items-center py-1 text-sm">
+                            <span className="text-warning">Đang làm</span>
+                            <span className="text-warning font-bold">
+                              {workflowStatus.total - workflowStatus.published}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })
@@ -763,14 +947,11 @@ function WorkflowItem({
               </div>
               <div className="flex items-center justify-between text-xs pl-5">
                 <span className="text-[#8888a0]">{task.pic} • {task.project}</span>
-                {task.waitDays !== undefined && (
+                {task.deadline && (
                   <span className={`px-1.5 py-0.5 rounded ${
-                    task.waitDays >= 5 ? 'bg-danger/20 text-danger' :
-                    task.waitDays >= 3 ? 'bg-orange-500/20 text-orange-400' :
-                    task.waitDays >= 1 ? 'bg-warning/20 text-warning' :
-                    'bg-secondary text-[#8888a0]'
+                    new Date(task.deadline) < new Date() ? 'bg-danger/20 text-danger' : 'bg-accent/20 text-accent'
                   }`}>
-                    {task.waitDays === 0 ? 'Hôm nay' : `${task.waitDays} ngày trước`}
+                    DL: {formatDate(task.deadline)}
                   </span>
                 )}
               </div>
@@ -783,6 +964,99 @@ function WorkflowItem({
       {isExpanded && tasks.length === 0 && (
         <div className="mt-2 ml-6 pl-3 border-l-2 border-border">
           <p className="text-xs text-[#8888a0] py-2">Không có chi tiết</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Project Status Item Component with expandable task list
+function ProjectStatusItem({
+  label,
+  count,
+  color,
+  tasks,
+  isExpanded,
+  onToggle,
+  isSummary = false,
+}: {
+  label: string;
+  count: number;
+  color: 'warning' | 'accent' | 'success' | 'orange';
+  tasks: Task[];
+  statusKey?: string;
+  isExpanded: boolean;
+  onToggle: () => void;
+  isSummary?: boolean;
+}) {
+  const bgColors = {
+    warning: 'bg-warning/10',
+    accent: 'bg-accent/10',
+    success: 'bg-success/10',
+    orange: 'bg-orange-500/10',
+  };
+
+  const textColors = {
+    warning: 'text-warning',
+    accent: 'text-accent',
+    success: 'text-success',
+    orange: 'text-orange-400',
+  };
+
+  return (
+    <div>
+      <button
+        onClick={onToggle}
+        className={`w-full flex justify-between items-center py-1.5 px-2 ${bgColors[color]} rounded text-sm hover:opacity-80 transition-opacity`}
+      >
+        <div className="flex items-center gap-1.5">
+          {isExpanded ? (
+            <ChevronUp className="w-3 h-3 text-[#8888a0]" />
+          ) : (
+            <ChevronDown className="w-3 h-3 text-[#8888a0]" />
+          )}
+          <span className={isSummary ? textColors[color] : 'text-[#8888a0]'}>{label}</span>
+        </div>
+        <span className={`${textColors[color]} font-${isSummary ? 'bold' : 'medium'}`}>{count}</span>
+      </button>
+
+      {/* Expanded Task List */}
+      {isExpanded && tasks.length > 0 && (
+        <div className="mt-1 ml-4 pl-2 border-l border-border/50 space-y-1 max-h-[200px] overflow-y-auto">
+          {tasks.map((task) => (
+            <div key={task.id} className="flex flex-col gap-0.5 text-xs py-1.5 px-2 bg-secondary/30 rounded">
+              <div className="flex items-center gap-2">
+                <span className="text-white flex-1 truncate">{task.title || task.keyword_sub || 'Không có tiêu đề'}</span>
+                {(task.link_publish || task.content_file) && (
+                  <a
+                    href={task.link_publish || task.content_file}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-accent hover:underline flex-shrink-0"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+              </div>
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-accent">{task.pic || 'N/A'}</span>
+                <div className="flex items-center gap-2">
+                  {task.deadline && (
+                    <span className={`px-1 py-0.5 rounded ${
+                      new Date(task.deadline) < new Date() ? 'bg-danger/20 text-danger' : 'bg-[#8888a0]/20 text-[#8888a0]'
+                    }`}>
+                      DL: {formatDate(task.deadline)}
+                    </span>
+                  )}
+                  {task.publish_date && (
+                    <span className="px-1 py-0.5 rounded bg-success/20 text-success">
+                      Pub: {formatDate(task.publish_date)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

@@ -74,13 +74,37 @@ function mapRowToTask(row: SheetRow, projectId: string) {
     return typeof val === 'number' ? val : parseInt(String(val)) || 0;
   };
 
+  // Parse keywords from string - split by newline (various formats), comma, or semicolon
+  const parseKeywords = (str: string): string[] => {
+    if (!str) return [];
+    return str
+      .split(/[\r\n]+|,|;/)  // Split by CR, LF, CRLF, comma, or semicolon
+      .map(k => k.trim())
+      .filter(k => k.length > 0);
+  };
+
+  // Helper to extract month/year from date string (YYYY-MM-DD format)
+  const extractMonthYear = (dateStr: string | null): { month: number; year: number } | null => {
+    if (!dateStr) return null;
+    const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (match) {
+      return {
+        year: parseInt(match[1]),
+        month: parseInt(match[2]),
+      };
+    }
+    return null;
+  };
+
   // Column mapping based on typical content tracking sheet structure
-  // Adjust indices based on actual sheet structure
   const stt = getNumberValue(0);
-  const year = getNumberValue(1) || new Date().getFullYear();
-  const month = getNumberValue(2) || new Date().getMonth() + 1;
+  // Skip columns B (1) and C (2) - we derive month/year from deadline/publish_date
   const parentKeyword = getStringValue(3);
   const keywordSub = getStringValue(4);
+
+  // Parse keywords list from keyword_sub
+  const keywordsList = parseKeywords(keywordSub);
+  const keywordCount = keywordsList.length;
   const searchVolume = getNumberValue(5);
   const title = getStringValue(6);
   const outline = getStringValue(7);
@@ -96,9 +120,14 @@ function mapRowToTask(row: SheetRow, projectId: string) {
   const publishDate = parseSheetDate(rawPublishDate);
   const note = getStringValue(16);
 
+  // Derive month/year from deadline first, then publish_date, then current date
+  const dateInfo = extractMonthYear(deadline) || extractMonthYear(publishDate);
+  const year = dateInfo?.year || new Date().getFullYear();
+  const month = dateInfo?.month || new Date().getMonth() + 1;
+
   // Debug log for dates
   if (rawPublishDate || rawDeadline) {
-    console.log(`[SYNC DEBUG] Row ${stt}: deadline="${rawDeadline}" -> ${deadline}, publishDate="${rawPublishDate}" -> ${publishDate}`);
+    console.log(`[SYNC DEBUG] Row ${stt}: deadline="${rawDeadline}" -> ${deadline}, publishDate="${rawPublishDate}" -> ${publishDate}, derived month=${month}/${year}`);
   }
 
   return {
@@ -108,6 +137,8 @@ function mapRowToTask(row: SheetRow, projectId: string) {
     month,
     parent_keyword: parentKeyword,
     keyword_sub: keywordSub,
+    keyword_count: keywordCount,
+    keywords_list: keywordsList,
     search_volume: searchVolume,
     title,
     outline,
@@ -129,7 +160,10 @@ function mapRowToTask(row: SheetRow, projectId: string) {
 async function createSyncLog() {
   const { data, error } = await supabase
     .from('sync_logs')
-    .insert({ status: 'running' })
+    .insert({
+      status: 'running',
+      started_at: new Date().toISOString(),
+    })
     .select('id')
     .single();
 

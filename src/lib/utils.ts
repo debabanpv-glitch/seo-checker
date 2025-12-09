@@ -125,34 +125,42 @@ export function parseSheetDate(dateStr: string): string | null {
 
   const str = String(dateStr).trim();
 
-  // Try DD/MM/YYYY format (Vietnamese)
-  const match1 = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (match1) {
-    const [, day, month, year] = match1;
-    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-  }
-
-  // Try D/M/YY or D/M/YYYY format
-  const match2 = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-  if (match2) {
-    const [, day, month, yearStr] = match2;
-    const year = yearStr.length === 2 ? '20' + yearStr : yearStr;
-    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-  }
-
-  // Try YYYY-MM-DD format
+  // Try YYYY-MM-DD format first
   if (str.match(/^\d{4}-\d{2}-\d{2}$/)) {
     return str;
   }
 
-  // Try MM/DD/YYYY format (US)
-  const match3 = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (match3) {
-    const [, month, day, year] = match3;
-    // If day > 12, assume DD/MM/YYYY was correct
-    if (parseInt(day) <= 12 && parseInt(month) <= 12) {
-      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  // Match XX/XX/YYYY or XX/XX/YY format
+  const match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (match) {
+    const [, first, second, yearStr] = match;
+    const year = yearStr.length === 2 ? '20' + yearStr : yearStr;
+    const firstNum = parseInt(first);
+    const secondNum = parseInt(second);
+
+    // Determine if MM/DD/YYYY (US) or DD/MM/YYYY (VN)
+    let day: number, month: number;
+
+    if (secondNum > 12) {
+      // Second number > 12 means it's a day, so format is MM/DD/YYYY
+      month = firstNum;
+      day = secondNum;
+    } else if (firstNum > 12) {
+      // First number > 12 means it's a day, so format is DD/MM/YYYY
+      day = firstNum;
+      month = secondNum;
+    } else {
+      // Both <= 12, assume DD/MM/YYYY (Vietnamese default)
+      day = firstNum;
+      month = secondNum;
     }
+
+    // Validate the parsed date
+    if (month < 1 || month > 12 || day < 1 || day > 31) {
+      return null;
+    }
+
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   }
 
   // Try "Date(year,month,day)" format from Google Sheets API

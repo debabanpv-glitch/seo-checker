@@ -8,52 +8,46 @@ import {
   ExternalLink,
   RefreshCw,
   Loader2,
-  ChevronRight,
-  FileText,
-  Image,
-  Settings2,
-  AlertOctagon,
   Check,
+  Clock,
+  Calendar,
+  Filter,
 } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
-import { cn } from '@/lib/utils';
+import { cn, formatDate } from '@/lib/utils';
 import { Project } from '@/types';
 
 interface TaskWithSEO {
   id: string;
   title: string;
   keyword_sub: string;
+  keywords_list: string[];  // Parsed array of keywords (each line = 1 keyword)
   parent_keyword: string;
   link_publish: string;
   pic: string;
+  publish_date: string | null;
   project: { id: string; name: string } | null;
-  seoScore?: number;
-  seoChecked?: boolean;
+  // SEO result from database
+  seoResult?: SEOResultDB | null;
+  // Local state for checking
   seoLoading?: boolean;
-  seoResult?: SEOResult | null;
 }
 
-interface SEOResult {
+interface SEOResultDB {
+  id: string;
+  task_id: string;
   url: string;
-  success: boolean;
-  error?: string;
   score: number;
-  maxScore: number;
-  categories: {
-    content: CategoryResult;
-    images: CategoryResult;
-    technical: CategoryResult;
-  };
+  max_score: number;
+  content_score: number;
+  content_max: number;
+  images_score: number;
+  images_max: number;
+  technical_score: number;
+  technical_max: number;
   details: CheckDetail[];
-}
-
-interface CategoryResult {
-  name: string;
-  score: number;
-  maxScore: number;
-  passed: number;
-  total: number;
+  checked_at: string;
 }
 
 interface CheckDetail {
@@ -68,51 +62,49 @@ interface CheckDetail {
   suggestion?: string;
 }
 
-// Issue type for grouping
-interface SEOIssue {
-  checkId: string;
-  checkName: string;
-  category: 'content' | 'images' | 'technical';
-  status: 'fail' | 'warning';
-  tasks: {
-    task: TaskWithSEO;
-    value?: string | number;
-    suggestion?: string;
-  }[];
-}
+type FilterStatus = 'all' | 'unchecked' | 'passed' | 'failed';
 
 export default function SEOAuditPage() {
   const [tasks, setTasks] = useState<TaskWithSEO[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedMonth, setSelectedMonth] = useState(() => {
-    const now = new Date();
-    return `${now.getMonth() + 1}-${now.getFullYear()}`;
-  });
   const [selectedProject, setSelectedProject] = useState('');
-  const [checkingAll, setCheckingAll] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedIssue, setSelectedIssue] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+  const [selectedTask, setSelectedTask] = useState<TaskWithSEO | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isCheckingAll, setIsCheckingAll] = useState(false);
+  const [checkAllProgress, setCheckAllProgress] = useState({ current: 0, total: 0 });
 
   useEffect(() => {
     fetchTasks();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedMonth, selectedProject]);
+  }, [selectedProject]);
 
   const fetchTasks = async () => {
     setIsLoading(true);
     try {
-      const [month, year] = selectedMonth.split('-');
+      // Fetch all published tasks (không giới hạn tháng)
       const projectParam = selectedProject ? `&project=${selectedProject}` : '';
-      const res = await fetch(`/api/tasks?month=${month}&year=${year}${projectParam}&published=true`);
+      const res = await fetch(`/api/tasks?published=true${projectParam}`);
       const data = await res.json();
 
-      const publishedTasks = (data.tasks || []).filter(
+      const publishedTasks: TaskWithSEO[] = (data.tasks || []).filter(
         (t: TaskWithSEO) => t.link_publish && (t.title || t.keyword_sub)
       );
 
-      setTasks(publishedTasks);
+      // Fetch SEO results for these tasks
+      const seoRes = await fetch('/api/seo-results');
+      const seoData = await seoRes.json();
+      const seoResults: SEOResultDB[] = seoData.results || [];
 
+      // Map SEO results to tasks by URL (not task_id, because task_id changes on sync)
+      const tasksWithSEO = publishedTasks.map((task) => {
+        const seoResult = seoResults.find((r) => r.url === task.link_publish);
+        return { ...task, seoResult };
+      });
+
+      setTasks(tasksWithSEO);
+
+      // Fetch projects
       const projectsRes = await fetch('/api/projects');
       const projectsData = await projectsRes.json();
       setProjects(projectsData.projects || []);
@@ -124,120 +116,149 @@ export default function SEOAuditPage() {
   };
 
   const checkSEO = async (task: TaskWithSEO) => {
+    // Mark as loading
     setTasks((prev) =>
       prev.map((t) => (t.id === task.id ? { ...t, seoLoading: true } : t))
     );
 
     try {
+      // Use keywords_list (parsed array) instead of raw keyword_sub string
+      const subKeywords = task.keywords_list?.length > 0
+        ? task.keywords_list
+        : (task.keyword_sub || '').split(/[\r\n]+|,|;/).map(k => k.trim()).filter(k => k);
+
+      // Call SEO check API
       const res = await fetch('/api/seo-check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           url: task.link_publish,
-          keyword: task.parent_keyword || task.keyword_sub || '',
-          subKeyword: task.keyword_sub || '',
+          keyword: task.parent_keyword || subKeywords[0] || '',
+          subKeywords: subKeywords,  // Send as array
         }),
       });
 
       const result = await res.json();
 
+      // Save to database (by URL, not task_id - so results persist across syncs)
+      await fetch('/api/seo-results', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: task.link_publish,
+          result,
+        }),
+      });
+
+      // Update local state
+      const seoResult: SEOResultDB = {
+        id: '',
+        task_id: task.id,
+        url: task.link_publish,
+        score: result.score || 0,
+        max_score: result.maxScore || 100,
+        content_score: result.categories?.content?.score || 0,
+        content_max: result.categories?.content?.maxScore || 0,
+        images_score: result.categories?.images?.score || 0,
+        images_max: result.categories?.images?.maxScore || 0,
+        technical_score: result.categories?.technical?.score || 0,
+        technical_max: result.categories?.technical?.maxScore || 0,
+        details: result.details || [],
+        checked_at: new Date().toISOString(),
+      };
+
       setTasks((prev) =>
         prev.map((t) =>
           t.id === task.id
-            ? {
-                ...t,
-                seoLoading: false,
-                seoChecked: true,
-                seoScore: result.score || 0,
-                seoResult: result,
-              }
+            ? { ...t, seoLoading: false, seoResult }
             : t
         )
       );
+
+      // Update selected task if it's the one being checked
+      if (selectedTask?.id === task.id) {
+        setSelectedTask({ ...task, seoLoading: false, seoResult });
+      }
+
+      return true; // Success
     } catch (error) {
       console.error('SEO check failed:', error);
       setTasks((prev) =>
         prev.map((t) =>
-          t.id === task.id
-            ? { ...t, seoLoading: false, seoChecked: true, seoScore: 0, seoResult: null }
-            : t
+          t.id === task.id ? { ...t, seoLoading: false } : t
         )
       );
+      return false; // Failed
     }
   };
 
-  const checkAllSEO = async () => {
-    setCheckingAll(true);
-    const uncheckedTasks = tasks.filter((t) => !t.seoChecked && !t.seoLoading);
+  // Check all unchecked tasks (filtered by current view)
+  const checkAllTasks = async () => {
+    // Get unchecked tasks from current filtered view
+    const uncheckedTasks = filteredTasks.filter((t) => !t.seoResult && !t.seoLoading);
 
-    for (const task of uncheckedTasks) {
+    if (uncheckedTasks.length === 0) return;
+
+    setIsCheckingAll(true);
+    setCheckAllProgress({ current: 0, total: uncheckedTasks.length });
+
+    // Process tasks sequentially to avoid overwhelming the server
+    for (let i = 0; i < uncheckedTasks.length; i++) {
+      const task = uncheckedTasks[i];
+      setCheckAllProgress({ current: i + 1, total: uncheckedTasks.length });
+
       await checkSEO(task);
-      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Small delay between requests
+      if (i < uncheckedTasks.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
     }
 
-    setCheckingAll(false);
+    setIsCheckingAll(false);
+    setCheckAllProgress({ current: 0, total: 0 });
   };
 
-  const monthOptions = [];
-  const now = new Date();
-  for (let i = 0; i < 12; i++) {
-    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    monthOptions.push({
-      value: `${date.getMonth() + 1}-${date.getFullYear()}`,
-      label: `T${date.getMonth() + 1}/${date.getFullYear()}`,
-    });
-  }
+  // Filter tasks
+  const filteredTasks = tasks.filter((task) => {
+    // Filter by status
+    if (filterStatus === 'unchecked' && task.seoResult) return false;
+    if (filterStatus === 'passed' && (!task.seoResult || task.seoResult.score < 70)) return false;
+    if (filterStatus === 'failed' && (!task.seoResult || task.seoResult.score >= 70)) return false;
 
-  // Calculate stats
-  const checkedTasks = tasks.filter((t) => t.seoChecked && t.seoResult?.success);
-  const passedTasks = checkedTasks.filter((t) => (t.seoScore || 0) >= 70);
-  const failedTasks = checkedTasks.filter((t) => (t.seoScore || 0) < 70);
-
-  // Group issues by check type
-  const issuesByCheck: SEOIssue[] = [];
-  checkedTasks.forEach((task) => {
-    if (!task.seoResult?.details) return;
-    task.seoResult.details.forEach((detail) => {
-      if (detail.status === 'pass') return;
-
-      let issue = issuesByCheck.find((i) => i.checkId === detail.id);
-      if (!issue) {
-        issue = {
-          checkId: detail.id,
-          checkName: detail.name,
-          category: detail.category,
-          status: detail.status,
-          tasks: [],
-        };
-        issuesByCheck.push(issue);
+    // Filter by search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const title = (task.title || task.keyword_sub || '').toLowerCase();
+      const pic = (task.pic || '').toLowerCase();
+      const url = (task.link_publish || '').toLowerCase();
+      if (!title.includes(query) && !pic.includes(query) && !url.includes(query)) {
+        return false;
       }
-      issue.tasks.push({
-        task,
-        value: detail.value,
-        suggestion: detail.suggestion,
-      });
-    });
+    }
+
+    return true;
   });
 
-  // Sort by number of affected tasks
-  issuesByCheck.sort((a, b) => b.tasks.length - a.tasks.length);
+  // Stats
+  const totalTasks = tasks.length;
+  const checkedTasks = tasks.filter((t) => t.seoResult).length;
+  const passedTasks = tasks.filter((t) => t.seoResult && t.seoResult.score >= 70).length;
+  const failedTasks = tasks.filter((t) => t.seoResult && t.seoResult.score < 70).length;
+  const uncheckedTasks = totalTasks - checkedTasks;
 
-  // Categories for sidebar
-  const categories = [
-    { id: 'content', name: 'Nội dung', icon: FileText },
-    { id: 'images', name: 'Hình ảnh', icon: Image },
-    { id: 'technical', name: 'Kỹ thuật', icon: Settings2 },
-  ];
+  // Get score color
+  const getScoreColor = (score: number) => {
+    if (score >= 70) return 'text-green-400';
+    if (score >= 50) return 'text-yellow-400';
+    return 'text-red-400';
+  };
 
-  // Filter issues by category
-  const filteredIssues = selectedCategory
-    ? issuesByCheck.filter((i) => i.category === selectedCategory)
-    : issuesByCheck;
-
-  // Get selected issue details
-  const currentIssue = selectedIssue
-    ? issuesByCheck.find((i) => i.checkId === selectedIssue)
-    : null;
+  const getScoreBg = (score: number) => {
+    if (score >= 70) return 'bg-green-500/20';
+    if (score >= 50) return 'bg-yellow-500/20';
+    return 'bg-red-500/20';
+  };
 
   if (isLoading) {
     return <PageLoading />;
@@ -246,29 +267,55 @@ export default function SEOAuditPage() {
   return (
     <div className="h-[calc(100vh-2rem)] flex flex-col">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <h1 className="text-xl font-bold text-white">SEO Audit</h1>
 
-        <div className="flex items-center gap-2">
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="px-2 py-1.5 bg-card border border-border rounded-lg text-white text-sm"
-          >
-            {monthOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-
-          <button
-            onClick={checkAllSEO}
-            disabled={checkingAll || tasks.length === 0}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent/90 disabled:bg-accent/50 rounded-lg text-white text-sm font-medium"
-          >
-            <RefreshCw className={cn("w-3.5 h-3.5", checkingAll && "animate-spin")} />
-            {checkingAll ? 'Đang check...' : `Check tất cả (${tasks.length})`}
-          </button>
+        {/* Search */}
+        <div className="flex items-center gap-2 flex-1 max-w-md">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8888a0]" />
+            <input
+              type="text"
+              placeholder="Tìm kiếm theo tiêu đề, PIC, URL..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 bg-card border border-border rounded-lg text-white text-sm placeholder:text-[#8888a0]"
+            />
+          </div>
         </div>
+
+        {/* Check All Button */}
+        <button
+          onClick={checkAllTasks}
+          disabled={isCheckingAll || filteredTasks.filter((t) => !t.seoResult).length === 0}
+          className={cn(
+            "px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors",
+            isCheckingAll
+              ? "bg-accent/50 text-white cursor-wait"
+              : filteredTasks.filter((t) => !t.seoResult).length === 0
+              ? "bg-secondary text-[#8888a0] cursor-not-allowed"
+              : "bg-accent text-white hover:bg-accent/90"
+          )}
+        >
+          {isCheckingAll ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Đang check {checkAllProgress.current}/{checkAllProgress.total}</span>
+            </>
+          ) : (
+            <>
+              <RefreshCw className="w-4 h-4" />
+              <span>
+                Check All {selectedProject ? `(${projects.find((p) => p.id === selectedProject)?.name})` : ''}
+                {filteredTasks.filter((t) => !t.seoResult).length > 0 && (
+                  <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded text-xs">
+                    {filteredTasks.filter((t) => !t.seoResult).length}
+                  </span>
+                )}
+              </span>
+            </>
+          )}
+        </button>
       </div>
 
       {/* Project Tabs */}
@@ -300,318 +347,337 @@ export default function SEOAuditPage() {
         ))}
       </div>
 
-      {/* Summary Stats */}
-      <div className="grid grid-cols-4 gap-3 mb-4">
-        <div className="bg-card border border-border rounded-lg p-3">
-          <div className="text-2xl font-bold text-white">{tasks.length}</div>
-          <div className="text-xs text-[#8888a0]">Tổng bài viết</div>
-        </div>
-        <div className="bg-card border border-border rounded-lg p-3">
-          <div className="text-2xl font-bold text-accent">{checkedTasks.length}</div>
-          <div className="text-xs text-[#8888a0]">Đã kiểm tra</div>
-        </div>
-        <div className="bg-card border border-border rounded-lg p-3">
-          <div className="text-2xl font-bold text-green-400">{passedTasks.length}</div>
-          <div className="text-xs text-[#8888a0]">Đạt (&ge;70)</div>
-        </div>
-        <div className="bg-card border border-border rounded-lg p-3">
-          <div className="text-2xl font-bold text-red-400">{failedTasks.length}</div>
-          <div className="text-xs text-[#8888a0]">Chưa đạt (&lt;70)</div>
-        </div>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-5 gap-3 mb-4">
+        <button
+          onClick={() => setFilterStatus('all')}
+          className={cn(
+            "bg-card border rounded-lg p-3 text-left transition-colors",
+            filterStatus === 'all' ? "border-accent" : "border-border hover:border-accent/50"
+          )}
+        >
+          <div className="text-2xl font-bold text-white">{totalTasks}</div>
+          <div className="text-xs text-[#8888a0]">Tổng link</div>
+        </button>
+        <button
+          onClick={() => setFilterStatus('unchecked')}
+          className={cn(
+            "bg-card border rounded-lg p-3 text-left transition-colors",
+            filterStatus === 'unchecked' ? "border-accent" : "border-border hover:border-accent/50"
+          )}
+        >
+          <div className="text-2xl font-bold text-[#8888a0]">{uncheckedTasks}</div>
+          <div className="text-xs text-[#8888a0]">Chưa check</div>
+        </button>
+        <button
+          onClick={() => setFilterStatus('all')}
+          className={cn(
+            "bg-card border rounded-lg p-3 text-left transition-colors",
+            filterStatus === 'all' && checkedTasks > 0 ? "border-accent" : "border-border"
+          )}
+        >
+          <div className="text-2xl font-bold text-accent">{checkedTasks}</div>
+          <div className="text-xs text-[#8888a0]">Đã check</div>
+        </button>
+        <button
+          onClick={() => setFilterStatus('passed')}
+          className={cn(
+            "bg-card border rounded-lg p-3 text-left transition-colors",
+            filterStatus === 'passed' ? "border-green-500" : "border-border hover:border-green-500/50"
+          )}
+        >
+          <div className="text-2xl font-bold text-green-400">{passedTasks}</div>
+          <div className="text-xs text-[#8888a0]">Đạt (≥70)</div>
+        </button>
+        <button
+          onClick={() => setFilterStatus('failed')}
+          className={cn(
+            "bg-card border rounded-lg p-3 text-left transition-colors",
+            filterStatus === 'failed' ? "border-red-500" : "border-border hover:border-red-500/50"
+          )}
+        >
+          <div className="text-2xl font-bold text-red-400">{failedTasks}</div>
+          <div className="text-xs text-[#8888a0]">Chưa đạt</div>
+        </button>
       </div>
 
       {tasks.length === 0 ? (
         <EmptyState
           icon={Search}
           title="Không có bài viết"
-          description="Không tìm thấy bài viết đã publish trong tháng này"
+          description="Không tìm thấy bài viết đã publish"
         />
-      ) : checkedTasks.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <AlertOctagon className="w-12 h-12 text-[#8888a0] mx-auto mb-3" />
-            <p className="text-white font-medium mb-2">Chưa có dữ liệu SEO</p>
-            <p className="text-[#8888a0] text-sm mb-4">Nhấn &quot;Check tất cả&quot; để kiểm tra SEO cho {tasks.length} bài viết</p>
-            <button
-              onClick={checkAllSEO}
-              disabled={checkingAll}
-              className="px-4 py-2 bg-accent hover:bg-accent/90 rounded-lg text-white font-medium"
-            >
-              <RefreshCw className={cn("w-4 h-4 inline mr-2", checkingAll && "animate-spin")} />
-              {checkingAll ? 'Đang check...' : 'Bắt đầu check'}
-            </button>
-          </div>
-        </div>
       ) : (
         <div className="flex-1 flex gap-4 min-h-0">
-          {/* Left Sidebar - Categories & Issues */}
-          <div className="w-72 flex-shrink-0 bg-card border border-border rounded-lg overflow-hidden flex flex-col">
-            {/* Category Tabs */}
-            <div className="flex border-b border-border">
-              <button
-                onClick={() => { setSelectedCategory(null); setSelectedIssue(null); }}
-                className={cn(
-                  "flex-1 px-3 py-2 text-xs font-medium",
-                  !selectedCategory ? "bg-accent text-white" : "text-[#8888a0] hover:text-white"
-                )}
-              >
-                Tất cả
-              </button>
-              {categories.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => { setSelectedCategory(cat.id); setSelectedIssue(null); }}
-                  className={cn(
-                    "flex-1 px-3 py-2 text-xs font-medium",
-                    selectedCategory === cat.id ? "bg-accent text-white" : "text-[#8888a0] hover:text-white"
-                  )}
+          {/* Left: Task List */}
+          <div className="w-1/2 bg-card border border-border rounded-lg overflow-hidden flex flex-col">
+            <div className="px-4 py-3 border-b border-border bg-secondary/30 flex items-center justify-between">
+              <span className="text-sm font-medium text-white">
+                Danh sách bài viết ({filteredTasks.length})
+              </span>
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-[#8888a0]" />
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
+                  className="px-2 py-1 bg-card border border-border rounded text-xs text-white"
                 >
-                  <cat.icon className="w-3.5 h-3.5 mx-auto" />
-                </button>
-              ))}
+                  <option value="all">Tất cả</option>
+                  <option value="unchecked">Chưa check</option>
+                  <option value="passed">Đạt</option>
+                  <option value="failed">Chưa đạt</option>
+                </select>
+              </div>
             </div>
 
-            {/* Issues List */}
             <div className="flex-1 overflow-y-auto">
-              {filteredIssues.length === 0 ? (
-                <div className="p-4 text-center text-[#8888a0] text-sm">
-                  <Check className="w-8 h-8 mx-auto mb-2 text-green-400" />
-                  Không có lỗi nào!
-                </div>
-              ) : (
-                filteredIssues.map((issue) => (
-                  <button
-                    key={issue.checkId}
-                    onClick={() => setSelectedIssue(issue.checkId)}
+              {filteredTasks.map((task) => {
+                const hasResult = !!task.seoResult;
+                const score = task.seoResult?.score || 0;
+                const isSelected = selectedTask?.id === task.id;
+
+                return (
+                  <div
+                    key={task.id}
                     className={cn(
-                      "w-full flex items-center gap-2 px-3 py-2.5 text-left border-b border-border hover:bg-white/5 transition-colors",
-                      selectedIssue === issue.checkId && "bg-white/10"
+                      "flex items-center gap-3 px-4 py-3 border-b border-border cursor-pointer transition-colors",
+                      isSelected ? "bg-accent/10" : "hover:bg-white/5"
                     )}
+                    onClick={() => setSelectedTask(task)}
                   >
-                    {issue.status === 'fail' ? (
-                      <XCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
-                    ) : (
-                      <AlertTriangle className="w-4 h-4 text-yellow-400 flex-shrink-0" />
-                    )}
+                    {/* Status Icon */}
+                    <div className="flex-shrink-0">
+                      {task.seoLoading ? (
+                        <Loader2 className="w-5 h-5 animate-spin text-accent" />
+                      ) : hasResult ? (
+                        <div className={cn(
+                          "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold",
+                          getScoreBg(score),
+                          getScoreColor(score)
+                        )}>
+                          {score}
+                        </div>
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-[#8888a0]/20 flex items-center justify-center">
+                          <Clock className="w-4 h-4 text-[#8888a0]" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Task Info */}
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm text-white truncate">{issue.checkName}</div>
-                      <div className="text-xs text-[#8888a0]">
-                        {issue.tasks.length} bài viết
+                      <div className="text-sm text-white truncate">
+                        {task.title || task.keyword_sub || 'Không có tiêu đề'}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-[#8888a0] mt-0.5">
+                        <span className="text-accent">{task.pic}</span>
+                        <span>•</span>
+                        <span>{task.project?.name}</span>
+                        {task.seoResult && (
+                          <>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              {formatDate(task.seoResult.checked_at)}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-[#8888a0]" />
-                  </button>
-                ))
-              )}
-            </div>
 
-            {/* Issue Summary */}
-            <div className="border-t border-border p-3 bg-secondary/30">
-              <div className="flex justify-between text-xs">
-                <span className="text-[#8888a0]">Tổng lỗi:</span>
-                <span className="text-white font-medium">{issuesByCheck.length}</span>
-              </div>
-              <div className="flex justify-between text-xs mt-1">
-                <span className="text-red-400">Nghiêm trọng:</span>
-                <span className="text-red-400">{issuesByCheck.filter(i => i.status === 'fail').length}</span>
-              </div>
-              <div className="flex justify-between text-xs mt-1">
-                <span className="text-yellow-400">Cảnh báo:</span>
-                <span className="text-yellow-400">{issuesByCheck.filter(i => i.status === 'warning').length}</span>
-              </div>
+                    {/* Check Button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        checkSEO(task);
+                      }}
+                      disabled={task.seoLoading}
+                      className={cn(
+                        "px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1.5",
+                        hasResult
+                          ? "bg-secondary text-[#8888a0] hover:text-white"
+                          : "bg-accent text-white hover:bg-accent/90"
+                      )}
+                    >
+                      <RefreshCw className={cn("w-3 h-3", task.seoLoading && "animate-spin")} />
+                      {hasResult ? 'Check lại' : 'Check'}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
-          {/* Right Panel - Issue Details */}
-          <div className="flex-1 bg-card border border-border rounded-lg overflow-hidden flex flex-col">
-            {currentIssue ? (
+          {/* Right: Task Detail */}
+          <div className="w-1/2 bg-card border border-border rounded-lg overflow-hidden flex flex-col">
+            {selectedTask ? (
               <>
-                {/* Issue Header */}
+                {/* Header */}
                 <div className="px-4 py-3 border-b border-border bg-secondary/30">
-                  <div className="flex items-center gap-2">
-                    {currentIssue.status === 'fail' ? (
-                      <XCircle className="w-5 h-5 text-red-400" />
-                    ) : (
-                      <AlertTriangle className="w-5 h-5 text-yellow-400" />
-                    )}
-                    <h2 className="text-white font-medium">{currentIssue.checkName}</h2>
-                    <span className={cn(
-                      "ml-auto px-2 py-0.5 rounded text-xs font-medium",
-                      currentIssue.status === 'fail' ? "bg-red-500/20 text-red-400" : "bg-yellow-500/20 text-yellow-400"
-                    )}>
-                      {currentIssue.tasks.length} bài
-                    </span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-white font-medium truncate">
+                        {selectedTask.title || selectedTask.keyword_sub}
+                      </h3>
+                      <div className="flex items-center gap-2 text-xs text-[#8888a0] mt-1">
+                        <span>{selectedTask.pic}</span>
+                        <span>•</span>
+                        <span>{selectedTask.project?.name}</span>
+                      </div>
+                    </div>
+                    <a
+                      href={selectedTask.link_publish}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 text-[#8888a0] hover:text-accent"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  </div>
+
+                  {/* URL */}
+                  <div className="mt-2 px-2 py-1.5 bg-black/30 rounded text-xs text-[#8888a0] truncate">
+                    {selectedTask.link_publish}
                   </div>
                 </div>
 
-                {/* Affected Tasks List */}
-                <div className="flex-1 overflow-y-auto">
-                  <table className="w-full">
-                    <thead className="sticky top-0 bg-secondary/50">
-                      <tr className="text-xs text-[#8888a0]">
-                        <th className="text-left px-4 py-2 font-medium">Bài viết</th>
-                        <th className="text-left px-4 py-2 font-medium">Giá trị hiện tại</th>
-                        <th className="text-left px-4 py-2 font-medium">Đề xuất</th>
-                        <th className="w-10"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {currentIssue.tasks.map(({ task, value, suggestion }) => (
-                        <tr key={task.id} className="border-t border-border hover:bg-white/5">
-                          <td className="px-4 py-3">
-                            <div className="text-sm text-white truncate max-w-[250px]">
-                              {task.title || task.keyword_sub}
-                            </div>
-                            <div className="text-xs text-[#8888a0]">{task.pic}</div>
-                          </td>
-                          <td className="px-4 py-3">
-                            {value ? (
-                              <code className="text-xs bg-black/30 px-2 py-1 rounded text-[#c0c0d0] block max-w-[200px] truncate">
-                                {value}
-                              </code>
-                            ) : (
-                              <span className="text-xs text-[#8888a0]">-</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            {suggestion ? (
-                              <span className="text-xs text-yellow-400">{suggestion}</span>
-                            ) : (
-                              <span className="text-xs text-[#8888a0]">-</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <a
-                              href={task.link_publish}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-1.5 text-[#8888a0] hover:text-accent"
+                {/* Content */}
+                <div className="flex-1 overflow-y-auto p-4">
+                  {selectedTask.seoLoading ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-center">
+                        <Loader2 className="w-8 h-8 animate-spin text-accent mx-auto mb-3" />
+                        <p className="text-sm text-[#8888a0]">Đang kiểm tra SEO...</p>
+                      </div>
+                    </div>
+                  ) : selectedTask.seoResult ? (
+                    <div className="space-y-4">
+                      {/* Overall Score */}
+                      <div className="text-center py-4">
+                        <div className={cn(
+                          "text-5xl font-bold",
+                          getScoreColor(selectedTask.seoResult.score)
+                        )}>
+                          {selectedTask.seoResult.score}
+                        </div>
+                        <div className="text-sm text-[#8888a0] mt-1">
+                          / {selectedTask.seoResult.max_score} điểm
+                        </div>
+                        <div className="text-xs text-[#8888a0] mt-2 flex items-center justify-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          Kiểm tra lúc {formatDate(selectedTask.seoResult.checked_at)}
+                        </div>
+                      </div>
+
+                      {/* Category Scores */}
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="bg-secondary rounded-lg p-3 text-center">
+                          <div className="text-xs text-[#8888a0] mb-1">Nội dung (C)</div>
+                          <div className={cn(
+                            "text-lg font-bold",
+                            getScoreColor(Math.round((selectedTask.seoResult.content_score / selectedTask.seoResult.content_max) * 100))
+                          )}>
+                            {selectedTask.seoResult.content_score}/{selectedTask.seoResult.content_max}
+                          </div>
+                        </div>
+                        <div className="bg-secondary rounded-lg p-3 text-center">
+                          <div className="text-xs text-[#8888a0] mb-1">Hình ảnh (I)</div>
+                          <div className={cn(
+                            "text-lg font-bold",
+                            getScoreColor(Math.round((selectedTask.seoResult.images_score / selectedTask.seoResult.images_max) * 100))
+                          )}>
+                            {selectedTask.seoResult.images_score}/{selectedTask.seoResult.images_max}
+                          </div>
+                        </div>
+                        <div className="bg-secondary rounded-lg p-3 text-center">
+                          <div className="text-xs text-[#8888a0] mb-1">Kỹ thuật (T)</div>
+                          <div className={cn(
+                            "text-lg font-bold",
+                            getScoreColor(Math.round((selectedTask.seoResult.technical_score / selectedTask.seoResult.technical_max) * 100))
+                          )}>
+                            {selectedTask.seoResult.technical_score}/{selectedTask.seoResult.technical_max}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Details */}
+                      {selectedTask.seoResult.details && selectedTask.seoResult.details.length > 0 && (
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-medium text-white">Chi tiết kiểm tra</h4>
+                          {selectedTask.seoResult.details.map((detail, idx) => (
+                            <div
+                              key={idx}
+                              className={cn(
+                                "p-3 rounded-lg border",
+                                detail.status === 'pass'
+                                  ? "bg-green-500/10 border-green-500/30"
+                                  : detail.status === 'warning'
+                                  ? "bg-yellow-500/10 border-yellow-500/30"
+                                  : "bg-red-500/10 border-red-500/30"
+                              )}
                             >
-                              <ExternalLink className="w-4 h-4" />
-                            </a>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                              <div className="flex items-start gap-2">
+                                {detail.status === 'pass' ? (
+                                  <Check className="w-4 h-4 text-green-400 mt-0.5" />
+                                ) : detail.status === 'warning' ? (
+                                  <AlertTriangle className="w-4 h-4 text-yellow-400 mt-0.5" />
+                                ) : (
+                                  <XCircle className="w-4 h-4 text-red-400 mt-0.5" />
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-sm text-white">{detail.name}</div>
+                                  {detail.value && (
+                                    <div className="text-xs text-[#8888a0] mt-1 truncate">
+                                      Giá trị: {detail.value}
+                                    </div>
+                                  )}
+                                  {detail.suggestion && (
+                                    <div className="text-xs text-yellow-400 mt-1">
+                                      💡 {detail.suggestion}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="text-xs text-[#8888a0]">
+                                  {detail.score}/{detail.maxScore}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-center">
+                        <Clock className="w-12 h-12 text-[#8888a0] mx-auto mb-3 opacity-50" />
+                        <p className="text-white font-medium mb-2">Chưa kiểm tra SEO</p>
+                        <p className="text-sm text-[#8888a0] mb-4">
+                          Nhấn nút &quot;Check&quot; để kiểm tra SEO cho bài viết này
+                        </p>
+                        <button
+                          onClick={() => checkSEO(selectedTask)}
+                          className="px-4 py-2 bg-accent hover:bg-accent/90 rounded-lg text-white text-sm font-medium"
+                        >
+                          <RefreshCw className="w-4 h-4 inline mr-2" />
+                          Check SEO
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </>
             ) : (
               <div className="flex-1 flex items-center justify-center text-[#8888a0]">
                 <div className="text-center">
                   <Search className="w-10 h-10 mx-auto mb-3 opacity-50" />
-                  <p className="text-sm">Chọn một lỗi từ danh sách bên trái</p>
-                  <p className="text-xs mt-1">để xem chi tiết các bài viết cần sửa</p>
+                  <p className="text-sm">Chọn một bài viết từ danh sách bên trái</p>
+                  <p className="text-xs mt-1">để xem chi tiết kết quả SEO</p>
                 </div>
               </div>
             )}
           </div>
         </div>
       )}
-
-      {/* Bottom: All tasks quick view */}
-      {checkedTasks.length > 0 && (
-        <div className="mt-4 bg-card border border-border rounded-lg">
-          <div className="px-4 py-2 border-b border-border flex items-center justify-between">
-            <span className="text-sm font-medium text-white">Tất cả bài viết đã check ({checkedTasks.length})</span>
-            <div className="flex gap-2 text-xs">
-              <span className="text-green-400">{passedTasks.length} đạt</span>
-              <span className="text-[#8888a0]">•</span>
-              <span className="text-red-400">{failedTasks.length} chưa đạt</span>
-            </div>
-          </div>
-          <div className="max-h-48 overflow-y-auto">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-secondary/50 text-xs text-[#8888a0]">
-                <tr>
-                  <th className="text-left px-4 py-2">Điểm</th>
-                  <th className="text-left px-4 py-2">Bài viết</th>
-                  <th className="text-left px-4 py-2">Keyword</th>
-                  <th className="text-left px-4 py-2">PIC</th>
-                  <th className="text-center px-4 py-2">C</th>
-                  <th className="text-center px-4 py-2">I</th>
-                  <th className="text-center px-4 py-2">T</th>
-                  <th className="w-10"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {checkedTasks
-                  .sort((a, b) => (a.seoScore || 0) - (b.seoScore || 0))
-                  .map((task) => {
-                    const score = task.seoScore || 0;
-                    const scoreColor = score >= 70 ? 'text-green-400' : score >= 50 ? 'text-yellow-400' : 'text-red-400';
-                    const cats = task.seoResult?.categories;
-
-                    return (
-                      <tr key={task.id} className="border-t border-border hover:bg-white/5">
-                        <td className="px-4 py-2">
-                          <span className={cn("font-bold", scoreColor)}>{score}</span>
-                        </td>
-                        <td className="px-4 py-2">
-                          <span className="text-white truncate block max-w-[200px]">
-                            {task.title || task.keyword_sub}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2">
-                          <span className="text-[#8888a0] truncate block max-w-[150px]">
-                            {task.parent_keyword}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2 text-[#8888a0]">{task.pic}</td>
-                        <td className="px-4 py-2 text-center">
-                          {cats && (
-                            <MiniCatScore score={cats.content.score} max={cats.content.maxScore} />
-                          )}
-                        </td>
-                        <td className="px-4 py-2 text-center">
-                          {cats && (
-                            <MiniCatScore score={cats.images.score} max={cats.images.maxScore} />
-                          )}
-                        </td>
-                        <td className="px-4 py-2 text-center">
-                          {cats && (
-                            <MiniCatScore score={cats.technical.score} max={cats.technical.maxScore} />
-                          )}
-                        </td>
-                        <td className="px-4 py-2">
-                          <a
-                            href={task.link_publish}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[#8888a0] hover:text-accent"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </a>
-                        </td>
-                      </tr>
-                    );
-                  })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Loading overlay for individual checks */}
-      {tasks.some((t) => t.seoLoading) && (
-        <div className="fixed bottom-4 right-4 bg-card border border-border rounded-lg px-4 py-3 flex items-center gap-3 shadow-lg">
-          <Loader2 className="w-5 h-5 animate-spin text-accent" />
-          <span className="text-sm text-white">
-            Đang check... ({tasks.filter((t) => t.seoChecked).length}/{tasks.length})
-          </span>
-        </div>
-      )}
     </div>
-  );
-}
-
-function MiniCatScore({ score, max }: { score: number; max: number }) {
-  const pct = Math.round((score / max) * 100);
-  const color = pct >= 70 ? 'text-green-400' : pct >= 50 ? 'text-yellow-400' : 'text-red-400';
-
-  return (
-    <span className={cn("text-xs font-mono", color)}>
-      {score}/{max}
-    </span>
   );
 }

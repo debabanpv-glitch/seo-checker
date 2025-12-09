@@ -129,94 +129,59 @@ export async function GET(request: NextRequest) {
         qcContent: qcContentTasks.length,
         waitPublish: waitPublishTasks.length,
       },
-      // Include task details for popup with waiting time
+      // Include task details for popup with deadline
       tasks: {
-        qcContent: qcContentTasks.slice(0, 10).map((t) => {
-          const waitDays = t.updated_at
-            ? Math.floor((Date.now() - new Date(t.updated_at).getTime()) / (1000 * 60 * 60 * 24))
-            : 0;
-          return {
-            id: t.id,
-            title: t.title || t.keyword_sub,
-            pic: t.pic,
-            project: t.project?.name,
-            link: t.link_publish || t.content_file,
-            waitDays,
-          };
-        }),
-        qcOutline: qcOutlineTasks.slice(0, 10).map((t) => {
-          const waitDays = t.updated_at
-            ? Math.floor((Date.now() - new Date(t.updated_at).getTime()) / (1000 * 60 * 60 * 24))
-            : 0;
-          return {
-            id: t.id,
-            title: t.title || t.keyword_sub,
-            pic: t.pic,
-            project: t.project?.name,
-            waitDays,
-          };
-        }),
-        waitPublish: waitPublishTasks.slice(0, 10).map((t) => {
-          const waitDays = t.updated_at
-            ? Math.floor((Date.now() - new Date(t.updated_at).getTime()) / (1000 * 60 * 60 * 24))
-            : 0;
-          return {
-            id: t.id,
-            title: t.title || t.keyword_sub,
-            pic: t.pic,
-            project: t.project?.name,
-            link: t.link_publish || t.content_file,
-            waitDays,
-          };
-        }),
-        doingContent: doingContentTasks.slice(0, 10).map((t) => {
-          const waitDays = t.updated_at
-            ? Math.floor((Date.now() - new Date(t.updated_at).getTime()) / (1000 * 60 * 60 * 24))
-            : 0;
-          return {
-            id: t.id,
-            title: t.title || t.keyword_sub,
-            pic: t.pic,
-            project: t.project?.name,
-            waitDays,
-          };
-        }),
-        fixingOutline: fixingOutlineTasks.slice(0, 10).map((t) => {
-          const waitDays = t.updated_at
-            ? Math.floor((Date.now() - new Date(t.updated_at).getTime()) / (1000 * 60 * 60 * 24))
-            : 0;
-          return {
-            id: t.id,
-            title: t.title || t.keyword_sub,
-            pic: t.pic,
-            project: t.project?.name,
-            waitDays,
-          };
-        }),
-        fixingContent: fixingContentTasks.slice(0, 10).map((t) => {
-          const waitDays = t.updated_at
-            ? Math.floor((Date.now() - new Date(t.updated_at).getTime()) / (1000 * 60 * 60 * 24))
-            : 0;
-          return {
-            id: t.id,
-            title: t.title || t.keyword_sub,
-            pic: t.pic,
-            project: t.project?.name,
-            waitDays,
-          };
-        }),
-        doingOutline: doingOutlineTasks.slice(0, 10).map((t) => {
-          const waitDays = t.updated_at
-            ? Math.floor((Date.now() - new Date(t.updated_at).getTime()) / (1000 * 60 * 60 * 24))
-            : 0;
-          return {
-            id: t.id,
-            title: t.title || t.keyword_sub,
-            pic: t.pic,
-            project: t.project?.name,
-            waitDays,
-          };
-        }),
+        qcContent: qcContentTasks.slice(0, 10).map((t) => ({
+          id: t.id,
+          title: t.title || t.keyword_sub,
+          pic: t.pic,
+          project: t.project?.name,
+          link: t.link_publish || t.content_file,
+          deadline: t.deadline,
+        })),
+        qcOutline: qcOutlineTasks.slice(0, 10).map((t) => ({
+          id: t.id,
+          title: t.title || t.keyword_sub,
+          pic: t.pic,
+          project: t.project?.name,
+          deadline: t.deadline,
+        })),
+        waitPublish: waitPublishTasks.slice(0, 10).map((t) => ({
+          id: t.id,
+          title: t.title || t.keyword_sub,
+          pic: t.pic,
+          project: t.project?.name,
+          link: t.link_publish || t.content_file,
+          deadline: t.deadline,
+        })),
+        doingContent: doingContentTasks.slice(0, 10).map((t) => ({
+          id: t.id,
+          title: t.title || t.keyword_sub,
+          pic: t.pic,
+          project: t.project?.name,
+          deadline: t.deadline,
+        })),
+        fixingOutline: fixingOutlineTasks.slice(0, 10).map((t) => ({
+          id: t.id,
+          title: t.title || t.keyword_sub,
+          pic: t.pic,
+          project: t.project?.name,
+          deadline: t.deadline,
+        })),
+        fixingContent: fixingContentTasks.slice(0, 10).map((t) => ({
+          id: t.id,
+          title: t.title || t.keyword_sub,
+          pic: t.pic,
+          project: t.project?.name,
+          deadline: t.deadline,
+        })),
+        doingOutline: doingOutlineTasks.slice(0, 10).map((t) => ({
+          id: t.id,
+          title: t.title || t.keyword_sub,
+          pic: t.pic,
+          project: t.project?.name,
+          deadline: t.deadline,
+        })),
       },
       biggest: '',
     };

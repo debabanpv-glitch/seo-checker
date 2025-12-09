@@ -16,6 +16,8 @@ export interface Task {
   month: number;
   parent_keyword: string;
   keyword_sub: string;
+  keyword_count: number;
+  keywords_list: string[];
   search_volume: number;
   title: string;
   outline: string;
@@ -83,7 +85,7 @@ export interface BottleneckTask {
   pic: string;
   project: string;
   link?: string;
-  waitDays?: number;
+  deadline?: string;
 }
 
 export interface BottleneckData {

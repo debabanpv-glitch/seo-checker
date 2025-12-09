@@ -13,6 +13,7 @@ import {
   Mail,
   Building2,
   CreditCard,
+  FolderOpen,
 } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
@@ -50,6 +51,7 @@ interface SalaryDataWithTasks {
   isKpiMet: boolean;
   tasks: TaskDetail[];
   memberInfo?: MemberInfo;
+  projectsSummary?: { name: string; count: number }[];
 }
 
 export default function SalaryPage() {
@@ -80,12 +82,23 @@ export default function SalaryPage() {
       const salaryResult = await salaryRes.json();
       const membersResult = await membersRes.json();
 
-      // Merge member info into salary data
+      // Merge member info and projects summary into salary data
       const dataWithMemberInfo = (salaryResult.salaryData || []).map((s: SalaryDataWithTasks) => {
         const memberInfo = (membersResult.memberInfos || []).find(
           (m: MemberInfo) => m.name === s.name || m.nickname === s.name
         );
-        return { ...s, memberInfo };
+
+        // Calculate projects summary from tasks
+        const projectCounts: Record<string, number> = {};
+        s.tasks.forEach((task) => {
+          const projectName = task.project || 'Không xác định';
+          projectCounts[projectName] = (projectCounts[projectName] || 0) + 1;
+        });
+        const projectsSummary = Object.entries(projectCounts)
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => b.count - a.count);
+
+        return { ...s, memberInfo, projectsSummary };
       });
 
       setSalaryData(dataWithMemberInfo);
@@ -318,6 +331,21 @@ export default function SalaryPage() {
                             {selectedData.publishedCount} bài publish
                           </span>
                         </div>
+                        {/* Projects summary */}
+                        {selectedData.projectsSummary && selectedData.projectsSummary.length > 0 && (
+                          <div className="flex items-center gap-2 mt-2 flex-wrap">
+                            <FolderOpen className="w-3.5 h-3.5 text-[#8888a0]" />
+                            {selectedData.projectsSummary.map((p, idx) => (
+                              <span
+                                key={p.name}
+                                className="px-2 py-0.5 bg-accent/10 text-accent rounded text-xs"
+                              >
+                                {p.name}: {p.count} bài
+                                {idx < selectedData.projectsSummary!.length - 1 ? '' : ''}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="text-right">

@@ -69,7 +69,11 @@ function checkHasConclusion(html: string): boolean {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { url, keyword, subKeyword } = body;
+    const { url, keyword, subKeywords } = body;
+    // Support both single subKeyword (legacy) and subKeywords array
+    const subKeywordList: string[] = Array.isArray(subKeywords)
+      ? subKeywords
+      : (body.subKeyword ? [body.subKeyword] : []);
 
     if (!url) {
       return NextResponse.json({ error: 'URL is required' }, { status: 400 });
@@ -163,16 +167,26 @@ export async function POST(request: NextRequest) {
       suggestion: metaDescLength === 0 ? 'Thiếu meta description' : metaDescLength > 160 ? 'Meta description quá dài' : undefined,
     });
 
+    // Check if any sub keyword exists in meta description
+    const subKwInMetaDesc = subKeywordList.some(kw => hasKeyword(metaDesc, kw));
+    const matchedSubKw = subKeywordList.filter(kw => hasKeyword(metaDesc, kw));
+
     details.push({
       id: 'meta-desc-keyword',
       category: 'content',
       name: 'Meta Description chứa keyword',
       description: 'Chứa keyword chính (bắt buộc) và keyword phụ (ưu tiên)',
-      status: hasKeyword(metaDesc, keyword) && hasKeyword(metaDesc, subKeyword) ? 'pass' : hasKeyword(metaDesc, keyword) ? 'warning' : 'fail',
-      score: hasKeyword(metaDesc, keyword) && hasKeyword(metaDesc, subKeyword) ? 3 : hasKeyword(metaDesc, keyword) ? 2 : 0,
+      status: hasKeyword(metaDesc, keyword) && subKwInMetaDesc ? 'pass' : hasKeyword(metaDesc, keyword) ? 'warning' : 'fail',
+      score: hasKeyword(metaDesc, keyword) && subKwInMetaDesc ? 3 : hasKeyword(metaDesc, keyword) ? 2 : 0,
       maxScore: 3,
-      value: hasKeyword(metaDesc, keyword) ? (hasKeyword(metaDesc, subKeyword) ? 'Có cả 2 keyword' : 'Chỉ có keyword chính') : 'Thiếu keyword',
-      suggestion: !hasKeyword(metaDesc, keyword) ? `Thêm keyword "${keyword}" vào meta description` : !hasKeyword(metaDesc, subKeyword) ? `Nên thêm keyword phụ "${subKeyword}"` : undefined,
+      value: hasKeyword(metaDesc, keyword)
+        ? (subKwInMetaDesc ? `Có keyword chính + ${matchedSubKw.length} keyword phụ` : 'Chỉ có keyword chính')
+        : 'Thiếu keyword',
+      suggestion: !hasKeyword(metaDesc, keyword)
+        ? `Thêm keyword "${keyword}" vào meta description`
+        : !subKwInMetaDesc && subKeywordList.length > 0
+        ? `Nên thêm 1 trong các keyword phụ: ${subKeywordList.slice(0, 3).join(', ')}${subKeywordList.length > 3 ? '...' : ''}`
+        : undefined,
     });
 
     // 3. Sapo/Mở bài
@@ -204,24 +218,40 @@ export async function POST(request: NextRequest) {
       suggestion: !kwInFirst ? 'Thêm keyword vào đầu bài' : !kwInLast ? 'Thêm keyword vào cuối bài' : undefined,
     });
 
-    // 5. Keyword phụ
-    const subKwCount = countKeyword(bodyText, subKeyword);
+    // 5. Keyword phụ - check tất cả các keyword phụ
+    const subKwResults = subKeywordList.map(kw => ({
+      keyword: kw,
+      count: countKeyword(bodyText, kw),
+    }));
+    const totalSubKwCount = subKwResults.reduce((sum, r) => sum + r.count, 0);
+    const foundSubKw = subKwResults.filter(r => r.count > 0);
+    const missingSubKw = subKwResults.filter(r => r.count === 0);
+
     details.push({
       id: 'sub-keyword',
       category: 'content',
       name: 'Keyword phụ trong bài',
-      description: 'Keyword phụ xuất hiện ít nhất 1 lần',
-      status: subKwCount >= 1 ? 'pass' : 'fail',
-      score: subKwCount >= 1 ? 2 : 0,
+      description: `Kiểm tra ${subKeywordList.length} keyword phụ`,
+      status: foundSubKw.length === subKeywordList.length ? 'pass'
+        : foundSubKw.length > 0 ? 'warning'
+        : subKeywordList.length === 0 ? 'pass' : 'fail',
+      score: subKeywordList.length === 0 ? 2
+        : foundSubKw.length === subKeywordList.length ? 2
+        : foundSubKw.length > 0 ? 1 : 0,
       maxScore: 2,
-      value: `${subKwCount} lần`,
-      suggestion: subKwCount === 0 ? `Thêm keyword phụ "${subKeyword}" vào nội dung` : undefined,
+      value: subKeywordList.length === 0 ? 'Không có keyword phụ'
+        : `${foundSubKw.length}/${subKeywordList.length} keyword (${totalSubKwCount} lần)`,
+      suggestion: missingSubKw.length > 0
+        ? `Thiếu: ${missingSubKw.slice(0, 3).map(r => r.keyword).join(', ')}${missingSubKw.length > 3 ? '...' : ''}`
+        : undefined,
     });
 
-    // 6. Headings H2
+    // 6. Headings H2 - check với keyword chính và tất cả keyword phụ
     const h2Matches = bodyHtml.match(/<h2[^>]*>([\s\S]*?)<\/h2>/gi) || [];
     const h2Contents = h2Matches.map(h => extractText(h));
-    const h2WithKw = h2Contents.filter(h => hasKeyword(h, keyword) || hasKeyword(h, subKeyword)).length;
+    const h2WithKw = h2Contents.filter(h =>
+      hasKeyword(h, keyword) || subKeywordList.some(kw => hasKeyword(h, kw))
+    ).length;
 
     details.push({
       id: 'h2-keyword',

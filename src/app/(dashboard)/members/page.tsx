@@ -112,7 +112,8 @@ export default function MembersPage() {
   };
 
   // Get project names by IDs
-  const getProjectNames = (projectIds: string[]) => {
+  const getProjectNames = (projectIds: string[] | undefined | null) => {
+    if (!projectIds || !Array.isArray(projectIds)) return [];
     return projects
       .filter((p) => projectIds.includes(p.id))
       .map((p) => p.name);

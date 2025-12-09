@@ -1,44 +1,55 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Lock, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { Lock, User, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
+  const router = useRouter();
+  const { login, isAuthenticated, isLoading: authLoading } = useAuth();
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      router.replace('/');
+    }
+  }, [authLoading, isAuthenticated, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     setError('');
+    setIsSubmitting(true);
 
-    try {
-      const res = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
-      });
+    const result = await login(username, password);
 
-      const data = await res.json();
-
-      if (res.ok) {
-        // Set auth cookie
-        document.cookie = `auth=${data.token}; path=/; max-age=${60 * 60 * 24 * 7}`; // 7 days
-        router.push('/');
-        router.refresh();
-      } else {
-        setError(data.error || 'Mật khẩu không đúng');
-      }
-    } catch {
-      setError('Có lỗi xảy ra. Vui lòng thử lại.');
-    } finally {
-      setIsLoading(false);
+    if (result.success) {
+      router.replace('/');
+    } else {
+      setError(result.error || 'Đăng nhập thất bại');
     }
+
+    setIsSubmitting(false);
   };
+
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-primary flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-accent animate-spin" />
+      </div>
+    );
+  }
+
+  // Don't render if authenticated (will redirect)
+  if (isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-primary px-4">
@@ -55,6 +66,29 @@ export default function LoginPage() {
         {/* Login Form */}
         <div className="bg-card border border-border rounded-2xl p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Username */}
+            <div>
+              <label className="block text-sm font-medium text-[#8888a0] mb-2">
+                Tên đăng nhập
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <User className="w-5 h-5 text-[#8888a0]" />
+                </div>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Nhập username..."
+                  className="w-full pl-12 pr-4 py-3 bg-secondary border border-border rounded-xl text-white placeholder-[#8888a0] focus:border-accent transition-colors"
+                  required
+                  autoComplete="username"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            {/* Password */}
             <div>
               <label className="block text-sm font-medium text-[#8888a0] mb-2">
                 Mật khẩu
@@ -70,6 +104,7 @@ export default function LoginPage() {
                   placeholder="Nhập mật khẩu..."
                   className="w-full pl-12 pr-12 py-3 bg-secondary border border-border rounded-xl text-white placeholder-[#8888a0] focus:border-accent transition-colors"
                   required
+                  autoComplete="current-password"
                 />
                 <button
                   type="button"
@@ -81,6 +116,7 @@ export default function LoginPage() {
               </div>
             </div>
 
+            {/* Error */}
             {error && (
               <div className="flex items-center gap-2 p-3 bg-danger/10 border border-danger/20 rounded-lg text-danger text-sm">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -88,15 +124,16 @@ export default function LoginPage() {
               </div>
             )}
 
+            {/* Submit */}
             <button
               type="submit"
-              disabled={isLoading || !password}
+              disabled={isSubmitting || !username || !password}
               className="w-full py-3 bg-accent hover:bg-accent/90 disabled:bg-accent/50 disabled:cursor-not-allowed rounded-xl font-medium text-white transition-colors flex items-center justify-center gap-2"
             >
-              {isLoading ? (
+              {isSubmitting ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Đang xác thực...
+                  Đang đăng nhập...
                 </>
               ) : (
                 'Đăng nhập'
@@ -107,7 +144,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <p className="text-center text-[#8888a0] text-sm mt-6">
-          © 2024 Content Tracker. All rights reserved.
+          Content Tracker v1.4.0
         </p>
       </div>
     </div>

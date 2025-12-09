@@ -1,9 +1,26 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Settings, RefreshCw, Check, AlertCircle, Database, Plus, Trash2, Save, Clock, CheckCircle, XCircle } from 'lucide-react';
+import {
+  Settings,
+  RefreshCw,
+  Check,
+  AlertCircle,
+  Database,
+  Plus,
+  Trash2,
+  Save,
+  Clock,
+  CheckCircle,
+  XCircle,
+  Activity,
+  User,
+  Globe,
+  Monitor,
+} from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import { Project } from '@/types';
+import { ActivityLog } from '@/types/auth';
 
 interface MonthlyTarget {
   id: string;
@@ -24,11 +41,25 @@ interface SyncLog {
   duration_ms: number | null;
 }
 
+// Action labels
+const actionLabels: Record<string, { label: string; color: string }> = {
+  login: { label: 'Đăng nhập', color: 'text-success' },
+  logout: { label: 'Đăng xuất', color: 'text-[#8888a0]' },
+  login_failed: { label: 'Đăng nhập thất bại', color: 'text-danger' },
+  sync: { label: 'Đồng bộ dữ liệu', color: 'text-accent' },
+  check_seo: { label: 'Check SEO', color: 'text-accent' },
+  create_user: { label: 'Tạo user', color: 'text-success' },
+  update_user: { label: 'Cập nhật user', color: 'text-warning' },
+  delete_user: { label: 'Xóa user', color: 'text-danger' },
+  view_salary: { label: 'Xem lương', color: 'text-[#8888a0]' },
+};
+
 export default function SettingsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [monthlyTargets, setMonthlyTargets] = useState<MonthlyTarget[]>([]);
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
   const [lastSync, setLastSync] = useState<SyncLog | null>(null);
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -47,20 +78,23 @@ export default function SettingsPage() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [projectsRes, targetsRes, logsRes] = await Promise.all([
+      const [projectsRes, targetsRes, logsRes, activityRes] = await Promise.all([
         fetch('/api/projects'),
         fetch('/api/targets'),
         fetch('/api/sync/logs'),
+        fetch('/api/activity-logs?limit=20'),
       ]);
 
       const projectsData = await projectsRes.json();
       const targetsData = await targetsRes.json();
       const logsData = await logsRes.json();
+      const activityData = await activityRes.json();
 
       setProjects(projectsData.projects || []);
       setMonthlyTargets(targetsData.targets || []);
       setSyncLogs(logsData.logs || []);
       setLastSync(logsData.lastSync || null);
+      setActivityLogs(activityData.logs || []);
 
       if (projectsData.projects?.length > 0) {
         setSelectedProject(projectsData.projects[0].id);
@@ -303,6 +337,52 @@ export default function SettingsPage() {
         </div>
       )}
 
+      {/* Activity Logs */}
+      {activityLogs.length > 0 && (
+        <div className="bg-card border border-border rounded-xl p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Activity className="w-5 h-5 text-accent" />
+            <h2 className="text-lg font-semibold text-white">Nhật ký hoạt động</h2>
+          </div>
+
+          <div className="space-y-2">
+            {activityLogs.slice(0, 10).map((log) => {
+              const actionInfo = actionLabels[log.action] || { label: log.action, color: 'text-[#8888a0]' };
+              return (
+                <div key={log.id} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center">
+                      <User className="w-4 h-4 text-accent" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-white text-sm font-medium">{log.username}</span>
+                        <span className={`text-xs ${actionInfo.color}`}>{actionInfo.label}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-[#8888a0]">
+                        <span>{formatDateTime(log.created_at)}</span>
+                        {log.ip_address && log.ip_address !== 'unknown' && (
+                          <>
+                            <span>•</span>
+                            <Globe className="w-3 h-3" />
+                            <span>{log.ip_address}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  {log.details && Object.keys(log.details).length > 0 && (
+                    <div className="text-xs text-[#8888a0] max-w-[200px] truncate">
+                      {JSON.stringify(log.details)}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Add New Target */}
       <div className="bg-card border border-border rounded-xl p-6">
         <div className="flex items-center gap-2 mb-4">
@@ -429,7 +509,10 @@ export default function SettingsPage() {
 
       {/* System Info */}
       <div className="bg-card border border-border rounded-xl p-6">
-        <h2 className="text-lg font-semibold text-white mb-4">Thông tin hệ thống</h2>
+        <div className="flex items-center gap-2 mb-4">
+          <Monitor className="w-5 h-5 text-accent" />
+          <h2 className="text-lg font-semibold text-white">Thông tin hệ thống</h2>
+        </div>
 
         <div className="grid sm:grid-cols-2 gap-4 text-sm">
           <div className="p-4 bg-secondary rounded-lg">
@@ -446,7 +529,7 @@ export default function SettingsPage() {
           </div>
           <div className="p-4 bg-secondary rounded-lg">
             <p className="text-[#8888a0] mb-1">Version</p>
-            <p className="text-white font-mono">1.3.0</p>
+            <p className="text-white font-mono">1.4.0</p>
           </div>
         </div>
       </div>
