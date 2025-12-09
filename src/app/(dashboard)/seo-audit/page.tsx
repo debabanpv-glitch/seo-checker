@@ -246,23 +246,10 @@ export default function SEOAuditPage() {
   return (
     <div className="h-[calc(100vh-2rem)] flex flex-col">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <div className="flex items-center gap-4">
-          <h1 className="text-xl font-bold text-white">SEO Audit</h1>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <h1 className="text-xl font-bold text-white">SEO Audit</h1>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={selectedProject}
-            onChange={(e) => setSelectedProject(e.target.value)}
-            className="px-2 py-1.5 bg-card border border-border rounded-lg text-white text-sm"
-          >
-            <option value="">Tất cả dự án</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
-
+        <div className="flex items-center gap-2">
           <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
@@ -282,6 +269,35 @@ export default function SEOAuditPage() {
             {checkingAll ? 'Đang check...' : `Check tất cả (${tasks.length})`}
           </button>
         </div>
+      </div>
+
+      {/* Project Tabs */}
+      <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+        <button
+          onClick={() => setSelectedProject('')}
+          className={cn(
+            "px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors",
+            selectedProject === ''
+              ? "bg-accent text-white"
+              : "bg-card border border-border text-[#8888a0] hover:text-white"
+          )}
+        >
+          Tất cả
+        </button>
+        {projects.map((p) => (
+          <button
+            key={p.id}
+            onClick={() => setSelectedProject(p.id)}
+            className={cn(
+              "px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors",
+              selectedProject === p.id
+                ? "bg-accent text-white"
+                : "bg-card border border-border text-[#8888a0] hover:text-white"
+            )}
+          >
+            {p.name}
+          </button>
+        ))}
       </div>
 
       {/* Summary Stats */}
