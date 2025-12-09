@@ -478,34 +478,35 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Weekly Report + Recent Published */}
-      <div className="grid lg:grid-cols-2 gap-4 md:gap-6">
-        {/* Weekly Report */}
-        <div className="bg-card border border-border rounded-xl p-4 md:p-6">
-          <div className="flex items-center gap-2 mb-3 md:mb-4">
-            <Calendar className="w-4 h-4 md:w-5 md:h-5 text-accent" />
-            <h2 className="text-base md:text-lg font-semibold text-white">Báo cáo tuần</h2>
+      {/* Weekly Report (Large) + Recent Published (Small) */}
+      <div className="grid lg:grid-cols-3 gap-4 md:gap-6">
+        {/* Weekly Report - Larger */}
+        <div className="lg:col-span-2 bg-card border border-border rounded-xl p-4 md:p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Calendar className="w-5 h-5 text-accent" />
+            <h2 className="text-lg font-semibold text-white">Báo cáo tuần</h2>
           </div>
 
-          <div className="space-y-3 max-h-[300px] overflow-y-auto">
+          <div className="space-y-4">
             {weeklyReports.length > 0 ? (
               weeklyReports.map((report) => (
-                <div key={report.projectId} className="bg-secondary rounded-lg p-3">
-                  <p className="text-white text-sm font-medium mb-2">{report.projectName}</p>
-                  <div className="grid grid-cols-4 gap-1">
+                <div key={report.projectId} className="bg-secondary rounded-lg p-4">
+                  <p className="text-white font-medium mb-3">{report.projectName}</p>
+                  <div className="grid grid-cols-5 gap-2">
                     {report.weeks.map((week) => {
                       const isAchieved = week.count >= week.target;
                       return (
                         <div
                           key={week.week}
-                          className={`text-center p-1.5 rounded ${
-                            isAchieved ? 'bg-success/20' : week.count > 0 ? 'bg-warning/20' : 'bg-secondary'
+                          className={`text-center p-2 rounded-lg ${
+                            isAchieved ? 'bg-success/20 border border-success/30' : week.count > 0 ? 'bg-warning/20 border border-warning/30' : 'bg-card border border-border'
                           }`}
                         >
-                          <p className="text-[10px] text-[#8888a0]">T{week.weekOfYear}</p>
-                          <p className={`text-xs font-bold ${isAchieved ? 'text-success' : week.count > 0 ? 'text-warning' : 'text-[#8888a0]'}`}>
-                            {week.count}/{week.target}
+                          <p className="text-xs text-[#8888a0] mb-1">Tuần {week.weekOfYear}</p>
+                          <p className={`text-lg font-bold ${isAchieved ? 'text-success' : week.count > 0 ? 'text-warning' : 'text-[#8888a0]'}`}>
+                            {week.count}
                           </p>
+                          <p className="text-[10px] text-[#8888a0]">/{week.target} bài</p>
                         </div>
                       );
                     })}
@@ -513,69 +514,51 @@ export default function DashboardPage() {
                 </div>
               ))
             ) : (
-              <p className="text-[#8888a0] text-center py-6 text-sm">Chưa có dữ liệu</p>
+              <p className="text-[#8888a0] text-center py-8">Chưa có dữ liệu báo cáo tuần</p>
             )}
           </div>
         </div>
 
-        {/* Recent Published */}
+        {/* Recent Published - Smaller */}
         <div className="bg-card border border-border rounded-xl p-4 md:p-6">
-          <div className="flex items-center gap-2 mb-3 md:mb-4">
-            <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 text-success" />
-            <h2 className="text-base md:text-lg font-semibold text-white">Bài viết gần đây</h2>
+          <div className="flex items-center gap-2 mb-3">
+            <CheckCircle2 className="w-4 h-4 text-success" />
+            <h2 className="text-base font-semibold text-white">Bài viết gần đây</h2>
           </div>
 
-          <div className="space-y-2 max-h-[300px] overflow-y-auto">
+          <div className="space-y-2 max-h-[350px] overflow-y-auto">
             {recentTasks.length > 0 ? (
-              recentTasks.slice(0, 10).map((task) => {
-                // Calculate time ago
-                const getTimeAgo = (dateStr: string | null | undefined) => {
-                  if (!dateStr) return null;
-                  const date = new Date(dateStr);
-                  const now = new Date();
-                  const diffMs = now.getTime() - date.getTime();
-                  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-                  if (diffDays === 0) return 'Hôm nay';
-                  if (diffDays === 1) return 'Hôm qua';
-                  if (diffDays < 7) return `${diffDays} ngày trước`;
-                  if (diffDays < 30) return `${Math.floor(diffDays / 7)} tuần trước`;
-                  return formatDate(dateStr);
-                };
-
-                const timeAgo = getTimeAgo(task.publish_date || task.updated_at);
-
-                return (
-                  <div
-                    key={task.id}
-                    className="flex items-center gap-3 p-2 bg-secondary rounded-lg"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white text-sm font-medium truncate">
-                        {task.title || task.keyword_sub || 'Không có tiêu đề'}
-                      </p>
-                      <p className="text-xs text-[#8888a0]">
-                        {task.pic || 'N/A'}
-                        {timeAgo && (
-                          <span className="text-accent"> • {timeAgo}</span>
-                        )}
-                      </p>
-                    </div>
-                    {task.link_publish && (
-                      <a
-                        href={task.link_publish}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-1.5 text-accent hover:bg-accent/20 rounded transition-colors flex-shrink-0"
-                        title="Xem bài viết"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
-                    )}
+              recentTasks.slice(0, 10).map((task) => (
+                <div
+                  key={task.id}
+                  className="flex items-center gap-2 p-2 bg-secondary rounded-lg"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-medium truncate">
+                      {task.title || task.keyword_sub || 'Không có tiêu đề'}
+                    </p>
+                    <p className="text-xs text-[#8888a0]">
+                      {task.pic || 'N/A'}
+                      {task.publish_date && (
+                        <span className="text-accent"> • {formatDate(task.publish_date)}</span>
+                      )}
+                    </p>
                   </div>
-                );
-              })
+                  {task.link_publish && (
+                    <a
+                      href={task.link_publish}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1 text-accent hover:bg-accent/20 rounded transition-colors flex-shrink-0"
+                      title="Xem bài viết"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  )}
+                </div>
+              ))
             ) : (
-              <p className="text-[#8888a0] text-center py-6 text-sm">Chưa có bài viết nào</p>
+              <p className="text-[#8888a0] text-center py-6 text-sm">Chưa có bài viết</p>
             )}
           </div>
         </div>
