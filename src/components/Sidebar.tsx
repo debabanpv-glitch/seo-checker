@@ -12,6 +12,7 @@ import {
   LogOut,
   Menu,
   X,
+  Search,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -20,6 +21,7 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Dự án', href: '/projects', icon: FolderKanban },
   { name: 'Tasks', href: '/tasks', icon: ListTodo },
+  { name: 'SEO Audit', href: '/seo-audit', icon: Search },
   { name: 'Thành viên', href: '/members', icon: Users },
   { name: 'Tính lương', href: '/salary', icon: Wallet },
   { name: 'Cài đặt', href: '/settings', icon: Settings },
