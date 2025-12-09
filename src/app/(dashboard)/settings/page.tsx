@@ -226,7 +226,7 @@ export default function SettingsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">Cài đặt</h1>
+        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Cài đặt</h1>
         <p className="text-[#8888a0] text-sm">Quản lý cấu hình hệ thống</p>
       </div>
 
@@ -234,7 +234,7 @@ export default function SettingsPage() {
       <div className="bg-card border border-border rounded-xl p-6">
         <div className="flex items-center gap-2 mb-4">
           <Database className="w-5 h-5 text-accent" />
-          <h2 className="text-lg font-semibold text-white">Đồng bộ dữ liệu</h2>
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Đồng bộ dữ liệu</h2>
         </div>
 
         <p className="text-[#8888a0] text-sm mb-4">
@@ -281,7 +281,7 @@ export default function SettingsPage() {
                 <RefreshCw className="w-5 h-5 text-accent animate-spin" />
               )}
               <div>
-                <p className="text-white text-sm font-medium">
+                <p className="text-[var(--text-primary)] text-sm font-medium">
                   Lần đồng bộ gần nhất: {formatDateTime(lastSync.started_at)}
                 </p>
                 <p className="text-[#8888a0] text-xs">
@@ -302,7 +302,7 @@ export default function SettingsPage() {
         <div className="bg-card border border-border rounded-xl p-6">
           <div className="flex items-center gap-2 mb-4">
             <Clock className="w-5 h-5 text-accent" />
-            <h2 className="text-lg font-semibold text-white">Lịch sử đồng bộ</h2>
+            <h2 className="text-lg font-semibold text-[var(--text-primary)]">Lịch sử đồng bộ</h2>
           </div>
 
           <div className="space-y-2">
@@ -316,7 +316,7 @@ export default function SettingsPage() {
                   ) : (
                     <RefreshCw className="w-4 h-4 text-accent animate-spin" />
                   )}
-                  <span className="text-white text-sm">{formatDateTime(log.started_at)}</span>
+                  <span className="text-[var(--text-primary)] text-sm">{formatDateTime(log.started_at)}</span>
                 </div>
                 <div className="flex items-center gap-4 text-xs">
                   {log.status === 'success' ? (
@@ -342,7 +342,7 @@ export default function SettingsPage() {
         <div className="bg-card border border-border rounded-xl p-6">
           <div className="flex items-center gap-2 mb-4">
             <Activity className="w-5 h-5 text-accent" />
-            <h2 className="text-lg font-semibold text-white">Nhật ký hoạt động</h2>
+            <h2 className="text-lg font-semibold text-[var(--text-primary)]">Nhật ký hoạt động</h2>
           </div>
 
           <div className="space-y-2">
@@ -356,7 +356,7 @@ export default function SettingsPage() {
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-white text-sm font-medium">{log.username}</span>
+                        <span className="text-[var(--text-primary)] text-sm font-medium">{log.username}</span>
                         <span className={`text-xs ${actionInfo.color}`}>{actionInfo.label}</span>
                       </div>
                       <div className="flex items-center gap-2 text-xs text-[#8888a0]">
@@ -387,7 +387,7 @@ export default function SettingsPage() {
       <div className="bg-card border border-border rounded-xl p-6">
         <div className="flex items-center gap-2 mb-4">
           <Plus className="w-5 h-5 text-accent" />
-          <h2 className="text-lg font-semibold text-white">Thêm Target mới</h2>
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Thêm Target mới</h2>
         </div>
 
         <div className="grid sm:grid-cols-5 gap-4 items-end">
@@ -396,7 +396,7 @@ export default function SettingsPage() {
             <select
               value={selectedProject}
               onChange={(e) => setSelectedProject(e.target.value)}
-              className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-white"
+              className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)]"
             >
               {projects.map((project) => (
                 <option key={project.id} value={project.id}>
@@ -411,7 +411,7 @@ export default function SettingsPage() {
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-              className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-white"
+              className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)]"
             >
               {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                 <option key={m} value={m}>
@@ -426,7 +426,7 @@ export default function SettingsPage() {
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-              className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-white"
+              className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)]"
             >
               {[2024, 2025, 2026].map((y) => (
                 <option key={y} value={y}>
@@ -442,7 +442,7 @@ export default function SettingsPage() {
               type="number"
               value={targetValue}
               onChange={(e) => setTargetValue(parseInt(e.target.value) || 0)}
-              className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-white font-mono"
+              className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] font-mono"
               min="1"
             />
           </div>
@@ -462,14 +462,14 @@ export default function SettingsPage() {
       <div className="bg-card border border-border rounded-xl p-6">
         <div className="flex items-center gap-2 mb-6">
           <Settings className="w-5 h-5 text-accent" />
-          <h2 className="text-lg font-semibold text-white">Target theo tháng</h2>
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Target theo tháng</h2>
         </div>
 
         <div className="space-y-6">
           {targetsByProject.map(({ project, targets }) => (
             <div key={project.id} className="border border-border rounded-lg overflow-hidden">
               <div className="bg-secondary px-4 py-3">
-                <h3 className="text-white font-medium">{project.name}</h3>
+                <h3 className="text-[var(--text-primary)] font-medium">{project.name}</h3>
                 <p className="text-xs text-[#8888a0]">Sheet: {project.sheet_name}</p>
               </div>
 
@@ -481,7 +481,7 @@ export default function SettingsPage() {
                       className="flex items-center justify-between px-4 py-3"
                     >
                       <div className="flex items-center gap-4">
-                        <span className="text-white">
+                        <span className="text-[var(--text-primary)]">
                           {getMonthName(target.month)}/{target.year}
                         </span>
                         <span className="text-accent font-mono font-bold">
@@ -511,25 +511,25 @@ export default function SettingsPage() {
       <div className="bg-card border border-border rounded-xl p-6">
         <div className="flex items-center gap-2 mb-4">
           <Monitor className="w-5 h-5 text-accent" />
-          <h2 className="text-lg font-semibold text-white">Thông tin hệ thống</h2>
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Thông tin hệ thống</h2>
         </div>
 
         <div className="grid sm:grid-cols-2 gap-4 text-sm">
           <div className="p-4 bg-secondary rounded-lg">
             <p className="text-[#8888a0] mb-1">Database</p>
-            <p className="text-white font-mono">Supabase PostgreSQL</p>
+            <p className="text-[var(--text-primary)] font-mono">Supabase PostgreSQL</p>
           </div>
           <div className="p-4 bg-secondary rounded-lg">
             <p className="text-[#8888a0] mb-1">Sync</p>
-            <p className="text-white font-mono">Thủ công (nút Đồng bộ ngay)</p>
+            <p className="text-[var(--text-primary)] font-mono">Thủ công (nút Đồng bộ ngay)</p>
           </div>
           <div className="p-4 bg-secondary rounded-lg">
             <p className="text-[#8888a0] mb-1">Số dự án</p>
-            <p className="text-white font-mono">{projects.length}</p>
+            <p className="text-[var(--text-primary)] font-mono">{projects.length}</p>
           </div>
           <div className="p-4 bg-secondary rounded-lg">
             <p className="text-[#8888a0] mb-1">Version</p>
-            <p className="text-white font-mono">1.4.0</p>
+            <p className="text-[var(--text-primary)] font-mono">1.4.0</p>
           </div>
         </div>
       </div>

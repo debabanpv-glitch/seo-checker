@@ -100,7 +100,7 @@ export default function TasksPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Tasks</h1>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Tasks</h1>
           <p className="text-[#8888a0] text-sm">Danh sách tất cả công việc</p>
         </div>
 
@@ -110,7 +110,7 @@ export default function TasksPage() {
           <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            className="px-4 py-2 bg-card border border-border rounded-lg text-white"
+            className="px-4 py-2 bg-card border border-border rounded-lg text-[var(--text-primary)]"
           >
             {monthOptions.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -131,7 +131,7 @@ export default function TasksPage() {
         <select
           value={filters.project}
           onChange={(e) => setFilters({ ...filters, project: e.target.value })}
-          className="px-3 py-2 bg-secondary border border-border rounded-lg text-white text-sm"
+          className="px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm"
         >
           <option value="">Tất cả dự án</option>
           {projects.map((p) => (
@@ -144,7 +144,7 @@ export default function TasksPage() {
         <select
           value={filters.pic}
           onChange={(e) => setFilters({ ...filters, pic: e.target.value })}
-          className="px-3 py-2 bg-secondary border border-border rounded-lg text-white text-sm"
+          className="px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm"
         >
           <option value="">Tất cả PIC</option>
           {pics.map((pic) => (
@@ -157,7 +157,7 @@ export default function TasksPage() {
         <select
           value={filters.status}
           onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-          className="px-3 py-2 bg-secondary border border-border rounded-lg text-white text-sm"
+          className="px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm"
         >
           <option value="">Tất cả trạng thái</option>
           <option value="Doing">Đang làm</option>
@@ -175,7 +175,7 @@ export default function TasksPage() {
               value={filters.search}
               onChange={(e) => setFilters({ ...filters, search: e.target.value })}
               placeholder="Tìm kiếm..."
-              className="w-full pl-10 pr-4 py-2 bg-secondary border border-border rounded-lg text-white placeholder-[#8888a0] text-sm"
+              className="w-full pl-10 pr-4 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] placeholder-[#8888a0] text-sm"
             />
           </div>
         </div>
@@ -210,7 +210,7 @@ export default function TasksPage() {
                     </td>
                     <td>
                       <div className="max-w-[300px]">
-                        <p className="text-white font-medium truncate">
+                        <p className="text-[var(--text-primary)] font-medium truncate">
                           {truncate(task.title || task.keyword_sub || '', 50)}
                         </p>
                         {task.keyword_sub && task.title && (
@@ -221,7 +221,7 @@ export default function TasksPage() {
                       </div>
                     </td>
                     <td>
-                      <span className="text-white">{task.pic || '-'}</span>
+                      <span className="text-[var(--text-primary)]">{task.pic || '-'}</span>
                     </td>
                     <td>
                       <span
@@ -231,7 +231,7 @@ export default function TasksPage() {
                             ? 'text-danger'
                             : isDueSoon(task.deadline)
                             ? 'text-warning'
-                            : 'text-white'
+                            : 'text-[var(--text-primary)]'
                         )}
                       >
                         {formatDate(task.deadline)}

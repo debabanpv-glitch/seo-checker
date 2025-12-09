@@ -80,7 +80,7 @@ export default function Sidebar() {
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-6 border-b border-border">
         <div className="w-10 h-10 bg-gradient-to-br from-accent-light to-accent rounded-xl flex items-center justify-center shadow-gold">
-          <span className="text-white font-bold text-lg">CT</span>
+          <span className="text-[var(--text-primary)] font-bold text-lg">CT</span>
         </div>
         <div>
           <h1 className="font-semibold text-[var(--text-primary)]">Content Tracker</h1>

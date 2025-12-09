@@ -57,9 +57,9 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-accent rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <span className="text-white font-bold text-2xl">CT</span>
+            <span className="text-[var(--text-primary)] font-bold text-2xl">CT</span>
           </div>
-          <h1 className="text-2xl font-bold text-white">Content Tracker</h1>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Content Tracker</h1>
           <p className="text-[#8888a0] mt-1">Quản lý công việc Team Content</p>
         </div>
 
@@ -80,7 +80,7 @@ export default function LoginPage() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Nhập username..."
-                  className="w-full pl-12 pr-4 py-3 bg-secondary border border-border rounded-xl text-white placeholder-[#8888a0] focus:border-accent transition-colors"
+                  className="w-full pl-12 pr-4 py-3 bg-secondary border border-border rounded-xl text-[var(--text-primary)] placeholder-[#8888a0] focus:border-accent transition-colors"
                   required
                   autoComplete="username"
                   autoFocus
@@ -102,14 +102,14 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Nhập mật khẩu..."
-                  className="w-full pl-12 pr-12 py-3 bg-secondary border border-border rounded-xl text-white placeholder-[#8888a0] focus:border-accent transition-colors"
+                  className="w-full pl-12 pr-12 py-3 bg-secondary border border-border rounded-xl text-[var(--text-primary)] placeholder-[#8888a0] focus:border-accent transition-colors"
                   required
                   autoComplete="current-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-[#8888a0] hover:text-white transition-colors"
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-[#8888a0] hover:text-[var(--text-primary)] transition-colors"
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>

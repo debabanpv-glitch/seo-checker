@@ -289,7 +289,7 @@ export default function DashboardPage() {
       {/* Header with Date Range */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-white">Dashboard</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-[var(--text-primary)]">Dashboard</h1>
           <p className="text-[#8888a0] text-xs md:text-sm">Tổng quan tiến độ công việc</p>
         </div>
 
@@ -299,7 +299,7 @@ export default function DashboardPage() {
           <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-            className="px-3 py-1.5 bg-card border border-border rounded-lg text-white text-sm cursor-pointer"
+            className="px-3 py-1.5 bg-card border border-border rounded-lg text-[var(--text-primary)] text-sm cursor-pointer"
           >
             <option value={1}>Tháng 1</option>
             <option value={2}>Tháng 2</option>
@@ -317,7 +317,7 @@ export default function DashboardPage() {
           <select
             value={selectedYear}
             onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-            className="px-3 py-1.5 bg-card border border-border rounded-lg text-white text-sm cursor-pointer"
+            className="px-3 py-1.5 bg-card border border-border rounded-lg text-[var(--text-primary)] text-sm cursor-pointer"
           >
             {[2024, 2025, 2026].map((year) => (
               <option key={year} value={year}>{year}</option>
@@ -376,7 +376,7 @@ export default function DashboardPage() {
             {overdueTasks.map((task) => (
               <div key={task.id} className="flex items-center gap-3 p-2.5 bg-secondary rounded-lg">
                 <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm font-medium truncate">
+                  <p className="text-[var(--text-primary)] text-sm font-medium truncate">
                     {task.title || task.keyword_sub || 'Không có tiêu đề'}
                   </p>
                   <div className="flex items-center gap-2 text-xs text-[#8888a0]">
@@ -416,9 +416,9 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Target className="w-4 h-4 text-accent" />
-              <span className="text-sm font-medium text-white">KPI tháng</span>
+              <span className="text-sm font-medium text-[var(--text-primary)]">KPI tháng</span>
             </div>
-            <p className={`text-lg font-bold ${targetProgress >= 100 ? 'text-success' : targetProgress >= 70 ? 'text-warning' : 'text-white'}`}>
+            <p className={`text-lg font-bold ${targetProgress >= 100 ? 'text-success' : targetProgress >= 70 ? 'text-warning' : 'text-[var(--text-primary)]'}`}>
               {targetProgress}%
             </p>
           </div>
@@ -434,7 +434,7 @@ export default function DashboardPage() {
         <div className={`rounded-xl p-3 md:p-4 border ${missingPlan > 0 ? 'bg-warning/10 border-warning/30' : 'bg-success/10 border-success/30'}`}>
           <div className="flex items-center gap-2">
             <AlertTriangle className={`w-4 h-4 ${missingPlan > 0 ? 'text-warning' : 'text-success'}`} />
-            <span className="text-sm font-medium text-white">Kế hoạch</span>
+            <span className="text-sm font-medium text-[var(--text-primary)]">Kế hoạch</span>
           </div>
           <div className="mt-1">
             {missingPlan > 0 ? (
@@ -452,7 +452,7 @@ export default function DashboardPage() {
         <div className="bg-card border border-border rounded-xl p-3 md:p-4">
           <div className="flex items-center gap-2 mb-2">
             <Trophy className="w-4 h-4 text-yellow-500" />
-            <span className="text-sm font-medium text-white">Top dẫn đầu</span>
+            <span className="text-sm font-medium text-[var(--text-primary)]">Top dẫn đầu</span>
           </div>
           <div className="space-y-1">
             {leaderboard.length > 0 ? (
@@ -470,7 +470,7 @@ export default function DashboardPage() {
                       <Medal className="w-4 h-4 text-orange-500" />
                     )}
                   </div>
-                  <span className="text-white text-xs truncate flex-1">{item.name}</span>
+                  <span className="text-[var(--text-primary)] text-xs truncate flex-1">{item.name}</span>
                   <span className="text-accent font-bold text-xs">{item.count}</span>
                 </div>
               ))
@@ -485,7 +485,7 @@ export default function DashboardPage() {
       <div className="grid lg:grid-cols-2 gap-4 md:gap-6">
         {/* Workflow with Inline Tasks */}
         <div className="bg-card border border-border rounded-xl p-4 md:p-6">
-          <h2 className="text-base md:text-lg font-semibold text-white mb-4">Workflow Status</h2>
+          <h2 className="text-base md:text-lg font-semibold text-[var(--text-primary)] mb-4">Workflow Status</h2>
 
           {bottleneck ? (
             <div className="space-y-2">
@@ -595,7 +595,7 @@ export default function DashboardPage() {
         <div className="bg-card border border-border rounded-xl p-4 md:p-6">
           <div className="flex items-center gap-2 mb-4">
             <TrendingUp className="w-5 h-5 text-accent" />
-            <h2 className="text-base md:text-lg font-semibold text-white">Tiến độ dự án</h2>
+            <h2 className="text-base md:text-lg font-semibold text-[var(--text-primary)]">Tiến độ dự án</h2>
           </div>
 
           <div className="space-y-2">
@@ -617,12 +617,12 @@ export default function DashboardPage() {
                         ) : (
                           <ChevronDown className="w-4 h-4 text-[#8888a0] flex-shrink-0" />
                         )}
-                        <p className="text-white text-sm font-medium truncate">{project.name}</p>
+                        <p className="text-[var(--text-primary)] text-sm font-medium truncate">{project.name}</p>
                       </div>
                       <div className="w-24">
                         <ProgressBar value={project.actual} max={project.target} showLabel={false} size="sm" />
                       </div>
-                      <span className={`text-sm font-bold w-16 text-right ${progress >= 100 ? 'text-success' : progress >= 70 ? 'text-warning' : 'text-white'}`}>
+                      <span className={`text-sm font-bold w-16 text-right ${progress >= 100 ? 'text-success' : progress >= 70 ? 'text-warning' : 'text-[var(--text-primary)]'}`}>
                         {project.actual}/{project.target}
                       </span>
                     </button>
@@ -760,14 +760,14 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 bg-card border border-border rounded-xl p-4 md:p-6">
           <div className="flex items-center gap-2 mb-4">
             <Calendar className="w-5 h-5 text-accent" />
-            <h2 className="text-lg font-semibold text-white">Báo cáo tuần</h2>
+            <h2 className="text-lg font-semibold text-[var(--text-primary)]">Báo cáo tuần</h2>
           </div>
 
           <div className="space-y-4">
             {weeklyReports.length > 0 ? (
               weeklyReports.map((report) => (
                 <div key={report.projectId} className="bg-secondary rounded-lg p-4">
-                  <p className="text-white font-medium mb-3">{report.projectName}</p>
+                  <p className="text-[var(--text-primary)] font-medium mb-3">{report.projectName}</p>
                   <div className="grid grid-cols-5 gap-2">
                     {report.weeks.map((week) => {
                       const isAchieved = week.count >= week.target;
@@ -807,7 +807,7 @@ export default function DashboardPage() {
         <div className="bg-card border border-border rounded-xl p-4 md:p-6">
           <div className="flex items-center gap-2 mb-3">
             <Clock className="w-4 h-4 text-accent" />
-            <h2 className="text-base font-semibold text-white">3 ngày gần đây</h2>
+            <h2 className="text-base font-semibold text-[var(--text-primary)]">3 ngày gần đây</h2>
             <span className="ml-auto text-xs text-accent font-medium">{recentThreeDaysTasks.length} bài</span>
           </div>
 
@@ -819,7 +819,7 @@ export default function DashboardPage() {
                   className="flex items-center gap-2 p-2 bg-secondary rounded-lg"
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-medium truncate">
+                    <p className="text-[var(--text-primary)] text-sm font-medium truncate">
                       {task.title || task.keyword_sub || 'Không có tiêu đề'}
                     </p>
                     <div className="flex items-center gap-2 text-xs text-[#8888a0]">
@@ -858,7 +858,7 @@ function MetricCard({
   label,
   value,
   icon,
-  valueColor = 'text-white',
+  valueColor = 'text-[var(--text-primary)]',
   subtitle,
 }: {
   label: string;
@@ -921,7 +921,7 @@ function WorkflowItem({
           ) : (
             <ChevronDown className="w-4 h-4 text-[#8888a0]" />
           )}
-          <span className="text-white text-sm font-medium">{label}</span>
+          <span className="text-[var(--text-primary)] text-sm font-medium">{label}</span>
         </div>
         <span className={`text-base font-bold ${textColors[color]}`}>{count} bài</span>
       </button>
@@ -933,7 +933,7 @@ function WorkflowItem({
             <div key={task.id || idx} className="flex flex-col gap-1 text-sm py-2 px-2 bg-secondary/50 rounded">
               <div className="flex items-center gap-2">
                 <User className="w-3 h-3 text-[#8888a0] flex-shrink-0" />
-                <span className="text-white flex-1 truncate text-xs">{task.title}</span>
+                <span className="text-[var(--text-primary)] flex-1 truncate text-xs">{task.title}</span>
                 {task.link && (
                   <a
                     href={task.link}
@@ -1026,7 +1026,7 @@ function ProjectStatusItem({
           {tasks.map((task) => (
             <div key={task.id} className="flex flex-col gap-0.5 text-xs py-1.5 px-2 bg-secondary/30 rounded">
               <div className="flex items-center gap-2">
-                <span className="text-white flex-1 truncate">{task.title || task.keyword_sub || 'Không có tiêu đề'}</span>
+                <span className="text-[var(--text-primary)] flex-1 truncate">{task.title || task.keyword_sub || 'Không có tiêu đề'}</span>
                 {(task.link_publish || task.content_file) && (
                   <a
                     href={task.link_publish || task.content_file}

@@ -278,7 +278,7 @@ export default function SEOAuditPage() {
     <div className="h-[calc(100vh-2rem)] flex flex-col">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <h1 className="text-xl font-bold text-white">SEO Audit</h1>
+        <h1 className="text-xl font-bold text-[var(--text-primary)]">SEO Audit</h1>
 
         {/* Search */}
         <div className="flex items-center gap-2 flex-1 max-w-md">
@@ -289,7 +289,7 @@ export default function SEOAuditPage() {
               placeholder="Tìm kiếm theo tiêu đề, PIC, URL..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-card border border-border rounded-lg text-white text-sm placeholder:text-[#8888a0]"
+              className="w-full pl-9 pr-3 py-2 bg-card border border-border rounded-lg text-[var(--text-primary)] text-sm placeholder:text-[#8888a0]"
             />
           </div>
         </div>
@@ -336,7 +336,7 @@ export default function SEOAuditPage() {
             "px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors",
             selectedProject === ''
               ? "bg-accent text-white"
-              : "bg-card border border-border text-[#8888a0] hover:text-white"
+              : "bg-card border border-border text-[#8888a0] hover:text-[var(--text-primary)]"
           )}
         >
           Tất cả
@@ -349,7 +349,7 @@ export default function SEOAuditPage() {
               "px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors",
               selectedProject === p.id
                 ? "bg-accent text-white"
-                : "bg-card border border-border text-[#8888a0] hover:text-white"
+                : "bg-card border border-border text-[#8888a0] hover:text-[var(--text-primary)]"
             )}
           >
             {p.name}
@@ -366,7 +366,7 @@ export default function SEOAuditPage() {
             filterStatus === 'all' ? "border-accent" : "border-border hover:border-accent/50"
           )}
         >
-          <div className="text-2xl font-bold text-white">{totalTasks}</div>
+          <div className="text-2xl font-bold text-[var(--text-primary)]">{totalTasks}</div>
           <div className="text-xs text-[#8888a0]">Tổng link</div>
         </button>
         <button
@@ -422,7 +422,7 @@ export default function SEOAuditPage() {
           {/* Left: Task List */}
           <div className="w-1/2 bg-card border border-border rounded-lg overflow-hidden flex flex-col">
             <div className="px-4 py-3 border-b border-border bg-secondary/30 flex items-center justify-between">
-              <span className="text-sm font-medium text-white">
+              <span className="text-sm font-medium text-[var(--text-primary)]">
                 Danh sách bài viết ({filteredTasks.length})
               </span>
               <div className="flex items-center gap-2">
@@ -430,7 +430,7 @@ export default function SEOAuditPage() {
                 <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
-                  className="px-2 py-1 bg-card border border-border rounded text-xs text-white"
+                  className="px-2 py-1 bg-card border border-border rounded text-xs text-[var(--text-primary)]"
                 >
                   <option value="all">Tất cả</option>
                   <option value="unchecked">Chưa check</option>
@@ -476,7 +476,7 @@ export default function SEOAuditPage() {
 
                     {/* Task Info */}
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm text-white truncate">
+                      <div className="text-sm text-[var(--text-primary)] truncate">
                         {task.title || task.keyword_sub || 'Không có tiêu đề'}
                       </div>
                       <div className="flex items-center gap-2 text-xs text-[#8888a0] mt-0.5">
@@ -505,7 +505,7 @@ export default function SEOAuditPage() {
                       className={cn(
                         "px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1.5",
                         hasResult
-                          ? "bg-secondary text-[#8888a0] hover:text-white"
+                          ? "bg-secondary text-[#8888a0] hover:text-[var(--text-primary)]"
                           : "bg-accent text-white hover:bg-accent/90"
                       )}
                     >
@@ -526,7 +526,7 @@ export default function SEOAuditPage() {
                 <div className="px-4 py-3 border-b border-border bg-secondary/30">
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-white font-medium truncate">
+                      <h3 className="text-[var(--text-primary)] font-medium truncate">
                         {selectedTask.title || selectedTask.keyword_sub}
                       </h3>
                       <div className="flex items-center gap-2 text-xs text-[#8888a0] mt-1">
@@ -613,7 +613,7 @@ export default function SEOAuditPage() {
                       {/* Details */}
                       {selectedTask.seoResult.details && selectedTask.seoResult.details.length > 0 && (
                         <div className="space-y-2">
-                          <h4 className="text-sm font-medium text-white">Chi tiết kiểm tra</h4>
+                          <h4 className="text-sm font-medium text-[var(--text-primary)]">Chi tiết kiểm tra</h4>
                           {selectedTask.seoResult.details.map((detail, idx) => (
                             <div
                               key={idx}
@@ -635,7 +635,7 @@ export default function SEOAuditPage() {
                                   <XCircle className="w-4 h-4 text-red-400 mt-0.5" />
                                 )}
                                 <div className="flex-1 min-w-0">
-                                  <div className="text-sm text-white">{detail.name}</div>
+                                  <div className="text-sm text-[var(--text-primary)]">{detail.name}</div>
                                   {detail.value && (
                                     <div className="text-xs text-[#8888a0] mt-1 truncate">
                                       Giá trị: {detail.value}
@@ -660,7 +660,7 @@ export default function SEOAuditPage() {
                     <div className="flex items-center justify-center h-full">
                       <div className="text-center">
                         <Clock className="w-12 h-12 text-[#8888a0] mx-auto mb-3 opacity-50" />
-                        <p className="text-white font-medium mb-2">Chưa kiểm tra SEO</p>
+                        <p className="text-[var(--text-primary)] font-medium mb-2">Chưa kiểm tra SEO</p>
                         <p className="text-sm text-[#8888a0] mb-4">
                           Nhấn nút &quot;Check&quot; để kiểm tra SEO cho bài viết này
                         </p>

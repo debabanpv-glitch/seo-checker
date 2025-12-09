@@ -136,7 +136,7 @@ export default function ProjectsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-white">Báo cáo Dự án</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-[var(--text-primary)]">Báo cáo Dự án</h1>
           <p className="text-[#8888a0] text-xs md:text-sm">Phân tích hiệu suất và tiến độ</p>
         </div>
 
@@ -146,7 +146,7 @@ export default function ProjectsPage() {
           <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-            className="px-3 py-1.5 bg-card border border-border rounded-lg text-white text-sm cursor-pointer"
+            className="px-3 py-1.5 bg-card border border-border rounded-lg text-[var(--text-primary)] text-sm cursor-pointer"
           >
             {Array.from({ length: 12 }, (_, i) => (
               <option key={i + 1} value={i + 1}>Tháng {i + 1}</option>
@@ -155,7 +155,7 @@ export default function ProjectsPage() {
           <select
             value={selectedYear}
             onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-            className="px-3 py-1.5 bg-card border border-border rounded-lg text-white text-sm cursor-pointer"
+            className="px-3 py-1.5 bg-card border border-border rounded-lg text-[var(--text-primary)] text-sm cursor-pointer"
           >
             {[2024, 2025, 2026].map((year) => (
               <option key={year} value={year}>{year}</option>
@@ -349,7 +349,7 @@ function ProjectCard({
         {/* Project Name & Health */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <h3 className="text-white font-semibold truncate">{project.name}</h3>
+            <h3 className="text-[var(--text-primary)] font-semibold truncate">{project.name}</h3>
             <span className={cn("px-2 py-0.5 rounded text-xs font-medium", healthBadge[project.health].color)}>
               {healthBadge[project.health].label}
             </span>
@@ -367,7 +367,7 @@ function ProjectCard({
           <div className="flex items-center gap-3 text-sm">
             <span className="text-success font-bold">{project.published}</span>
             <span className="text-[#8888a0]">/</span>
-            <span className="text-white">{project.target}</span>
+            <span className="text-[var(--text-primary)]">{project.target}</span>
             <span className="text-[#8888a0]">publish</span>
             {project.inProgress > 0 && (
               <>
@@ -454,12 +454,12 @@ function ProjectCard({
               <p className="text-xs text-[#8888a0] mb-2">So sánh với tháng {meta.prevMonth}/{meta.prevYear}</p>
               <div className="flex items-center gap-4">
                 <div>
-                  <span className="text-white text-lg font-bold">{project.published}</span>
+                  <span className="text-[var(--text-primary)] text-lg font-bold">{project.published}</span>
                   <span className="text-[#8888a0] text-sm"> bài (T{meta.selectedMonth})</span>
                 </div>
                 <span className="text-[#8888a0]">vs</span>
                 <div>
-                  <span className="text-white text-lg font-bold">{project.prevPublished}</span>
+                  <span className="text-[var(--text-primary)] text-lg font-bold">{project.prevPublished}</span>
                   <span className="text-[#8888a0] text-sm"> bài (T{meta.prevMonth})</span>
                 </div>
                 <div className={cn(
@@ -528,7 +528,7 @@ function ProjectCard({
                       {project.topPerformer.name.charAt(0).toUpperCase()}
                     </span>
                   </div>
-                  <span className="text-white text-sm">{project.topPerformer.name}</span>
+                  <span className="text-[var(--text-primary)] text-sm">{project.topPerformer.name}</span>
                   <span className="text-success text-sm font-bold">{project.topPerformer.count} bài</span>
                 </div>
               </div>
@@ -541,7 +541,7 @@ function ProjectCard({
               <p className="text-xs text-[#8888a0] mb-2">Team ({project.pics.length} người)</p>
               <div className="flex flex-wrap gap-2">
                 {project.pics.map((pic) => (
-                  <span key={pic} className="px-2 py-1 bg-card rounded text-white text-xs">
+                  <span key={pic} className="px-2 py-1 bg-card rounded text-[var(--text-primary)] text-xs">
                     {pic}
                   </span>
                 ))}
@@ -582,7 +582,7 @@ function StatItem({
   valueColor?: 'white' | 'success' | 'warning' | 'danger';
 }) {
   const colorClasses = {
-    white: 'text-white',
+    white: 'text-[var(--text-primary)]',
     success: 'text-success',
     warning: 'text-warning',
     danger: 'text-danger',

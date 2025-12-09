@@ -138,7 +138,7 @@ export default function MembersPage() {
     <div className="space-y-4">
       {/* Header - Compact */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-bold text-white">Thành viên</h1>
+        <h1 className="text-xl font-bold text-[var(--text-primary)]">Thành viên</h1>
         <div className="flex items-center gap-2">
           {/* View Toggle */}
           <div className="flex gap-1 p-1 bg-card border border-border rounded-lg">
@@ -146,7 +146,7 @@ export default function MembersPage() {
               onClick={() => setViewType('day')}
               className={cn(
                 "px-3 py-1 text-xs rounded transition-colors",
-                viewType === 'day' ? 'bg-accent text-white' : 'text-[#8888a0] hover:text-white'
+                viewType === 'day' ? 'bg-accent text-white' : 'text-[#8888a0] hover:text-[var(--text-primary)]'
               )}
             >
               Ngày
@@ -155,7 +155,7 @@ export default function MembersPage() {
               onClick={() => setViewType('week')}
               className={cn(
                 "px-3 py-1 text-xs rounded transition-colors",
-                viewType === 'week' ? 'bg-accent text-white' : 'text-[#8888a0] hover:text-white'
+                viewType === 'week' ? 'bg-accent text-white' : 'text-[#8888a0] hover:text-[var(--text-primary)]'
               )}
             >
               Tuần
@@ -164,7 +164,7 @@ export default function MembersPage() {
               onClick={() => setViewType('month')}
               className={cn(
                 "px-3 py-1 text-xs rounded transition-colors",
-                viewType === 'month' ? 'bg-accent text-white' : 'text-[#8888a0] hover:text-white'
+                viewType === 'month' ? 'bg-accent text-white' : 'text-[#8888a0] hover:text-[var(--text-primary)]'
               )}
             >
               Tháng
@@ -175,7 +175,7 @@ export default function MembersPage() {
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="px-3 py-1.5 bg-card border border-border rounded-lg text-white text-sm"
+              className="px-3 py-1.5 bg-card border border-border rounded-lg text-[var(--text-primary)] text-sm"
             >
               {monthOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -203,7 +203,7 @@ export default function MembersPage() {
         <div className="flex flex-wrap items-center gap-6">
           <div className="flex items-center gap-3">
             <Users className="w-5 h-5 text-accent" />
-            <span className="text-white font-bold text-lg">{members.length}</span>
+            <span className="text-[var(--text-primary)] font-bold text-lg">{members.length}</span>
             <span className="text-[#8888a0] text-sm">người</span>
           </div>
           <div className="h-6 w-px bg-border" />
@@ -253,7 +253,7 @@ export default function MembersPage() {
                           </span>
                         </div>
                         <div>
-                          <p className="text-white font-medium">{member.name}</p>
+                          <p className="text-[var(--text-primary)] font-medium">{member.name}</p>
                           <p className="text-xs text-[#8888a0]">{info?.role || 'Content Writer'}</p>
                         </div>
                       </div>
@@ -275,7 +275,7 @@ export default function MembersPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <span className="text-white font-mono">{member.totalThisMonth}</span>
+                      <span className="text-[var(--text-primary)] font-mono">{member.totalThisMonth}</span>
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className="text-success font-bold font-mono">{member.published}</span>
@@ -395,7 +395,7 @@ function MemberModal({
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-card border border-border rounded-2xl w-full max-w-md p-6">
-        <h2 className="text-xl font-bold text-white mb-6">
+        <h2 className="text-xl font-bold text-[var(--text-primary)] mb-6">
           {member ? 'Chỉnh sửa thành viên' : 'Thêm thành viên'}
         </h2>
 
@@ -408,7 +408,7 @@ function MemberModal({
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="VD: Nguyễn Văn A"
-                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-white placeholder-[#8888a0] text-sm"
+                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] placeholder-[#8888a0] text-sm"
                 required
               />
             </div>
@@ -419,7 +419,7 @@ function MemberModal({
                 value={formData.nickname}
                 onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
                 placeholder="VD: Ky"
-                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-white placeholder-[#8888a0] text-sm"
+                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] placeholder-[#8888a0] text-sm"
               />
             </div>
           </div>
@@ -430,7 +430,7 @@ function MemberModal({
               <select
                 value={formData.role}
                 onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-white text-sm"
+                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm"
               >
                 <option value="Content Writer">Content Writer</option>
                 <option value="SEO Specialist">SEO Specialist</option>
@@ -444,7 +444,7 @@ function MemberModal({
                 type="date"
                 value={formData.start_date}
                 onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-white text-sm"
+                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm"
               />
             </div>
           </div>
@@ -457,7 +457,7 @@ function MemberModal({
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 placeholder="email@example.com"
-                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-white placeholder-[#8888a0] text-sm"
+                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] placeholder-[#8888a0] text-sm"
               />
             </div>
             <div>
@@ -467,7 +467,7 @@ function MemberModal({
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 placeholder="0912345678"
-                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-white placeholder-[#8888a0] text-sm"
+                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] placeholder-[#8888a0] text-sm"
               />
             </div>
           </div>
@@ -478,7 +478,7 @@ function MemberModal({
               <select
                 value={formData.bank_name}
                 onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
-                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-white text-sm"
+                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm"
               >
                 <option value="">Chọn ngân hàng</option>
                 <option value="Vietcombank">Vietcombank</option>
@@ -504,7 +504,7 @@ function MemberModal({
                 value={formData.bank_account}
                 onChange={(e) => setFormData({ ...formData, bank_account: e.target.value })}
                 placeholder="1234567890"
-                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-white placeholder-[#8888a0] text-sm"
+                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] placeholder-[#8888a0] text-sm"
               />
             </div>
           </div>
@@ -519,7 +519,7 @@ function MemberModal({
                     "px-3 py-1.5 rounded-lg cursor-pointer transition-colors text-sm",
                     formData.projects.includes(project.id)
                       ? "bg-accent text-white"
-                      : "bg-secondary text-[#8888a0] hover:text-white"
+                      : "bg-secondary text-[#8888a0] hover:text-[var(--text-primary)]"
                   )}
                 >
                   <input
@@ -538,7 +538,7 @@ function MemberModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 bg-secondary hover:bg-border rounded-lg text-white font-medium transition-colors"
+              className="flex-1 py-2.5 bg-secondary hover:bg-border rounded-lg text-[var(--text-primary)] font-medium transition-colors"
             >
               Hủy
             </button>

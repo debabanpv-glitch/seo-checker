@@ -42,7 +42,7 @@ export default function ProgressBar({
       {showLabel && (
         <div className="flex justify-between text-sm mb-1">
           <span className="text-[#8888a0]">{value}/{max}</span>
-          <span className="font-mono text-white">{percentage.toFixed(0)}%</span>
+          <span className="font-mono text-[var(--text-primary)]">{percentage.toFixed(0)}%</span>
         </div>
       )}
       <div className={cn('w-full bg-border rounded-full overflow-hidden', sizeClasses[size])}>

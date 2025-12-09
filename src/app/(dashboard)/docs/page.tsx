@@ -6,35 +6,35 @@ export default function DocsPage() {
   return (
     <div className="space-y-8 max-w-4xl">
       <div>
-        <h1 className="text-2xl font-bold text-white">Documentation</h1>
+        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Documentation</h1>
         <p className="text-[#8888a0] mt-1">Tài liệu hướng dẫn và changelog của hệ thống</p>
       </div>
 
       {/* System Overview */}
       <section className="bg-card border border-border rounded-2xl p-6">
-        <h2 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
+        <h2 className="text-lg font-semibold text-[var(--text-primary)] flex items-center gap-2 mb-4">
           <BookOpen className="w-5 h-5 text-accent" />
           Tổng quan hệ thống
         </h2>
         <div className="prose prose-invert text-[#8888a0] space-y-3">
           <p>
-            <strong className="text-white">Content Tracker</strong> là hệ thống quản lý công việc Team Content SEO,
+            <strong className="text-[var(--text-primary)]">Content Tracker</strong> là hệ thống quản lý công việc Team Content SEO,
             đồng bộ dữ liệu từ Notion và lưu trữ trên Supabase.
           </p>
           <div className="grid sm:grid-cols-3 gap-4 mt-4">
             <div className="bg-secondary p-4 rounded-xl">
               <Database className="w-6 h-6 text-accent mb-2" />
-              <p className="text-white font-medium">Supabase</p>
+              <p className="text-[var(--text-primary)] font-medium">Supabase</p>
               <p className="text-xs">PostgreSQL database</p>
             </div>
             <div className="bg-secondary p-4 rounded-xl">
               <Globe className="w-6 h-6 text-accent mb-2" />
-              <p className="text-white font-medium">Vercel</p>
+              <p className="text-[var(--text-primary)] font-medium">Vercel</p>
               <p className="text-xs">Next.js hosting</p>
             </div>
             <div className="bg-secondary p-4 rounded-xl">
               <BookOpen className="w-6 h-6 text-accent mb-2" />
-              <p className="text-white font-medium">Notion</p>
+              <p className="text-[var(--text-primary)] font-medium">Notion</p>
               <p className="text-xs">Data source</p>
             </div>
           </div>
@@ -43,7 +43,7 @@ export default function DocsPage() {
 
       {/* Features */}
       <section className="bg-card border border-border rounded-2xl p-6">
-        <h2 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
+        <h2 className="text-lg font-semibold text-[var(--text-primary)] flex items-center gap-2 mb-4">
           <CheckCircle className="w-5 h-5 text-green-500" />
           Tính năng đã hoàn thành
         </h2>
@@ -89,7 +89,7 @@ export default function DocsPage() {
 
       {/* API Reference */}
       <section className="bg-card border border-border rounded-2xl p-6">
-        <h2 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
+        <h2 className="text-lg font-semibold text-[var(--text-primary)] flex items-center gap-2 mb-4">
           <Globe className="w-5 h-5 text-accent" />
           API Reference
         </h2>
@@ -107,7 +107,7 @@ export default function DocsPage() {
 
       {/* Changelog */}
       <section className="bg-card border border-border rounded-2xl p-6">
-        <h2 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
+        <h2 className="text-lg font-semibold text-[var(--text-primary)] flex items-center gap-2 mb-4">
           <Clock className="w-5 h-5 text-accent" />
           Changelog
         </h2>
@@ -157,13 +157,13 @@ export default function DocsPage() {
 
       {/* Tech Stack */}
       <section className="bg-card border border-border rounded-2xl p-6">
-        <h2 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
+        <h2 className="text-lg font-semibold text-[var(--text-primary)] flex items-center gap-2 mb-4">
           <Database className="w-5 h-5 text-accent" />
           Tech Stack
         </h2>
         <div className="grid sm:grid-cols-2 gap-4 text-sm">
           <div>
-            <p className="text-white font-medium mb-2">Frontend</p>
+            <p className="text-[var(--text-primary)] font-medium mb-2">Frontend</p>
             <ul className="text-[#8888a0] space-y-1">
               <li>• Next.js 14 (App Router)</li>
               <li>• TypeScript</li>
@@ -172,7 +172,7 @@ export default function DocsPage() {
             </ul>
           </div>
           <div>
-            <p className="text-white font-medium mb-2">Backend</p>
+            <p className="text-[var(--text-primary)] font-medium mb-2">Backend</p>
             <ul className="text-[#8888a0] space-y-1">
               <li>• Next.js API Routes</li>
               <li>• Supabase (PostgreSQL)</li>
@@ -185,7 +185,7 @@ export default function DocsPage() {
 
       {/* Environment Variables */}
       <section className="bg-card border border-border rounded-2xl p-6">
-        <h2 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
+        <h2 className="text-lg font-semibold text-[var(--text-primary)] flex items-center gap-2 mb-4">
           <Settings className="w-5 h-5 text-accent" />
           Environment Variables
         </h2>
@@ -230,7 +230,7 @@ function FeatureItem({ icon, title, description, status }: {
       <div className="text-accent">{icon}</div>
       <div className="flex-1">
         <div className="flex items-center gap-2">
-          <p className="text-white font-medium">{title}</p>
+          <p className="text-[var(--text-primary)] font-medium">{title}</p>
           <span className={statusColors[status]}>{statusIcons[status]}</span>
         </div>
         <p className="text-[#8888a0] text-sm mt-1">{description}</p>
@@ -250,7 +250,7 @@ function APIItem({ method, path, description }: { method: string; path: string; 
   return (
     <div className="flex items-center gap-3 p-3 bg-secondary rounded-lg">
       <span className={`px-2 py-0.5 rounded text-xs font-bold ${methodColors[method]}`}>{method}</span>
-      <span className="text-white flex-1">{path}</span>
+      <span className="text-[var(--text-primary)] flex-1">{path}</span>
       <span className="text-[#8888a0] text-xs">{description}</span>
     </div>
   );
@@ -275,7 +275,7 @@ function ChangelogItem({ date, version, changes }: {
   return (
     <div>
       <div className="flex items-center gap-3 mb-3">
-        <span className="text-white font-bold">v{version}</span>
+        <span className="text-[var(--text-primary)] font-bold">v{version}</span>
         <span className="text-[#8888a0] text-sm">{date}</span>
       </div>
       <div className="space-y-2 pl-4 border-l-2 border-border">

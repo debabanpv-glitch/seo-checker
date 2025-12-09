@@ -188,13 +188,13 @@ export default function SalaryPage() {
     <div className="h-[calc(100vh-2rem)] flex flex-col">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <h1 className="text-xl font-bold text-white">Bảng lương</h1>
+        <h1 className="text-xl font-bold text-[var(--text-primary)]">Bảng lương</h1>
 
         <div className="flex items-center gap-2">
           <select
             value={selectedProject}
             onChange={(e) => setSelectedProject(e.target.value)}
-            className="px-2 py-1.5 bg-card border border-border rounded-lg text-white text-sm"
+            className="px-2 py-1.5 bg-card border border-border rounded-lg text-[var(--text-primary)] text-sm"
           >
             <option value="">Tất cả dự án</option>
             {projects.map((p) => (
@@ -205,7 +205,7 @@ export default function SalaryPage() {
           <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            className="px-2 py-1.5 bg-card border border-border rounded-lg text-white text-sm"
+            className="px-2 py-1.5 bg-card border border-border rounded-lg text-[var(--text-primary)] text-sm"
           >
             {monthOptions.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -226,7 +226,7 @@ export default function SalaryPage() {
       {/* Summary Stats */}
       <div className="grid grid-cols-4 gap-3 mb-4">
         <div className="bg-card border border-border rounded-lg p-3">
-          <div className="text-2xl font-bold text-white">{salaryData.length}</div>
+          <div className="text-2xl font-bold text-[var(--text-primary)]">{salaryData.length}</div>
           <div className="text-xs text-[#8888a0]">Thành viên</div>
         </div>
         <div className="bg-card border border-border rounded-lg p-3">
@@ -257,7 +257,7 @@ export default function SalaryPage() {
           {/* Left: Salary Table */}
           <div className="w-96 flex-shrink-0 bg-card border border-border rounded-lg overflow-hidden flex flex-col">
             <div className="px-4 py-3 border-b border-border bg-secondary/30">
-              <h2 className="text-white font-medium">Bảng lương chi tiết</h2>
+              <h2 className="text-[var(--text-primary)] font-medium">Bảng lương chi tiết</h2>
             </div>
             <div className="flex-1 overflow-y-auto">
               {salaryData.map((item) => (
@@ -276,7 +276,7 @@ export default function SalaryPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-white font-medium truncate">{item.name}</span>
+                      <span className="text-[var(--text-primary)] font-medium truncate">{item.name}</span>
                       {item.isKpiMet ? (
                         <CheckCircle2 className="w-3.5 h-3.5 text-success flex-shrink-0" />
                       ) : (
@@ -288,7 +288,7 @@ export default function SalaryPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-white font-bold">{formatCurrency(item.total)}</div>
+                    <div className="text-[var(--text-primary)] font-bold">{formatCurrency(item.total)}</div>
                   </div>
                 </button>
               ))}
@@ -317,7 +317,7 @@ export default function SalaryPage() {
                         </span>
                       </div>
                       <div>
-                        <h2 className="text-white font-bold text-lg">{selectedData.name}</h2>
+                        <h2 className="text-[var(--text-primary)] font-bold text-lg">{selectedData.name}</h2>
                         <div className="flex items-center gap-2 mt-1">
                           <span className={cn(
                             "px-2 py-0.5 rounded text-xs font-medium",
@@ -357,7 +357,7 @@ export default function SalaryPage() {
                   {/* Salary Breakdown */}
                   <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-border">
                     <div className="text-center">
-                      <div className="text-white font-mono">{formatCurrency(selectedData.baseSalary)}</div>
+                      <div className="text-[var(--text-primary)] font-mono">{formatCurrency(selectedData.baseSalary)}</div>
                       <div className="text-xs text-[#8888a0]">Lương CB</div>
                     </div>
                     <div className="text-center">
@@ -376,25 +376,25 @@ export default function SalaryPage() {
                       {selectedData.memberInfo.email && (
                         <div className="flex items-center gap-2 text-sm">
                           <Mail className="w-4 h-4 text-[#8888a0]" />
-                          <span className="text-white truncate">{selectedData.memberInfo.email}</span>
+                          <span className="text-[var(--text-primary)] truncate">{selectedData.memberInfo.email}</span>
                         </div>
                       )}
                       {selectedData.memberInfo.phone && (
                         <div className="flex items-center gap-2 text-sm">
                           <Phone className="w-4 h-4 text-[#8888a0]" />
-                          <span className="text-white">{selectedData.memberInfo.phone}</span>
+                          <span className="text-[var(--text-primary)]">{selectedData.memberInfo.phone}</span>
                         </div>
                       )}
                       {selectedData.memberInfo.bank_name && (
                         <div className="flex items-center gap-2 text-sm">
                           <Building2 className="w-4 h-4 text-[#8888a0]" />
-                          <span className="text-white">{selectedData.memberInfo.bank_name}</span>
+                          <span className="text-[var(--text-primary)]">{selectedData.memberInfo.bank_name}</span>
                         </div>
                       )}
                       {selectedData.memberInfo.bank_account && (
                         <div className="flex items-center gap-2 text-sm">
                           <CreditCard className="w-4 h-4 text-[#8888a0]" />
-                          <span className="text-white font-mono">{selectedData.memberInfo.bank_account}</span>
+                          <span className="text-[var(--text-primary)] font-mono">{selectedData.memberInfo.bank_account}</span>
                         </div>
                       )}
                     </div>
@@ -405,7 +405,7 @@ export default function SalaryPage() {
                 <div className="flex-1 bg-card border border-border rounded-lg overflow-hidden flex flex-col min-h-0">
                   <div className="px-4 py-3 border-b border-border bg-secondary/30 flex items-center gap-2">
                     <FileText className="w-4 h-4 text-accent" />
-                    <h3 className="text-white font-medium">
+                    <h3 className="text-[var(--text-primary)] font-medium">
                       Chi tiết {selectedData.publishedCount} bài viết
                     </h3>
                   </div>
@@ -417,7 +417,7 @@ export default function SalaryPage() {
                       >
                         <span className="text-[#8888a0] text-sm font-mono w-6">{idx + 1}.</span>
                         <div className="flex-1 min-w-0">
-                          <p className="text-white text-sm truncate">{task.title}</p>
+                          <p className="text-[var(--text-primary)] text-sm truncate">{task.title}</p>
                           <div className="flex items-center gap-2 text-xs text-[#8888a0]">
                             <span className="text-accent">{task.project}</span>
                             {task.publish_date && (

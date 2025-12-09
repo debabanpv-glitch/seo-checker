@@ -18,7 +18,7 @@ export default function EmptyState({
       <div className="w-16 h-16 bg-card rounded-full flex items-center justify-center mb-4">
         <Icon className="w-8 h-8 text-[#8888a0]" />
       </div>
-      <h3 className="text-lg font-medium text-white mb-1">{title}</h3>
+      <h3 className="text-lg font-medium text-[var(--text-primary)] mb-1">{title}</h3>
       {description && (
         <p className="text-sm text-[#8888a0] max-w-sm">{description}</p>
       )}

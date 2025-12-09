@@ -240,7 +240,7 @@ export default function UsersPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Quản lý Users</h1>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Quản lý Users</h1>
           <p className="text-[#8888a0] text-sm">Quản lý tài khoản và phân quyền</p>
         </div>
         <button
@@ -260,7 +260,7 @@ export default function UsersPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Tìm kiếm user..."
-          className="w-full pl-10 pr-4 py-2 bg-secondary border border-border rounded-lg text-white placeholder-[#8888a0]"
+          className="w-full pl-10 pr-4 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] placeholder-[#8888a0]"
         />
       </div>
 
@@ -287,7 +287,7 @@ export default function UsersPage() {
                       <Shield className="w-4 h-4 text-accent" />
                     </div>
                     <div>
-                      <p className="text-white font-medium">{user.display_name}</p>
+                      <p className="text-[var(--text-primary)] font-medium">{user.display_name}</p>
                       <p className="text-[#8888a0] text-sm">@{user.username}</p>
                     </div>
                   </div>
@@ -359,7 +359,7 @@ export default function UsersPage() {
                   <UserCog className="w-5 h-5 text-accent" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-white">
+                  <h2 className="text-lg font-semibold text-[var(--text-primary)]">
                     {editingUser ? 'Sửa User' : 'Thêm User mới'}
                   </h2>
                   <p className="text-sm text-[#8888a0]">
@@ -385,7 +385,7 @@ export default function UsersPage() {
                     type="text"
                     value={formData.username}
                     onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                    className="w-full px-4 py-2 bg-secondary border border-border rounded-lg text-white"
+                    className="w-full px-4 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)]"
                     placeholder="Nhập username"
                   />
                 </div>
@@ -401,13 +401,13 @@ export default function UsersPage() {
                     type={showPassword ? 'text' : 'password'}
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="w-full px-4 py-2 pr-10 bg-secondary border border-border rounded-lg text-white"
+                    className="w-full px-4 py-2 pr-10 bg-secondary border border-border rounded-lg text-[var(--text-primary)]"
                     placeholder={editingUser ? 'Nhập mật khẩu mới...' : 'Nhập mật khẩu'}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8888a0] hover:text-white"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8888a0] hover:text-[var(--text-primary)]"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -421,7 +421,7 @@ export default function UsersPage() {
                   type="text"
                   value={formData.display_name}
                   onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
-                  className="w-full px-4 py-2 bg-secondary border border-border rounded-lg text-white"
+                  className="w-full px-4 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)]"
                   placeholder="Nguyễn Văn A"
                 />
               </div>
@@ -432,7 +432,7 @@ export default function UsersPage() {
                 <select
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })}
-                  className="w-full px-4 py-2 bg-secondary border border-border rounded-lg text-white"
+                  className="w-full px-4 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)]"
                 >
                   {roleOptions.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -452,7 +452,7 @@ export default function UsersPage() {
                     type="text"
                     value={formData.pic_name}
                     onChange={(e) => setFormData({ ...formData, pic_name: e.target.value })}
-                    className="w-full px-4 py-2 bg-secondary border border-border rounded-lg text-white"
+                    className="w-full px-4 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)]"
                     placeholder="Tên PIC trong Google Sheets"
                   />
                 </div>
@@ -474,7 +474,7 @@ export default function UsersPage() {
                           onChange={() => toggleProjectSelection(project.id)}
                           className="rounded border-border bg-primary text-accent focus:ring-accent"
                         />
-                        <span className="text-white text-sm">{project.name}</span>
+                        <span className="text-[var(--text-primary)] text-sm">{project.name}</span>
                       </label>
                     ))}
                   </div>
@@ -491,7 +491,7 @@ export default function UsersPage() {
                       onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
                       className="rounded border-border bg-primary text-accent focus:ring-accent"
                     />
-                    <span className="text-white text-sm">Tài khoản đang hoạt động</span>
+                    <span className="text-[var(--text-primary)] text-sm">Tài khoản đang hoạt động</span>
                   </label>
                 </div>
               )}
@@ -500,7 +500,7 @@ export default function UsersPage() {
             <div className="p-6 border-t border-border flex justify-end gap-3">
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 text-[#8888a0] hover:text-white transition-colors"
+                className="px-4 py-2 text-[#8888a0] hover:text-[var(--text-primary)] transition-colors"
               >
                 Hủy
               </button>
