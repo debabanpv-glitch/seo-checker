@@ -2,46 +2,101 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { calculateSalary } from '@/lib/utils';
 
+// Helper to check if task is published - support multiple formats
+const isPublished = (statusContent: string | null) => {
+  if (!statusContent) return false;
+  const status = statusContent.toLowerCase().trim();
+  return status.includes('publish') || status.includes('4.') || status === 'done' || status === 'hoàn thành';
+};
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const month = parseInt(searchParams.get('month') || String(new Date().getMonth() + 1));
     const year = parseInt(searchParams.get('year') || String(new Date().getFullYear()));
+    const projectId = searchParams.get('project') || ''; // Filter by project
 
-    // Fetch all published tasks for the month
-    const { data: tasks, error } = await supabase
+    // Fetch all tasks for the month with project info
+    let query = supabase
       .from('tasks')
-      .select('*')
+      .select('*, project:projects(*)')
       .eq('month', month)
-      .eq('year', year)
-      .eq('status_content', '4. Publish');
+      .eq('year', year);
+
+    // Apply project filter if specified
+    if (projectId) {
+      query = query.eq('project_id', projectId);
+    }
+
+    const { data: tasks, error } = await query;
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Group by PIC and count published
-    const picCounts = new Map<string, number>();
+    // Filter published tasks using flexible check
+    const publishedTasks = (tasks || []).filter(
+      (t) => (t.title || t.keyword_sub) && isPublished(t.status_content)
+    );
 
-    (tasks || []).forEach((task) => {
+    // Group by PIC and collect task details
+    const picData = new Map<string, {
+      count: number;
+      tasks: Array<{
+        id: string;
+        title: string;
+        project: string;
+        publish_date: string | null;
+        link: string | null;
+      }>;
+    }>();
+
+    publishedTasks.forEach((task) => {
       const pic = task.pic || 'Unknown';
-      picCounts.set(pic, (picCounts.get(pic) || 0) + 1);
+      const existing = picData.get(pic) || { count: 0, tasks: [] };
+      existing.count += 1;
+      existing.tasks.push({
+        id: task.id,
+        title: task.title || task.keyword_sub || '',
+        project: task.project?.name || '',
+        publish_date: task.publish_date,
+        link: task.link_publish,
+      });
+      picData.set(pic, existing);
     });
 
     // Calculate salary for each PIC
-    const salaryData = Array.from(picCounts.entries())
+    const salaryData = Array.from(picData.entries())
       .filter(([name]) => name !== 'Unknown')
-      .map(([name, publishedCount]) => {
-        const salary = calculateSalary(publishedCount);
+      .map(([name, data]) => {
+        const salary = calculateSalary(data.count);
         return {
           name,
-          publishedCount,
+          publishedCount: data.count,
+          tasks: data.tasks.sort((a, b) => {
+            // Sort by publish_date descending
+            if (!a.publish_date) return 1;
+            if (!b.publish_date) return -1;
+            return new Date(b.publish_date).getTime() - new Date(a.publish_date).getTime();
+          }),
           ...salary,
         };
       })
       .sort((a, b) => b.total - a.total);
 
-    return NextResponse.json({ salaryData });
+    // Get list of projects for filter dropdown
+    const { data: projects } = await supabase.from('projects').select('id, name');
+
+    return NextResponse.json({
+      salaryData,
+      projects: projects || [],
+      meta: {
+        month,
+        year,
+        projectId,
+        totalPublished: publishedTasks.length,
+      },
+    });
   } catch (error) {
     console.error('Salary API error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
