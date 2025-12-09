@@ -13,6 +13,7 @@ import {
   Menu,
   X,
   Search,
+  BookOpen,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -25,6 +26,7 @@ const navigation = [
   { name: 'Thành viên', href: '/members', icon: Users },
   { name: 'Tính lương', href: '/salary', icon: Wallet },
   { name: 'Cài đặt', href: '/settings', icon: Settings },
+  { name: 'Docs', href: '/docs', icon: BookOpen },
 ];
 
 export default function Sidebar() {
