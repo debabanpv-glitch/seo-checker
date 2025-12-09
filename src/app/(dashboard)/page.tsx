@@ -422,14 +422,32 @@ export default function DashboardPage() {
               />
 
               {/* Total Summary */}
-              <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
-                <span className="text-sm text-[#8888a0]">Tổng đang làm:</span>
-                <span className="text-lg font-bold text-white">
-                  {bottleneck.content.doingOutline + bottleneck.content.fixingOutline +
-                   bottleneck.content.doingContent + bottleneck.content.fixingContent +
-                   bottleneck.seo.qcOutline + bottleneck.seo.qcContent + bottleneck.seo.waitPublish} bài
-                </span>
-              </div>
+              {(() => {
+                const totalInProgress = bottleneck.content.doingOutline + bottleneck.content.fixingOutline +
+                  bottleneck.content.doingContent + bottleneck.content.fixingContent +
+                  bottleneck.seo.qcOutline + bottleneck.seo.qcContent + bottleneck.seo.waitPublish;
+                const publishedCount = filteredStats?.published || 0;
+                const total = publishedCount + totalInProgress;
+                const isEnough = total >= totalTarget;
+                return (
+                  <div className="mt-3 pt-3 border-t border-border space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-success">Đã Publish:</span>
+                      <span className="font-bold text-success">{publishedCount}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-warning">Đang làm:</span>
+                      <span className="font-bold text-warning">{totalInProgress}</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-2 border-t border-border">
+                      <span className="text-[#8888a0]">Tổng:</span>
+                      <span className={`text-lg font-bold ${isEnough ? 'text-success' : 'text-danger'}`}>
+                        {total}/{totalTarget} {isEnough ? '✓' : `(thiếu ${totalTarget - total})`}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           ) : (
             <p className="text-[#8888a0] text-center py-4 text-sm">Không có dữ liệu</p>
