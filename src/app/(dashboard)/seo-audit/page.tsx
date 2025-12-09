@@ -77,7 +77,6 @@ export default function SEOAuditPage() {
   const [selectedProject, setSelectedProject] = useState('');
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [checkingAll, setCheckingAll] = useState(false);
-  const [activeTab, setActiveTab] = useState<'all' | 'content' | 'images' | 'technical'>('all');
 
   useEffect(() => {
     fetchTasks();
@@ -241,8 +240,6 @@ export default function SEOAuditPage() {
               isExpanded={expandedTask === task.id}
               onToggle={() => setExpandedTask(expandedTask === task.id ? null : task.id)}
               onCheck={() => checkSEO(task)}
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
             />
           ))}
         </div>
@@ -288,15 +285,11 @@ function TaskRow({
   isExpanded,
   onToggle,
   onCheck,
-  activeTab,
-  setActiveTab,
 }: {
   task: TaskWithSEO;
   isExpanded: boolean;
   onToggle: () => void;
   onCheck: () => void;
-  activeTab: string;
-  setActiveTab: (tab: 'all' | 'content' | 'images' | 'technical') => void;
 }) {
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden">
@@ -369,34 +362,27 @@ function TaskRow({
 
       {/* Expanded Details */}
       {isExpanded && task.seoResult?.success && (
-        <div className="border-t border-border">
-          {/* Category Tabs */}
-          <div className="flex border-b border-border bg-secondary/30">
-            {['all', 'content', 'images', 'technical'].map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab as 'all' | 'content' | 'images' | 'technical')}
-                className={cn(
-                  "px-4 py-2 text-xs font-medium transition-colors",
-                  activeTab === tab
-                    ? "text-accent border-b-2 border-accent"
-                    : "text-[#8888a0] hover:text-white"
-                )}
-              >
-                {tab === 'all' ? 'Tất cả' : tab === 'content' ? 'Nội dung' : tab === 'images' ? 'Hình ảnh' : 'Kỹ thuật'}
-              </button>
-            ))}
-          </div>
-
-          {/* Checklist Grid */}
-          <div className="p-3">
-            <div className="grid gap-1.5">
-              {task.seoResult.details
-                .filter(d => activeTab === 'all' || d.category === activeTab)
-                .map((check) => (
-                  <CheckRow key={check.id} check={check} />
-                ))}
-            </div>
+        <div className="border-t border-border p-3">
+          {/* 3-column grid by category */}
+          <div className="grid md:grid-cols-3 gap-3">
+            {/* Content */}
+            <CategorySection
+              title="Nội dung"
+              category={task.seoResult.categories.content}
+              checks={task.seoResult.details.filter(d => d.category === 'content')}
+            />
+            {/* Images */}
+            <CategorySection
+              title="Hình ảnh"
+              category={task.seoResult.categories.images}
+              checks={task.seoResult.details.filter(d => d.category === 'images')}
+            />
+            {/* Technical */}
+            <CategorySection
+              title="Kỹ thuật"
+              category={task.seoResult.categories.technical}
+              checks={task.seoResult.details.filter(d => d.category === 'technical')}
+            />
           </div>
         </div>
       )}
@@ -423,13 +409,45 @@ function MiniScore({ label, score }: { label: string; score: CategoryResult }) {
   );
 }
 
-function CheckRow({ check }: { check: CheckDetail }) {
-  const [expanded, setExpanded] = useState(false);
+function CategorySection({
+  title,
+  category,
+  checks
+}: {
+  title: string;
+  category: CategoryResult;
+  checks: CheckDetail[];
+}) {
+  const pct = Math.round((category.score / category.maxScore) * 100);
+  const headerColor = pct >= 70 ? 'text-green-400' : pct >= 50 ? 'text-yellow-400' : 'text-red-400';
+
+  return (
+    <div className="bg-secondary/50 rounded-lg p-2.5">
+      {/* Category Header */}
+      <div className="flex items-center justify-between mb-2 pb-2 border-b border-border">
+        <span className="text-xs font-medium text-white">{title}</span>
+        <span className={cn("text-xs font-bold", headerColor)}>
+          {category.score}/{category.maxScore}
+        </span>
+      </div>
+
+      {/* Compact Check Items */}
+      <div className="space-y-1">
+        {checks.map((check) => (
+          <CompactCheckItem key={check.id} check={check} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CompactCheckItem({ check }: { check: CheckDetail }) {
+  const [showTooltip, setShowTooltip] = useState(false);
 
   const statusConfig = {
-    pass: { icon: CheckCircle, color: 'text-green-400', bg: 'bg-green-500/10' },
-    warning: { icon: AlertTriangle, color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
-    fail: { icon: XCircle, color: 'text-red-400', bg: 'bg-red-500/10' },
+    pass: { icon: CheckCircle, color: 'text-green-400' },
+    warning: { icon: AlertTriangle, color: 'text-yellow-400' },
+    fail: { icon: XCircle, color: 'text-red-400' },
   };
 
   const config = statusConfig[check.status];
@@ -437,36 +455,29 @@ function CheckRow({ check }: { check: CheckDetail }) {
   const hasDetails = check.value || check.suggestion;
 
   return (
-    <div className={cn("rounded-lg", config.bg)}>
+    <div className="relative">
       <div
         className={cn(
-          "flex items-center gap-2 px-3 py-2",
+          "flex items-center gap-1.5 py-1 px-1.5 rounded text-xs",
           hasDetails ? "cursor-pointer hover:bg-white/5" : ""
         )}
-        onClick={() => hasDetails && setExpanded(!expanded)}
+        onClick={() => hasDetails && setShowTooltip(!showTooltip)}
       >
-        <Icon className={cn("w-4 h-4 flex-shrink-0", config.color)} />
-        <span className="flex-1 text-sm text-white">{check.name}</span>
-        <span className={cn("text-xs font-mono", config.color)}>
+        <Icon className={cn("w-3 h-3 flex-shrink-0", config.color)} />
+        <span className="flex-1 text-[#c0c0d0] truncate">{check.name}</span>
+        <span className={cn("font-mono text-[10px]", config.color)}>
           {check.score}/{check.maxScore}
         </span>
-        {hasDetails && (
-          <ChevronDown className={cn(
-            "w-3.5 h-3.5 text-[#8888a0] transition-transform",
-            expanded && "rotate-180"
-          )} />
-        )}
       </div>
 
-      {expanded && hasDetails && (
-        <div className="px-3 pb-2 pt-0 space-y-1">
+      {/* Expandable Details */}
+      {showTooltip && hasDetails && (
+        <div className="mt-1 mb-2 ml-4 p-2 bg-black/40 rounded text-[11px] space-y-1">
           {check.value && (
-            <div className="text-xs text-[#8888a0] bg-black/20 px-2 py-1 rounded font-mono">
-              {check.value}
-            </div>
+            <div className="text-[#8888a0] font-mono break-all">{check.value}</div>
           )}
           {check.suggestion && (
-            <div className="flex items-start gap-1.5 text-xs text-yellow-400">
+            <div className="text-yellow-400 flex items-start gap-1">
               <TrendingUp className="w-3 h-3 mt-0.5 flex-shrink-0" />
               <span>{check.suggestion}</span>
             </div>
