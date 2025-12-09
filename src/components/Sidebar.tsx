@@ -38,14 +38,18 @@ const navigation: NavItem[] = [
   { name: 'Tính lương', href: '/salary', icon: Wallet, roles: ['admin', 'member'] },
   { name: 'Cài đặt', href: '/settings', icon: Settings, roles: ['admin'] },
   { name: 'Quản lý users', href: '/users', icon: UserCog, roles: ['admin'] },
+];
+
+// Secondary navigation (bottom)
+const secondaryNav: NavItem[] = [
   { name: 'Docs', href: '/docs', icon: BookOpen },
 ];
 
-// Role badge colors
+// Role badge colors - Updated for 2026 palette
 const roleBadgeColors: Record<UserRole, string> = {
-  admin: 'bg-danger/20 text-danger',
-  seo: 'bg-accent/20 text-accent',
-  member: 'bg-success/20 text-success',
+  admin: 'bg-danger/15 text-danger',
+  seo: 'bg-accent/15 text-accent',
+  member: 'bg-success/15 text-success',
 };
 
 const roleLabels: Record<UserRole, string> = {
@@ -75,12 +79,12 @@ export default function Sidebar() {
     <>
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-6 border-b border-border">
-        <div className="w-10 h-10 bg-accent rounded-xl flex items-center justify-center">
+        <div className="w-10 h-10 bg-gradient-to-br from-accent-light to-accent rounded-xl flex items-center justify-center shadow-warm">
           <span className="text-white font-bold text-lg">CT</span>
         </div>
         <div>
           <h1 className="font-semibold text-white">Content Tracker</h1>
-          <p className="text-xs text-[#8888a0]">Team Management</p>
+          <p className="text-xs text-[var(--text-secondary)]">Team Management</p>
         </div>
       </div>
 
@@ -127,8 +131,27 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Logout */}
-      <div className="px-3 py-4 border-t border-border">
+      {/* Secondary Nav + Logout */}
+      <div className="px-3 py-4 border-t border-border space-y-1">
+        {/* Docs link */}
+        {secondaryNav.map((item) => {
+          const isActive = pathname === item.href;
+          return (
+            <Link
+              key={item.name}
+              href={item.href}
+              onClick={() => setMobileOpen(false)}
+              className={cn(
+                'nav-link text-[#8888a0]',
+                isActive && 'active'
+              )}
+            >
+              <item.icon className="w-5 h-5" />
+              <span>{item.name}</span>
+            </Link>
+          );
+        })}
+        {/* Logout */}
         <button
           onClick={handleLogout}
           className="nav-link w-full text-danger hover:text-danger hover:bg-danger/10"
