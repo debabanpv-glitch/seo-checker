@@ -145,6 +145,63 @@ export default function DashboardPage() {
     ? Math.round((filteredStats.published / filteredStats.total) * 100)
     : 0;
 
+  // Get tasks gần trễ deadline (trong 3 ngày tới)
+  const dueSoonTasks = useMemo(() => {
+    const now = new Date();
+    const threeDaysLater = new Date();
+    threeDaysLater.setDate(threeDaysLater.getDate() + 3);
+
+    return allTasks
+      .filter((t) => {
+        if (!t.deadline || isPublished(t.status_content)) return false;
+        const deadline = new Date(t.deadline);
+        return deadline >= now && deadline <= threeDaysLater;
+      })
+      .map((t) => ({
+        ...t,
+        daysLeft: Math.ceil((new Date(t.deadline!).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)),
+      }))
+      .sort((a, b) => a.daysLeft - b.daysLeft);
+  }, [allTasks]);
+
+  // Group overdue và due soon tasks theo project
+  const attentionByProject = useMemo(() => {
+    const projectMap: Record<string, {
+      projectName: string;
+      overdue: Array<Task & { daysLate: number }>;
+      dueSoon: Array<Task & { daysLeft: number }>;
+    }> = {};
+
+    // Group overdue tasks
+    overdueTasks.forEach((task) => {
+      const projectId = task.project?.id || 'unknown';
+      const projectName = task.project?.name || 'Không xác định';
+
+      if (!projectMap[projectId]) {
+        projectMap[projectId] = { projectName, overdue: [], dueSoon: [] };
+      }
+      projectMap[projectId].overdue.push(task);
+    });
+
+    // Group due soon tasks
+    dueSoonTasks.forEach((task) => {
+      const projectId = task.project?.id || 'unknown';
+      const projectName = task.project?.name || 'Không xác định';
+
+      if (!projectMap[projectId]) {
+        projectMap[projectId] = { projectName, overdue: [], dueSoon: [] };
+      }
+      projectMap[projectId].dueSoon.push(task);
+    });
+
+    // Convert to array and sort by overdue count desc
+    return Object.entries(projectMap)
+      .map(([id, data]) => ({ id, ...data }))
+      .sort((a, b) => b.overdue.length - a.overdue.length);
+  }, [overdueTasks, dueSoonTasks]);
+
+  const totalAttention = overdueTasks.length + dueSoonTasks.length;
+
   // Calculate total target and actual
   const totalTarget = projectStats.reduce((sum, p) => sum + p.target, 0);
   const totalActual = projectStats.reduce((sum, p) => sum + p.actual, 0);
@@ -365,43 +422,105 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* Overdue Details - Expandable */}
-      {showOverdueDetails && overdueTasks.length > 0 && (
-        <div className="bg-danger/10 border border-danger/30 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <AlertTriangle className="w-4 h-4 text-danger" />
-            <h3 className="text-sm font-semibold text-danger">Chi tiết bài trễ deadline ({overdueTasks.length})</h3>
+      {/* Box Cần chú ý - Group theo dự án */}
+      {totalAttention > 0 && (
+        <div className="bg-card border-2 border-danger/40 rounded-xl overflow-hidden">
+          {/* Header */}
+          <div className="bg-danger/10 px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-danger" />
+              <h3 className="font-semibold text-danger">Cần chú ý</h3>
+            </div>
+            <div className="flex items-center gap-3 text-sm">
+              <span className="px-2 py-1 bg-danger/20 text-danger rounded font-medium">
+                {overdueTasks.length} trễ
+              </span>
+              <span className="px-2 py-1 bg-warning/20 text-warning rounded font-medium">
+                {dueSoonTasks.length} sắp trễ
+              </span>
+            </div>
           </div>
-          <div className="space-y-2 max-h-[300px] overflow-y-auto">
-            {overdueTasks.map((task) => (
-              <div key={task.id} className="flex items-center gap-3 p-2.5 bg-secondary rounded-lg">
-                <div className="flex-1 min-w-0">
-                  <p className="text-[var(--text-primary)] text-sm font-medium truncate">
-                    {task.title || task.keyword_sub || 'Không có tiêu đề'}
-                  </p>
-                  <div className="flex items-center gap-2 text-xs text-[#8888a0]">
-                    <span className="text-accent">{task.pic || 'N/A'}</span>
-                    <span>•</span>
-                    <span>{task.project?.name || 'N/A'}</span>
-                    <span>•</span>
-                    <span>Deadline: {formatDate(task.deadline!)}</span>
+
+          {/* Content - Group by Project */}
+          <div className="p-4 space-y-4 max-h-[400px] overflow-y-auto">
+            {attentionByProject.map((project) => (
+              <div key={project.id} className="bg-secondary/50 rounded-lg overflow-hidden">
+                {/* Project Header */}
+                <div className="bg-secondary px-3 py-2 flex items-center justify-between">
+                  <span className="font-medium text-[var(--text-primary)]">{project.projectName}</span>
+                  <div className="flex items-center gap-2 text-xs">
+                    {project.overdue.length > 0 && (
+                      <span className="px-1.5 py-0.5 bg-danger/20 text-danger rounded">
+                        {project.overdue.length} trễ
+                      </span>
+                    )}
+                    {project.dueSoon.length > 0 && (
+                      <span className="px-1.5 py-0.5 bg-warning/20 text-warning rounded">
+                        {project.dueSoon.length} sắp trễ
+                      </span>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="px-2 py-1 bg-danger/20 text-danger text-xs font-medium rounded">
-                    Trễ {task.daysLate} ngày
-                  </span>
-                  {task.content_file && (
-                    <a
-                      href={task.content_file}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-1 text-accent hover:bg-accent/20 rounded transition-colors"
-                      title="Xem file"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                  )}
+
+                {/* Tasks */}
+                <div className="p-2 space-y-1.5">
+                  {/* Overdue Tasks */}
+                  {project.overdue.map((task) => (
+                    <div key={task.id} className="flex items-center gap-2 p-2 bg-danger/5 border border-danger/20 rounded">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-[var(--text-primary)] truncate">
+                          {task.title || task.keyword_sub || 'Không có tiêu đề'}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs text-[#8888a0]">
+                          <span className="text-accent">{task.pic || 'N/A'}</span>
+                          <span>•</span>
+                          <span>DL: {formatDate(task.deadline!)}</span>
+                        </div>
+                      </div>
+                      <span className="px-2 py-1 bg-danger text-white text-xs font-bold rounded flex-shrink-0">
+                        -{task.daysLate}d
+                      </span>
+                      {task.content_file && (
+                        <a
+                          href={task.content_file}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1 text-accent hover:bg-accent/20 rounded"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Due Soon Tasks */}
+                  {project.dueSoon.map((task) => (
+                    <div key={task.id} className="flex items-center gap-2 p-2 bg-warning/5 border border-warning/20 rounded">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-[var(--text-primary)] truncate">
+                          {task.title || task.keyword_sub || 'Không có tiêu đề'}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs text-[#8888a0]">
+                          <span className="text-accent">{task.pic || 'N/A'}</span>
+                          <span>•</span>
+                          <span>DL: {formatDate(task.deadline!)}</span>
+                        </div>
+                      </div>
+                      <span className="px-2 py-1 bg-warning text-white text-xs font-bold rounded flex-shrink-0">
+                        {task.daysLeft === 0 ? 'Hôm nay' : `${task.daysLeft}d`}
+                      </span>
+                      {task.content_file && (
+                        <a
+                          href={task.content_file}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1 text-accent hover:bg-accent/20 rounded"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
