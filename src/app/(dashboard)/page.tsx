@@ -37,12 +37,13 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [projectStats, setProjectStats] = useState<ProjectStats[]>([]);
   const [bottleneck, setBottleneck] = useState<BottleneckData | null>(null);
-  const [recentTasks, setRecentTasks] = useState<Task[]>([]);
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Workflow expanded state
   const [expandedWorkflow, setExpandedWorkflow] = useState<string | null>(null);
+  // Overdue expanded state
+  const [showOverdueDetails, setShowOverdueDetails] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -58,12 +59,6 @@ export default function DashboardPage() {
       setStats(data.stats);
       setProjectStats(data.projectStats);
       setBottleneck(data.bottleneck);
-      // Bài viết gần đây = chỉ bài đã publish VÀ có link
-      setRecentTasks((data.allTasks || []).filter((t: Task) =>
-        (t.title || t.keyword_sub) &&
-        t.link_publish &&
-        isPublished(t.status_content)
-      ));
       setAllTasks((data.allTasks || data.recentTasks || []));
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
@@ -93,6 +88,35 @@ export default function DashboardPage() {
       }).length,
     };
   }, [stats, allTasks]);
+
+  // Get overdue tasks with details
+  const overdueTasks = useMemo(() => {
+    return allTasks
+      .filter((t) => {
+        if (!t.deadline || isPublished(t.status_content)) return false;
+        return new Date(t.deadline) < new Date();
+      })
+      .map((t) => ({
+        ...t,
+        daysLate: Math.ceil((new Date().getTime() - new Date(t.deadline!).getTime()) / (1000 * 60 * 60 * 24)),
+      }))
+      .sort((a, b) => b.daysLate - a.daysLate); // Sắp xếp theo số ngày trễ giảm dần
+  }, [allTasks]);
+
+  // Get tasks from last 3 days (published with publish_date in last 3 days)
+  const recentThreeDaysTasks = useMemo(() => {
+    const threeDaysAgo = new Date();
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+    threeDaysAgo.setHours(0, 0, 0, 0);
+
+    return allTasks
+      .filter((t) => {
+        if (!t.publish_date || !isPublished(t.status_content)) return false;
+        const pubDate = new Date(t.publish_date);
+        return pubDate >= threeDaysAgo;
+      })
+      .sort((a, b) => new Date(b.publish_date!).getTime() - new Date(a.publish_date!).getTime()); // Mới nhất lên đầu
+  }, [allTasks]);
 
   // Calculate leaderboard - person + published count for current month
   const leaderboard = useMemo(() => {
@@ -269,13 +293,68 @@ export default function DashboardPage() {
           icon={<Clock className="w-4 h-4 md:w-5 md:h-5 text-warning" />}
           valueColor="text-warning"
         />
-        <MetricCard
-          label="Trễ deadline"
-          value={filteredStats?.overdue || 0}
-          icon={<AlertTriangle className="w-4 h-4 md:w-5 md:h-5 text-danger" />}
-          valueColor="text-danger"
-        />
+        {/* Trễ deadline - Clickable */}
+        <button
+          onClick={() => setShowOverdueDetails(!showOverdueDetails)}
+          className="bg-card border border-border rounded-xl p-3 md:p-5 text-left hover:border-danger/50 transition-colors"
+        >
+          <div className="flex items-center justify-between mb-2 md:mb-3">
+            <span className="text-[#8888a0] text-xs md:text-sm">Trễ deadline</span>
+            <AlertTriangle className="w-4 h-4 md:w-5 md:h-5 text-danger" />
+          </div>
+          <p className="text-2xl md:text-3xl font-bold text-danger">{filteredStats?.overdue || 0}</p>
+          {(filteredStats?.overdue || 0) > 0 && (
+            <p className="text-xs text-danger/70 mt-0.5 flex items-center gap-1">
+              {showOverdueDetails ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              Xem chi tiết
+            </p>
+          )}
+        </button>
       </div>
+
+      {/* Overdue Details - Expandable */}
+      {showOverdueDetails && overdueTasks.length > 0 && (
+        <div className="bg-danger/10 border border-danger/30 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle className="w-4 h-4 text-danger" />
+            <h3 className="text-sm font-semibold text-danger">Chi tiết bài trễ deadline ({overdueTasks.length})</h3>
+          </div>
+          <div className="space-y-2 max-h-[300px] overflow-y-auto">
+            {overdueTasks.map((task) => (
+              <div key={task.id} className="flex items-center gap-3 p-2.5 bg-secondary rounded-lg">
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-sm font-medium truncate">
+                    {task.title || task.keyword_sub || 'Không có tiêu đề'}
+                  </p>
+                  <div className="flex items-center gap-2 text-xs text-[#8888a0]">
+                    <span className="text-accent">{task.pic || 'N/A'}</span>
+                    <span>•</span>
+                    <span>{task.project?.name || 'N/A'}</span>
+                    <span>•</span>
+                    <span>Deadline: {formatDate(task.deadline!)}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="px-2 py-1 bg-danger/20 text-danger text-xs font-medium rounded">
+                    Trễ {task.daysLate} ngày
+                  </span>
+                  {task.content_file && (
+                    <a
+                      href={task.content_file}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1 text-accent hover:bg-accent/20 rounded transition-colors"
+                      title="Xem file"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* KPI Progress (compact) + Missing Plan Warning + Leaderboard */}
       <div className="grid lg:grid-cols-4 gap-3 md:gap-4">
@@ -540,16 +619,17 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Recent Published - Smaller */}
+        {/* Recent 3 Days Published */}
         <div className="bg-card border border-border rounded-xl p-4 md:p-6">
           <div className="flex items-center gap-2 mb-3">
-            <CheckCircle2 className="w-4 h-4 text-success" />
-            <h2 className="text-base font-semibold text-white">Bài viết gần đây</h2>
+            <Clock className="w-4 h-4 text-accent" />
+            <h2 className="text-base font-semibold text-white">3 ngày gần đây</h2>
+            <span className="ml-auto text-xs text-accent font-medium">{recentThreeDaysTasks.length} bài</span>
           </div>
 
           <div className="space-y-2 max-h-[350px] overflow-y-auto">
-            {recentTasks.length > 0 ? (
-              recentTasks.slice(0, 10).map((task) => (
+            {recentThreeDaysTasks.length > 0 ? (
+              recentThreeDaysTasks.map((task) => (
                 <div
                   key={task.id}
                   className="flex items-center gap-2 p-2 bg-secondary rounded-lg"
@@ -558,10 +638,13 @@ export default function DashboardPage() {
                     <p className="text-white text-sm font-medium truncate">
                       {task.title || task.keyword_sub || 'Không có tiêu đề'}
                     </p>
-                    <p className="text-xs text-[#8888a0]">
-                      {task.pic || 'N/A'}
-                      <span className="text-accent"> • {task.publish_date ? formatDate(task.publish_date) : 'Chưa có ngày'}</span>
-                    </p>
+                    <div className="flex items-center gap-2 text-xs text-[#8888a0]">
+                      <span className="text-accent">{task.pic || 'N/A'}</span>
+                      <span>•</span>
+                      <span>{task.project?.name || 'N/A'}</span>
+                      <span>•</span>
+                      <span className="text-success">{task.publish_date ? formatDate(task.publish_date) : 'N/A'}</span>
+                    </div>
                   </div>
                   {task.link_publish && (
                     <a
@@ -577,7 +660,7 @@ export default function DashboardPage() {
                 </div>
               ))
             ) : (
-              <p className="text-[#8888a0] text-center py-6 text-sm">Chưa có bài viết</p>
+              <p className="text-[#8888a0] text-center py-6 text-sm">Không có bài viết trong 3 ngày qua</p>
             )}
           </div>
         </div>

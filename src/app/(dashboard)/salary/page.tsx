@@ -6,16 +6,29 @@ import {
   Download,
   CheckCircle2,
   XCircle,
-  ChevronDown,
-  ChevronUp,
   ExternalLink,
-  Filter,
   FileText,
+  User,
+  Phone,
+  Mail,
+  Building2,
+  CreditCard,
 } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { Project } from '@/types';
+import { cn } from '@/lib/utils';
+
+interface MemberInfo {
+  id: string;
+  name: string;
+  nickname: string;
+  email: string;
+  phone: string;
+  bank_name: string;
+  bank_account: string;
+}
 
 interface TaskDetail {
   id: string;
@@ -36,6 +49,7 @@ interface SalaryDataWithTasks {
   note: string;
   isKpiMet: boolean;
   tasks: TaskDetail[];
+  memberInfo?: MemberInfo;
 }
 
 export default function SalaryPage() {
@@ -47,7 +61,7 @@ export default function SalaryPage() {
     return `${now.getMonth() + 1}-${now.getFullYear()}`;
   });
   const [selectedProject, setSelectedProject] = useState('');
-  const [expandedPIC, setExpandedPIC] = useState<string | null>(null);
+  const [selectedPIC, setSelectedPIC] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSalary();
@@ -59,10 +73,28 @@ export default function SalaryPage() {
     try {
       const [month, year] = selectedMonth.split('-');
       const projectParam = selectedProject ? `&project=${selectedProject}` : '';
-      const res = await fetch(`/api/salary?month=${month}&year=${year}${projectParam}`);
-      const data = await res.json();
-      setSalaryData(data.salaryData || []);
-      setProjects(data.projects || []);
+      const [salaryRes, membersRes] = await Promise.all([
+        fetch(`/api/salary?month=${month}&year=${year}${projectParam}`),
+        fetch('/api/members'),
+      ]);
+      const salaryResult = await salaryRes.json();
+      const membersResult = await membersRes.json();
+
+      // Merge member info into salary data
+      const dataWithMemberInfo = (salaryResult.salaryData || []).map((s: SalaryDataWithTasks) => {
+        const memberInfo = (membersResult.memberInfos || []).find(
+          (m: MemberInfo) => m.name === s.name || m.nickname === s.name
+        );
+        return { ...s, memberInfo };
+      });
+
+      setSalaryData(dataWithMemberInfo);
+      setProjects(salaryResult.projects || []);
+
+      // Auto-select first person
+      if (dataWithMemberInfo.length > 0 && !selectedPIC) {
+        setSelectedPIC(dataWithMemberInfo[0].name);
+      }
     } catch (error) {
       console.error('Failed to fetch salary:', error);
     } finally {
@@ -93,6 +125,9 @@ export default function SalaryPage() {
     { publishedCount: 0, baseSalary: 0, kpiBonus: 0, extraAmount: 0, total: 0 }
   );
 
+  // Get selected person data
+  const selectedData = salaryData.find((s) => s.name === selectedPIC);
+
   // Export to CSV
   const handleExport = () => {
     const [month, year] = selectedMonth.split('-');
@@ -100,21 +135,19 @@ export default function SalaryPage() {
       ? projects.find((p) => p.id === selectedProject)?.name || ''
       : 'Tất cả dự án';
 
-    // Header
-    let csv = '\uFEFF'; // BOM for UTF-8
+    let csv = '\uFEFF';
     csv += `Bảng lương tháng ${month}/${year}\n`;
     csv += `Dự án: ${projectName}\n\n`;
-    csv += 'Thành viên,Số bài,Lương cơ bản,Thưởng KPI,Vượt chỉ tiêu,Tổng,Ghi chú\n';
+    csv += 'Thành viên,Email,SĐT,Ngân hàng,STK,Số bài,Lương cơ bản,Thưởng KPI,Vượt CT,Tổng,Ghi chú\n';
 
-    // Data rows
     salaryData.forEach((item) => {
-      csv += `${item.name},${item.publishedCount},${item.baseSalary},${item.kpiBonus},${item.extraAmount},${item.total},"${item.note}"\n`;
+      const m = item.memberInfo;
+      csv += `${item.name},${m?.email || ''},${m?.phone || ''},${m?.bank_name || ''},${m?.bank_account || ''},`;
+      csv += `${item.publishedCount},${item.baseSalary},${item.kpiBonus},${item.extraAmount},${item.total},"${item.note}"\n`;
     });
 
-    // Total row
-    csv += `\nTỔNG CỘNG,${totals.publishedCount},${totals.baseSalary},${totals.kpiBonus},${totals.extraAmount},${totals.total},\n`;
+    csv += `\nTỔNG CỘNG,,,,,${totals.publishedCount},${totals.baseSalary},${totals.kpiBonus},${totals.extraAmount},${totals.total},\n`;
 
-    // Add task details section
     csv += '\n\n--- CHI TIẾT BÀI VIẾT ---\n\n';
     salaryData.forEach((item) => {
       csv += `\n${item.name} (${item.publishedCount} bài)\n`;
@@ -125,7 +158,6 @@ export default function SalaryPage() {
       });
     });
 
-    // Download
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -140,188 +172,222 @@ export default function SalaryPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="h-[calc(100vh-2rem)] flex flex-col">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Tính lương & Nghiệm thu</h1>
-          <p className="text-[#8888a0] text-sm">Bảng lương theo tháng - Xem chi tiết từng người</p>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <h1 className="text-xl font-bold text-white">Bảng lương</h1>
 
-        <div className="flex flex-wrap gap-3">
-          {/* Project Filter */}
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-[#8888a0]" />
-            <select
-              value={selectedProject}
-              onChange={(e) => setSelectedProject(e.target.value)}
-              className="px-3 py-2 bg-card border border-border rounded-lg text-white text-sm"
-            >
-              <option value="">Tất cả dự án</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Month Selector */}
+        <div className="flex items-center gap-2">
           <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="px-4 py-2 bg-card border border-border rounded-lg text-white"
+            value={selectedProject}
+            onChange={(e) => setSelectedProject(e.target.value)}
+            className="px-2 py-1.5 bg-card border border-border rounded-lg text-white text-sm"
           >
-            {monthOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
+            <option value="">Tất cả dự án</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
 
-          {/* Export Button */}
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="px-2 py-1.5 bg-card border border-border rounded-lg text-white text-sm"
+          >
+            {monthOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+
           <button
             onClick={handleExport}
             disabled={salaryData.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent/90 disabled:bg-accent/50 rounded-lg text-white font-medium transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent/90 disabled:bg-accent/50 rounded-lg text-white text-sm font-medium"
           >
-            <Download className="w-4 h-4" />
-            Export CSV
+            <Download className="w-3.5 h-3.5" />
+            Export
           </button>
         </div>
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-[#8888a0] text-xs mb-1">Tổng bài publish</p>
-          <p className="text-2xl font-bold text-success">{totals.publishedCount}</p>
+      <div className="grid grid-cols-4 gap-3 mb-4">
+        <div className="bg-card border border-border rounded-lg p-3">
+          <div className="text-2xl font-bold text-white">{salaryData.length}</div>
+          <div className="text-xs text-[#8888a0]">Thành viên</div>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-[#8888a0] text-xs mb-1">Số người</p>
-          <p className="text-2xl font-bold text-white">{salaryData.length}</p>
+        <div className="bg-card border border-border rounded-lg p-3">
+          <div className="text-2xl font-bold text-success">{totals.publishedCount}</div>
+          <div className="text-xs text-[#8888a0]">Tổng bài</div>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-[#8888a0] text-xs mb-1">Đạt KPI</p>
-          <p className="text-2xl font-bold text-success">
+        <div className="bg-card border border-border rounded-lg p-3">
+          <div className="text-2xl font-bold text-green-400">
             {salaryData.filter((s) => s.isKpiMet).length}
             <span className="text-sm text-[#8888a0] font-normal">/{salaryData.length}</span>
-          </p>
+          </div>
+          <div className="text-xs text-[#8888a0]">Đạt KPI</div>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-[#8888a0] text-xs mb-1">Tổng lương</p>
-          <p className="text-2xl font-bold text-accent">{formatCurrency(totals.total)}</p>
+        <div className="bg-card border border-border rounded-lg p-3">
+          <div className="text-xl font-bold text-accent">{formatCurrency(totals.total)}</div>
+          <div className="text-xs text-[#8888a0]">Tổng lương</div>
         </div>
       </div>
 
-      {/* Salary Info Box */}
-      <div className="bg-card border border-border rounded-xl p-6">
-        <h3 className="text-white font-semibold mb-4">Công thức tính lương</h3>
-        <div className="grid sm:grid-cols-2 gap-4 text-sm">
-          <div className="bg-secondary rounded-lg p-4">
-            <p className="text-danger mb-2">Chưa đủ 20 bài:</p>
-            <p className="text-white font-mono">Số bài × 125.000đ</p>
-          </div>
-          <div className="bg-secondary rounded-lg p-4">
-            <p className="text-success mb-2">Đạt KPI (≥20 bài):</p>
-            <p className="text-white font-mono">2.500.000đ + 500.000đ KPI + (Vượt × 120.000đ)</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Salary Table with Expandable Rows */}
-      {salaryData.length > 0 ? (
-        <div className="space-y-3">
-          {salaryData.map((item) => (
-            <div
-              key={item.name}
-              className="bg-card border border-border rounded-xl overflow-hidden"
-            >
-              {/* Main Row */}
-              <button
-                onClick={() => setExpandedPIC(expandedPIC === item.name ? null : item.name)}
-                className="w-full p-4 flex items-center gap-4 text-left hover:bg-secondary/30 transition-colors"
-              >
-                {/* Avatar & Name */}
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className="w-10 h-10 bg-accent/20 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-accent font-bold">
+      {salaryData.length === 0 ? (
+        <EmptyState
+          icon={Wallet}
+          title="Chưa có dữ liệu lương"
+          description="Sync dữ liệu từ Google Sheets để xem bảng lương"
+        />
+      ) : (
+        <div className="flex-1 flex gap-4 min-h-0">
+          {/* Left: Salary Table */}
+          <div className="w-96 flex-shrink-0 bg-card border border-border rounded-lg overflow-hidden flex flex-col">
+            <div className="px-4 py-3 border-b border-border bg-secondary/30">
+              <h2 className="text-white font-medium">Bảng lương chi tiết</h2>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {salaryData.map((item) => (
+                <button
+                  key={item.name}
+                  onClick={() => setSelectedPIC(item.name)}
+                  className={cn(
+                    "w-full p-3 flex items-center gap-3 text-left border-b border-border hover:bg-white/5 transition-colors",
+                    selectedPIC === item.name && "bg-white/10"
+                  )}
+                >
+                  <div className="w-9 h-9 bg-accent/20 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span className="text-accent font-bold text-sm">
                       {item.name?.charAt(0).toUpperCase() || '?'}
                     </span>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-white font-semibold truncate">{item.name}</p>
-                    <p className="text-xs text-[#8888a0]">
-                      {item.publishedCount} bài publish
-                    </p>
-                  </div>
-                </div>
-
-                {/* Stats */}
-                <div className="hidden sm:flex items-center gap-6">
-                  <div className="text-center">
-                    <p className="text-xs text-[#8888a0]">Lương CB</p>
-                    <p className="text-white font-mono">{formatCurrency(item.baseSalary)}</p>
-                  </div>
-                  {item.kpiBonus > 0 && (
-                    <div className="text-center">
-                      <p className="text-xs text-[#8888a0]">KPI</p>
-                      <p className="text-success font-mono">{formatCurrency(item.kpiBonus)}</p>
-                    </div>
-                  )}
-                  {item.extraAmount > 0 && (
-                    <div className="text-center">
-                      <p className="text-xs text-[#8888a0]">Vượt</p>
-                      <p className="text-accent font-mono">+{formatCurrency(item.extraAmount)}</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Total & Status */}
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <p className="text-xl font-bold text-white">{formatCurrency(item.total)}</p>
-                    <span
-                      className={`inline-flex items-center gap-1 text-xs ${
-                        item.isKpiMet ? 'text-success' : 'text-danger'
-                      }`}
-                    >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-white font-medium truncate">{item.name}</span>
                       {item.isKpiMet ? (
-                        <CheckCircle2 className="w-3 h-3" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-success flex-shrink-0" />
                       ) : (
-                        <XCircle className="w-3 h-3" />
+                        <XCircle className="w-3.5 h-3.5 text-danger flex-shrink-0" />
                       )}
-                      {item.note}
-                    </span>
+                    </div>
+                    <div className="text-xs text-[#8888a0]">
+                      {item.publishedCount} bài • {item.note}
+                    </div>
                   </div>
-                  <div className="text-[#8888a0]">
-                    {expandedPIC === item.name ? (
-                      <ChevronUp className="w-5 h-5" />
-                    ) : (
-                      <ChevronDown className="w-5 h-5" />
-                    )}
+                  <div className="text-right">
+                    <div className="text-white font-bold">{formatCurrency(item.total)}</div>
                   </div>
-                </div>
-              </button>
+                </button>
+              ))}
+            </div>
 
-              {/* Expanded Task List */}
-              {expandedPIC === item.name && (
-                <div className="border-t border-border bg-secondary/30 p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <FileText className="w-4 h-4 text-accent" />
-                    <h4 className="text-white font-medium">
-                      Chi tiết {item.publishedCount} bài viết
-                    </h4>
+            {/* Total Footer */}
+            <div className="px-4 py-3 border-t border-border bg-accent/10">
+              <div className="flex justify-between items-center">
+                <span className="text-[#8888a0] text-sm">Tổng cộng</span>
+                <span className="text-accent font-bold text-lg">{formatCurrency(totals.total)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Details */}
+          <div className="flex-1 flex flex-col gap-4 min-h-0">
+            {selectedData ? (
+              <>
+                {/* Person Info Card */}
+                <div className="bg-card border border-border rounded-lg p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 bg-accent/20 rounded-full flex items-center justify-center">
+                        <span className="text-accent font-bold text-xl">
+                          {selectedData.name?.charAt(0).toUpperCase() || '?'}
+                        </span>
+                      </div>
+                      <div>
+                        <h2 className="text-white font-bold text-lg">{selectedData.name}</h2>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className={cn(
+                            "px-2 py-0.5 rounded text-xs font-medium",
+                            selectedData.isKpiMet
+                              ? "bg-success/20 text-success"
+                              : "bg-danger/20 text-danger"
+                          )}>
+                            {selectedData.note}
+                          </span>
+                          <span className="text-[#8888a0] text-sm">
+                            {selectedData.publishedCount} bài publish
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-accent">{formatCurrency(selectedData.total)}</div>
+                      <div className="text-xs text-[#8888a0] mt-1">Tổng lương</div>
+                    </div>
                   </div>
-                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                    {item.tasks.map((task, idx) => (
+
+                  {/* Salary Breakdown */}
+                  <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-border">
+                    <div className="text-center">
+                      <div className="text-white font-mono">{formatCurrency(selectedData.baseSalary)}</div>
+                      <div className="text-xs text-[#8888a0]">Lương CB</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-success font-mono">{formatCurrency(selectedData.kpiBonus)}</div>
+                      <div className="text-xs text-[#8888a0]">Thưởng KPI</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-accent font-mono">+{formatCurrency(selectedData.extraAmount)}</div>
+                      <div className="text-xs text-[#8888a0]">Vượt CT ({selectedData.extraCount})</div>
+                    </div>
+                  </div>
+
+                  {/* Member Contact Info */}
+                  {selectedData.memberInfo && (
+                    <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-border">
+                      {selectedData.memberInfo.email && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Mail className="w-4 h-4 text-[#8888a0]" />
+                          <span className="text-white truncate">{selectedData.memberInfo.email}</span>
+                        </div>
+                      )}
+                      {selectedData.memberInfo.phone && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Phone className="w-4 h-4 text-[#8888a0]" />
+                          <span className="text-white">{selectedData.memberInfo.phone}</span>
+                        </div>
+                      )}
+                      {selectedData.memberInfo.bank_name && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Building2 className="w-4 h-4 text-[#8888a0]" />
+                          <span className="text-white">{selectedData.memberInfo.bank_name}</span>
+                        </div>
+                      )}
+                      {selectedData.memberInfo.bank_account && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <CreditCard className="w-4 h-4 text-[#8888a0]" />
+                          <span className="text-white font-mono">{selectedData.memberInfo.bank_account}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Task List */}
+                <div className="flex-1 bg-card border border-border rounded-lg overflow-hidden flex flex-col min-h-0">
+                  <div className="px-4 py-3 border-b border-border bg-secondary/30 flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-accent" />
+                    <h3 className="text-white font-medium">
+                      Chi tiết {selectedData.publishedCount} bài viết
+                    </h3>
+                  </div>
+                  <div className="flex-1 overflow-y-auto">
+                    {selectedData.tasks.map((task, idx) => (
                       <div
                         key={task.id}
-                        className="flex items-center gap-3 p-3 bg-card rounded-lg"
+                        className="flex items-center gap-3 p-3 border-b border-border hover:bg-white/5"
                       >
-                        <span className="text-[#8888a0] text-sm font-mono w-6">
-                          {idx + 1}.
-                        </span>
+                        <span className="text-[#8888a0] text-sm font-mono w-6">{idx + 1}.</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-white text-sm truncate">{task.title}</p>
                           <div className="flex items-center gap-2 text-xs text-[#8888a0]">
@@ -339,8 +405,7 @@ export default function SalaryPage() {
                             href={task.link}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-2 text-accent hover:bg-accent/20 rounded transition-colors"
-                            onClick={(e) => e.stopPropagation()}
+                            className="p-1.5 text-[#8888a0] hover:text-accent"
                           >
                             <ExternalLink className="w-4 h-4" />
                           </a>
@@ -349,46 +414,17 @@ export default function SalaryPage() {
                     ))}
                   </div>
                 </div>
-              )}
-            </div>
-          ))}
-
-          {/* Total Summary Card */}
-          <div className="bg-gradient-to-r from-accent/20 to-accent/5 border border-accent/30 rounded-xl p-6">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <p className="text-[#8888a0] text-sm">TỔNG CỘNG</p>
-                <p className="text-white font-bold">{salaryData.length} người</p>
+              </>
+            ) : (
+              <div className="flex-1 flex items-center justify-center bg-card border border-border rounded-lg">
+                <div className="text-center text-[#8888a0]">
+                  <User className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                  <p className="text-sm">Chọn một thành viên để xem chi tiết</p>
+                </div>
               </div>
-              <div className="text-center">
-                <p className="text-[#8888a0] text-xs">Tổng bài</p>
-                <p className="text-success font-bold text-xl">{totals.publishedCount}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-[#8888a0] text-xs">Lương CB</p>
-                <p className="text-white font-mono">{formatCurrency(totals.baseSalary)}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-[#8888a0] text-xs">Thưởng KPI</p>
-                <p className="text-success font-mono">{formatCurrency(totals.kpiBonus)}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-[#8888a0] text-xs">Vượt CT</p>
-                <p className="text-accent font-mono">{formatCurrency(totals.extraAmount)}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-[#8888a0] text-xs">TỔNG LƯƠNG</p>
-                <p className="text-accent font-bold text-2xl">{formatCurrency(totals.total)}</p>
-              </div>
-            </div>
+            )}
           </div>
         </div>
-      ) : (
-        <EmptyState
-          icon={Wallet}
-          title="Chưa có dữ liệu lương"
-          description="Sync dữ liệu từ Google Sheets để xem bảng lương"
-        />
       )}
     </div>
   );

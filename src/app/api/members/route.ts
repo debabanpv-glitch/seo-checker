@@ -131,15 +131,20 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, role, projects, start_date } = body;
+    const { name, nickname, role, projects, start_date, email, phone, bank_name, bank_account } = body;
 
     const { data, error } = await supabase
       .from('members')
       .insert({
         name,
+        nickname: nickname || null,
         role: role || 'Content Writer',
         projects: projects || [],
         start_date: start_date || null,
+        email: email || null,
+        phone: phone || null,
+        bank_name: bank_name || null,
+        bank_account: bank_account || null,
       })
       .select()
       .single();
@@ -158,7 +163,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, name, role, projects, start_date } = body;
+    const { id, name, nickname, role, projects, start_date, email, phone, bank_name, bank_account } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Member ID required' }, { status: 400 });
@@ -168,9 +173,14 @@ export async function PUT(request: NextRequest) {
       .from('members')
       .update({
         name,
+        nickname,
         role,
         projects,
         start_date,
+        email,
+        phone,
+        bank_name,
+        bank_account,
       })
       .eq('id', id)
       .select()

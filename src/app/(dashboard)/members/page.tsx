@@ -11,9 +11,14 @@ import { cn } from '@/lib/utils';
 interface MemberInfo {
   id: string;
   name: string;
+  nickname: string;
   role: string;
   projects: string[];
   start_date: string;
+  email: string;
+  phone: string;
+  bank_name: string;
+  bank_account: string;
 }
 
 type ViewType = 'day' | 'week' | 'month';
@@ -359,9 +364,14 @@ function MemberModal({
 }) {
   const [formData, setFormData] = useState({
     name: member?.name || '',
+    nickname: member?.nickname || '',
     role: member?.role || 'Content Writer',
     projects: member?.projects || [],
     start_date: member?.start_date || '',
+    email: member?.email || '',
+    phone: member?.phone || '',
+    bank_name: member?.bank_name || '',
+    bank_account: member?.bank_account || '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -388,75 +398,153 @@ function MemberModal({
           {member ? 'Chỉnh sửa thành viên' : 'Thêm thành viên'}
         </h2>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm text-[#8888a0] mb-2">Tên</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="VD: Nguyễn Văn A"
-              className="w-full px-4 py-3 bg-secondary border border-border rounded-lg text-white placeholder-[#8888a0]"
-              required
-            />
+        <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-[#8888a0] mb-2">Họ tên</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="VD: Nguyễn Văn A"
+                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-white placeholder-[#8888a0] text-sm"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-[#8888a0] mb-2">Bí danh</label>
+              <input
+                type="text"
+                value={formData.nickname}
+                onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
+                placeholder="VD: Ky"
+                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-white placeholder-[#8888a0] text-sm"
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm text-[#8888a0] mb-2">Vai trò</label>
-            <select
-              value={formData.role}
-              onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-              className="w-full px-4 py-3 bg-secondary border border-border rounded-lg text-white"
-            >
-              <option value="Content Writer">Content Writer</option>
-              <option value="SEO Specialist">SEO Specialist</option>
-              <option value="Editor">Editor</option>
-              <option value="Manager">Manager</option>
-            </select>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-[#8888a0] mb-2">Vai trò</label>
+              <select
+                value={formData.role}
+                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-white text-sm"
+              >
+                <option value="Content Writer">Content Writer</option>
+                <option value="SEO Specialist">SEO Specialist</option>
+                <option value="Editor">Editor</option>
+                <option value="Manager">Manager</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm text-[#8888a0] mb-2">Ngày bắt đầu</label>
+              <input
+                type="date"
+                value={formData.start_date}
+                onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-white text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-[#8888a0] mb-2">Email</label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="email@example.com"
+                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-white placeholder-[#8888a0] text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-[#8888a0] mb-2">SĐT (Zalo)</label>
+              <input
+                type="tel"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                placeholder="0912345678"
+                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-white placeholder-[#8888a0] text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-[#8888a0] mb-2">Ngân hàng</label>
+              <select
+                value={formData.bank_name}
+                onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
+                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-white text-sm"
+              >
+                <option value="">Chọn ngân hàng</option>
+                <option value="Vietcombank">Vietcombank</option>
+                <option value="Techcombank">Techcombank</option>
+                <option value="BIDV">BIDV</option>
+                <option value="VietinBank">VietinBank</option>
+                <option value="ACB">ACB</option>
+                <option value="MB Bank">MB Bank</option>
+                <option value="TPBank">TPBank</option>
+                <option value="Sacombank">Sacombank</option>
+                <option value="VPBank">VPBank</option>
+                <option value="HDBank">HDBank</option>
+                <option value="OCB">OCB</option>
+                <option value="SHB">SHB</option>
+                <option value="Agribank">Agribank</option>
+                <option value="Momo">Momo</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm text-[#8888a0] mb-2">Số tài khoản</label>
+              <input
+                type="text"
+                value={formData.bank_account}
+                onChange={(e) => setFormData({ ...formData, bank_account: e.target.value })}
+                placeholder="1234567890"
+                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-white placeholder-[#8888a0] text-sm"
+              />
+            </div>
           </div>
 
           <div>
             <label className="block text-sm text-[#8888a0] mb-2">Dự án phụ trách</label>
-            <div className="space-y-2 max-h-[150px] overflow-y-auto">
+            <div className="flex flex-wrap gap-2">
               {projects.map((project) => (
                 <label
                   key={project.id}
-                  className="flex items-center gap-3 p-3 bg-secondary rounded-lg cursor-pointer hover:bg-border transition-colors"
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg cursor-pointer transition-colors text-sm",
+                    formData.projects.includes(project.id)
+                      ? "bg-accent text-white"
+                      : "bg-secondary text-[#8888a0] hover:text-white"
+                  )}
                 >
                   <input
                     type="checkbox"
                     checked={formData.projects.includes(project.id)}
                     onChange={() => toggleProject(project.id)}
-                    className="w-4 h-4 rounded border-border text-accent focus:ring-accent"
+                    className="hidden"
                   />
-                  <span className="text-white">{project.name}</span>
+                  {project.name}
                 </label>
               ))}
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm text-[#8888a0] mb-2">Ngày bắt đầu</label>
-            <input
-              type="date"
-              value={formData.start_date}
-              onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-              className="w-full px-4 py-3 bg-secondary border border-border rounded-lg text-white"
-            />
-          </div>
-
-          <div className="flex gap-3 pt-4">
+          <div className="flex gap-3 pt-4 sticky bottom-0 bg-card">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-3 bg-secondary hover:bg-border rounded-lg text-white font-medium transition-colors"
+              className="flex-1 py-2.5 bg-secondary hover:bg-border rounded-lg text-white font-medium transition-colors"
             >
               Hủy
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 py-3 bg-accent hover:bg-accent/90 disabled:bg-accent/50 rounded-lg text-white font-medium transition-colors"
+              className="flex-1 py-2.5 bg-accent hover:bg-accent/90 disabled:bg-accent/50 rounded-lg text-white font-medium transition-colors"
             >
               {isSubmitting ? 'Đang lưu...' : 'Lưu'}
             </button>

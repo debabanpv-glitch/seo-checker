@@ -270,6 +270,7 @@ export async function GET(request: NextRequest) {
       publish_date: t.publish_date,
       deadline: t.deadline,
       link_publish: t.link_publish,
+      content_file: t.content_file,
       project: t.project,
     }));
 
