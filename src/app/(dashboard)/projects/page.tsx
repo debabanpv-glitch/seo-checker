@@ -6,16 +6,10 @@ import {
   Plus,
   Trash2,
   ExternalLink,
-  Calendar,
-  Users,
-  CheckCircle2,
-  Clock,
-  AlertTriangle,
   Edit2,
   X,
-  Target,
-  FileText,
-  TrendingUp,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import ProgressBar from '@/components/ProgressBar';
 import { PageLoading } from '@/components/LoadingSpinner';
@@ -39,6 +33,7 @@ export default function ProjectsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingProject, setEditingProject] = useState<ProjectWithStats | null>(null);
+  const [expandedProject, setExpandedProject] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return `${now.getMonth() + 1}-${now.getFullYear()}`;
@@ -51,7 +46,7 @@ export default function ProjectsPage() {
     const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
     monthOptions.push({
       value: `${date.getMonth() + 1}-${date.getFullYear()}`,
-      label: `Tháng ${date.getMonth() + 1}/${date.getFullYear()}`,
+      label: `T${date.getMonth() + 1}/${date.getFullYear()}`,
     });
   }
 
@@ -91,266 +86,227 @@ export default function ProjectsPage() {
   const totalTarget = projects.reduce((sum, p) => sum + p.target, 0);
   const totalInProgress = projects.reduce((sum, p) => sum + p.inProgress, 0);
   const totalOverdue = projects.reduce((sum, p) => sum + p.overdue, 0);
+  const overallProgress = totalTarget > 0 ? Math.round((totalPublished / totalTarget) * 100) : 0;
 
   if (isLoading) {
     return <PageLoading />;
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Quản lý Dự án</h1>
-          <p className="text-[#8888a0] text-sm">Theo dõi tiến độ và quản lý các dự án content</p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* Month Selector */}
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-[#8888a0]" />
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="px-4 py-2 bg-card border border-border rounded-lg text-white"
-            >
-              {monthOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
+    <div className="space-y-4">
+      {/* Header - Compact */}
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-xl font-bold text-white">Dự án</h1>
+        <div className="flex items-center gap-2">
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="px-3 py-1.5 bg-card border border-border rounded-lg text-white text-sm"
+          >
+            {monthOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent/90 rounded-lg text-white font-medium transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent/90 rounded-lg text-white text-sm font-medium"
           >
             <Plus className="w-4 h-4" />
-            Thêm dự án
+            Thêm
           </button>
         </div>
       </div>
 
-      {/* Summary Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-card border border-border rounded-xl p-4">
+      {/* Summary - Single Row */}
+      <div className="bg-card border border-border rounded-xl p-4">
+        <div className="flex flex-wrap items-center gap-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-accent/20 rounded-lg flex items-center justify-center">
-              <FolderKanban className="w-5 h-5 text-accent" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-white">{projects.length}</p>
-              <p className="text-xs text-[#8888a0]">Dự án</p>
-            </div>
+            <FolderKanban className="w-5 h-5 text-accent" />
+            <span className="text-white font-bold text-lg">{projects.length}</span>
+            <span className="text-[#8888a0] text-sm">dự án</span>
           </div>
-        </div>
-
-        <div className="bg-card border border-border rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-success/20 rounded-lg flex items-center justify-center">
-              <CheckCircle2 className="w-5 h-5 text-success" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-white">
-                {totalPublished}/{totalTarget}
-              </p>
-              <p className="text-xs text-[#8888a0]">Đã publish/Target</p>
-            </div>
+          <div className="h-6 w-px bg-border" />
+          <div className="flex items-center gap-2">
+            <span className="text-success font-bold">{totalPublished}</span>
+            <span className="text-[#8888a0]">/</span>
+            <span className="text-white">{totalTarget}</span>
+            <span className="text-[#8888a0] text-sm">publish</span>
           </div>
-        </div>
-
-        <div className="bg-card border border-border rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-warning/20 rounded-lg flex items-center justify-center">
-              <Clock className="w-5 h-5 text-warning" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-white">{totalInProgress}</p>
-              <p className="text-xs text-[#8888a0]">Đang thực hiện</p>
-            </div>
+          <div className="h-6 w-px bg-border" />
+          <div className="flex items-center gap-2">
+            <span className="text-warning font-bold">{totalInProgress}</span>
+            <span className="text-[#8888a0] text-sm">đang làm</span>
           </div>
-        </div>
-
-        <div className="bg-card border border-border rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-danger/20 rounded-lg flex items-center justify-center">
-              <AlertTriangle className="w-5 h-5 text-danger" />
+          {totalOverdue > 0 && (
+            <>
+              <div className="h-6 w-px bg-border" />
+              <div className="flex items-center gap-2">
+                <span className="text-danger font-bold">{totalOverdue}</span>
+                <span className="text-[#8888a0] text-sm">trễ hạn</span>
+              </div>
+            </>
+          )}
+          <div className="ml-auto flex items-center gap-2">
+            <div className="w-24">
+              <ProgressBar value={totalPublished} max={totalTarget} showLabel={false} size="sm" />
             </div>
-            <div>
-              <p className="text-2xl font-bold text-white">{totalOverdue}</p>
-              <p className="text-xs text-[#8888a0]">Trễ deadline</p>
-            </div>
+            <span className={cn(
+              "font-bold text-sm",
+              overallProgress >= 100 ? "text-success" : overallProgress >= 70 ? "text-warning" : "text-white"
+            )}>
+              {overallProgress}%
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Projects List */}
+      {/* Projects Table */}
       {projects.length > 0 ? (
-        <div className="space-y-4">
-          {projects.map((project) => {
-            const progressPercent = project.target > 0
-              ? Math.round((project.actual / project.target) * 100)
-              : 0;
-            const isOnTrack = progressPercent >= 50 || project.actual >= project.target;
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-secondary text-left">
+                <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase">Dự án</th>
+                <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase text-center">Target</th>
+                <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase text-center">Publish</th>
+                <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase text-center">Đang làm</th>
+                <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase text-center">Chờ pub</th>
+                <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase text-center">Trễ</th>
+                <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase">Tiến độ</th>
+                <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase text-right"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {projects.map((project) => {
+                const progress = project.target > 0 ? Math.round((project.actual / project.target) * 100) : 0;
+                const isExpanded = expandedProject === project.id;
 
-            return (
-              <div
-                key={project.id}
-                className="bg-card border border-border rounded-xl overflow-hidden"
-              >
-                {/* Project Header */}
-                <div className="p-4 sm:p-6 border-b border-border">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-accent/20 rounded-xl flex items-center justify-center">
-                        <FolderKanban className="w-6 h-6 text-accent" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-white">{project.name}</h3>
-                        <p className="text-sm text-[#8888a0]">
-                          Sheet: {project.sheet_name} • {project.totalTasks} tasks tổng
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <a
-                        href={`https://docs.google.com/spreadsheets/d/${project.sheet_id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-2 text-[#8888a0] hover:text-accent transition-colors"
-                        title="Mở Google Sheet"
-                      >
-                        <ExternalLink className="w-5 h-5" />
-                      </a>
-                      <button
-                        onClick={() => setEditingProject(project)}
-                        className="p-2 text-[#8888a0] hover:text-white transition-colors"
-                        title="Chỉnh sửa"
-                      >
-                        <Edit2 className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(project.id)}
-                        className="p-2 text-[#8888a0] hover:text-danger transition-colors"
-                        title="Xóa dự án"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Project Stats */}
-                <div className="p-4 sm:p-6">
-                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-                    {/* Target Progress */}
-                    <div className="col-span-2 lg:col-span-1 bg-secondary/50 rounded-lg p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Target className="w-4 h-4 text-accent" />
-                        <span className="text-sm text-[#8888a0]">Target</span>
-                      </div>
-                      <p className="text-2xl font-bold text-white">
-                        {project.actual}/{project.target}
-                      </p>
-                      <p className="text-xs text-[#8888a0]">bài publish</p>
-                    </div>
-
-                    {/* This Month Total */}
-                    <div className="bg-secondary/50 rounded-lg p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <FileText className="w-4 h-4 text-accent" />
-                        <span className="text-sm text-[#8888a0]">Tháng này</span>
-                      </div>
-                      <p className="text-2xl font-bold text-white">{project.thisMonthTotal}</p>
-                      <p className="text-xs text-[#8888a0]">tasks</p>
-                    </div>
-
-                    {/* In Progress */}
-                    <div className="bg-secondary/50 rounded-lg p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Clock className="w-4 h-4 text-warning" />
-                        <span className="text-sm text-[#8888a0]">Đang làm</span>
-                      </div>
-                      <p className="text-2xl font-bold text-warning">{project.inProgress}</p>
-                      <p className="text-xs text-[#8888a0]">tasks</p>
-                    </div>
-
-                    {/* Done QC */}
-                    <div className="bg-secondary/50 rounded-lg p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <CheckCircle2 className="w-4 h-4 text-success" />
-                        <span className="text-sm text-[#8888a0]">Chờ publish</span>
-                      </div>
-                      <p className="text-2xl font-bold text-success">{project.doneQC}</p>
-                      <p className="text-xs text-[#8888a0]">tasks</p>
-                    </div>
-
-                    {/* Overdue */}
-                    <div className="bg-secondary/50 rounded-lg p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <AlertTriangle className="w-4 h-4 text-danger" />
-                        <span className="text-sm text-[#8888a0]">Trễ hạn</span>
-                      </div>
-                      <p className="text-2xl font-bold text-danger">{project.overdue}</p>
-                      <p className="text-xs text-[#8888a0]">tasks</p>
-                    </div>
-                  </div>
-
-                  {/* Progress Bar */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-[#8888a0]">Tiến độ target</span>
-                      <div className="flex items-center gap-2">
-                        <TrendingUp className={cn(
-                          "w-4 h-4",
-                          isOnTrack ? "text-success" : "text-warning"
-                        )} />
-                        <span className={cn(
-                          "text-sm font-medium",
-                          isOnTrack ? "text-success" : "text-warning"
-                        )}>
-                          {progressPercent}%
-                        </span>
-                      </div>
-                    </div>
-                    <ProgressBar value={project.actual} max={project.target} />
-                  </div>
-
-                  {/* Team Members */}
-                  {project.pics.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-border">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Users className="w-4 h-4 text-[#8888a0]" />
-                        <span className="text-sm text-[#8888a0]">Thành viên:</span>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {project.pics.map((pic) => (
-                          <span
-                            key={pic}
-                            className="px-3 py-1 bg-secondary rounded-full text-sm text-white"
-                          >
-                            {pic}
+                return (
+                  <>
+                    <tr key={project.id} className="hover:bg-secondary/50 transition-colors">
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => setExpandedProject(isExpanded ? null : project.id)}
+                          className="flex items-center gap-2 text-left"
+                        >
+                          {isExpanded ? (
+                            <ChevronUp className="w-4 h-4 text-[#8888a0]" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-[#8888a0]" />
+                          )}
+                          <span className="text-white font-medium">{project.name}</span>
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="text-white font-mono">{project.target}</span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="text-success font-bold font-mono">{project.actual}</span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="text-warning font-mono">{project.inProgress}</span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="text-accent font-mono">{project.doneQC}</span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {project.overdue > 0 ? (
+                          <span className="text-danger font-mono">{project.overdue}</span>
+                        ) : (
+                          <span className="text-[#8888a0]">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-20">
+                            <ProgressBar value={project.actual} max={project.target} showLabel={false} size="sm" />
+                          </div>
+                          <span className={cn(
+                            "text-xs font-bold w-10",
+                            progress >= 100 ? "text-success" : progress >= 70 ? "text-warning" : "text-white"
+                          )}>
+                            {progress}%
                           </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <a
+                            href={`https://docs.google.com/spreadsheets/d/${project.sheet_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 text-[#8888a0] hover:text-accent transition-colors"
+                            title="Mở Sheet"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
+                          <button
+                            onClick={() => setEditingProject(project)}
+                            className="p-1.5 text-[#8888a0] hover:text-white transition-colors"
+                            title="Sửa"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(project.id)}
+                            className="p-1.5 text-[#8888a0] hover:text-danger transition-colors"
+                            title="Xóa"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    {/* Expanded Details */}
+                    {isExpanded && (
+                      <tr key={`${project.id}-details`}>
+                        <td colSpan={8} className="px-4 py-3 bg-secondary/30">
+                          <div className="flex flex-wrap gap-4 text-sm">
+                            <div>
+                              <span className="text-[#8888a0]">Sheet: </span>
+                              <span className="text-white">{project.sheet_name}</span>
+                            </div>
+                            <div>
+                              <span className="text-[#8888a0]">Tổng tasks: </span>
+                              <span className="text-white">{project.totalTasks}</span>
+                            </div>
+                            <div>
+                              <span className="text-[#8888a0]">Tháng này: </span>
+                              <span className="text-white">{project.thisMonthTotal} tasks</span>
+                            </div>
+                            {project.pics.length > 0 && (
+                              <div className="flex items-center gap-2">
+                                <span className="text-[#8888a0]">Team: </span>
+                                <div className="flex gap-1">
+                                  {project.pics.map((pic) => (
+                                    <span key={pic} className="px-2 py-0.5 bg-accent/20 text-accent rounded text-xs">
+                                      {pic}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       ) : (
         <EmptyState
           icon={FolderKanban}
           title="Chưa có dự án nào"
-          description="Thêm dự án đầu tiên để bắt đầu theo dõi tiến độ content"
+          description="Thêm dự án đầu tiên để bắt đầu theo dõi"
           action={
             <button
               onClick={() => setShowAddModal(true)}
-              className="px-4 py-2 bg-accent hover:bg-accent/90 rounded-lg text-white font-medium transition-colors"
+              className="px-4 py-2 bg-accent hover:bg-accent/90 rounded-lg text-white font-medium"
             >
               Thêm dự án
             </button>
@@ -466,32 +422,27 @@ function ProjectModal({
             </p>
           </div>
 
-          <div>
-            <label className="block text-sm text-[#8888a0] mb-2">Tên Sheet</label>
-            <input
-              type="text"
-              value={formData.sheet_name}
-              onChange={(e) => setFormData({ ...formData, sheet_name: e.target.value })}
-              placeholder="Content"
-              className="w-full px-4 py-3 bg-secondary border border-border rounded-lg text-white placeholder-[#8888a0]"
-            />
-            <p className="text-xs text-[#8888a0] mt-1">
-              Tên tab sheet chứa dữ liệu content (mặc định: Content)
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm text-[#8888a0] mb-2">Target mặc định (bài/tháng)</label>
-            <input
-              type="number"
-              value={formData.monthly_target}
-              onChange={(e) => setFormData({ ...formData, monthly_target: parseInt(e.target.value) || 0 })}
-              className="w-full px-4 py-3 bg-secondary border border-border rounded-lg text-white"
-              min="1"
-            />
-            <p className="text-xs text-[#8888a0] mt-1">
-              Có thể tùy chỉnh target từng tháng trong Cài đặt
-            </p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-[#8888a0] mb-2">Tên Sheet</label>
+              <input
+                type="text"
+                value={formData.sheet_name}
+                onChange={(e) => setFormData({ ...formData, sheet_name: e.target.value })}
+                placeholder="Content"
+                className="w-full px-4 py-3 bg-secondary border border-border rounded-lg text-white placeholder-[#8888a0]"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-[#8888a0] mb-2">Target/tháng</label>
+              <input
+                type="number"
+                value={formData.monthly_target}
+                onChange={(e) => setFormData({ ...formData, monthly_target: parseInt(e.target.value) || 0 })}
+                className="w-full px-4 py-3 bg-secondary border border-border rounded-lg text-white"
+                min="1"
+              />
+            </div>
           </div>
 
           <div className="flex gap-3 pt-4">
@@ -507,7 +458,7 @@ function ProjectModal({
               disabled={isSubmitting}
               className="flex-1 py-3 bg-accent hover:bg-accent/90 disabled:bg-accent/50 rounded-lg text-white font-medium transition-colors"
             >
-              {isSubmitting ? 'Đang lưu...' : isEditing ? 'Cập nhật' : 'Thêm dự án'}
+              {isSubmitting ? 'Đang lưu...' : isEditing ? 'Cập nhật' : 'Thêm'}
             </button>
           </div>
         </form>

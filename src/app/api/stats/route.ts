@@ -28,15 +28,30 @@ export async function GET(request: NextRequest) {
     // Calculate stats - only count tasks with actual content
     const validTasks = taskList.filter((t) => t.title || t.keyword_sub || t.parent_keyword);
 
+    // Helper to check if task is published - support multiple formats
+    const isPublished = (statusContent: string | null) => {
+      if (!statusContent) return false;
+      const status = statusContent.toLowerCase().trim();
+      return status.includes('publish') || status.includes('4.') || status === 'done' || status === 'hoàn thành';
+    };
+
+    // Helper to check if task is done QC
+    const isDoneQC = (statusContent: string | null) => {
+      if (!statusContent) return false;
+      const status = statusContent.toLowerCase().trim();
+      return status.includes('done qc') || status.includes('3.') || status.includes('chờ publish');
+    };
+
     const stats = {
       total: validTasks.length,
-      published: validTasks.filter((t) => t.status_content === '4. Publish').length,
+      published: validTasks.filter((t) => isPublished(t.status_content)).length,
       inProgress: validTasks.filter((t) =>
         t.status_content &&
-        !['4. Publish', '3. Done QC', ''].includes(t.status_content)
+        !isPublished(t.status_content) &&
+        !isDoneQC(t.status_content)
       ).length,
       overdue: validTasks.filter((t) => {
-        if (!t.deadline || t.status_content === '4. Publish') return false;
+        if (!t.deadline || isPublished(t.status_content)) return false;
         return new Date(t.deadline) < new Date();
       }).length,
     };
@@ -57,7 +72,7 @@ export async function GET(request: NextRequest) {
       const projectTasks = taskList.filter(
         (t) => t.project_id === project.id && (t.title || t.keyword_sub)
       );
-      const published = projectTasks.filter((t) => t.status_content === '4. Publish').length;
+      const published = projectTasks.filter((t) => isPublished(t.status_content)).length;
 
       // Lấy target từ monthly_targets, nếu không có thì dùng default từ project
       const monthlyTarget = monthlyTargets?.find((mt) => mt.project_id === project.id);
@@ -76,48 +91,38 @@ export async function GET(request: NextRequest) {
       (t) =>
         (t.title || t.keyword_sub) &&
         t.status_content &&
-        t.status_content !== '4. Publish'
+        !isPublished(t.status_content)
     );
 
     // Get tasks by status for bottleneck display
     const qcContentTasks = activeTasks.filter((t) =>
-      t.status_content && t.status_content.includes('QC')
+      t.status_content && t.status_content.toLowerCase().includes('qc')
     );
     const qcOutlineTasks = activeTasks.filter((t) =>
-      t.status_outline && t.status_outline.includes('QC')
+      t.status_outline && t.status_outline.toLowerCase().includes('qc')
     );
-    const waitPublishTasks = activeTasks.filter((t) =>
-      t.status_content === '3. Done QC' || t.status_content === '3. Done'
-    );
+    const waitPublishTasks = activeTasks.filter((t) => isDoneQC(t.status_content));
     const doingContentTasks = activeTasks.filter((t) =>
-      t.status_content === '1. Doing' ||
-      t.status_content === '1. Doing Content' ||
-      t.status_content?.includes('Doing')
+      t.status_content && t.status_content.toLowerCase().includes('doing')
     );
 
     // Get fixing tasks for workflow display
     const fixingOutlineTasks = activeTasks.filter((t) =>
-      t.status_outline && (t.status_outline.includes('Fixing') || t.status_outline.includes('fix'))
+      t.status_outline && t.status_outline.toLowerCase().includes('fix')
     );
     const fixingContentTasks = activeTasks.filter((t) =>
-      t.status_content && (t.status_content.includes('Fixing') || t.status_content.includes('fix'))
+      t.status_content && t.status_content.toLowerCase().includes('fix')
     );
     const doingOutlineTasks = activeTasks.filter((t) =>
-      t.status_outline === '1. Doing Outline'
+      t.status_outline && t.status_outline.toLowerCase().includes('doing')
     );
 
     const bottleneck = {
       content: {
-        doingOutline: activeTasks.filter((t) =>
-          t.status_outline === '1. Doing Outline'
-        ).length,
-        fixingOutline: activeTasks.filter((t) =>
-          t.status_outline && (t.status_outline.includes('Fixing') || t.status_outline.includes('fix'))
-        ).length,
+        doingOutline: doingOutlineTasks.length,
+        fixingOutline: fixingOutlineTasks.length,
         doingContent: doingContentTasks.length,
-        fixingContent: activeTasks.filter((t) =>
-          t.status_content && (t.status_content.includes('Fixing') || t.status_content.includes('fix'))
-        ).length,
+        fixingContent: fixingContentTasks.length,
       },
       seo: {
         qcOutline: qcOutlineTasks.length,

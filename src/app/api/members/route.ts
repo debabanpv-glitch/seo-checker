@@ -6,6 +6,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const month = parseInt(searchParams.get('month') || String(new Date().getMonth() + 1));
     const year = parseInt(searchParams.get('year') || String(new Date().getFullYear()));
+    const viewType = searchParams.get('view') || 'month'; // 'month', 'week', 'day'
 
     // Fetch all tasks for the month
     const { data: tasks, error } = await supabase
@@ -23,6 +24,42 @@ export async function GET(request: NextRequest) {
       .from('members')
       .select('*');
 
+    // Filter tasks based on view type
+    const now = new Date();
+    const filterTasks = (taskList: typeof tasks) => {
+      if (!taskList) return [];
+
+      if (viewType === 'day') {
+        // Today only - filter by publish_date or deadline
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        return taskList.filter((t) => {
+          const taskDate = t.publish_date ? new Date(t.publish_date) : null;
+          if (!taskDate) return false;
+          return taskDate >= today && taskDate < tomorrow;
+        });
+      } else if (viewType === 'week') {
+        // This week only
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - now.getDay() + 1); // Monday
+        startOfWeek.setHours(0, 0, 0, 0);
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 7);
+
+        return taskList.filter((t) => {
+          const taskDate = t.publish_date ? new Date(t.publish_date) : null;
+          if (!taskDate) return false;
+          return taskDate >= startOfWeek && taskDate < endOfWeek;
+        });
+      }
+      return taskList; // 'month' - return all
+    };
+
+    const filteredTasks = filterTasks(tasks);
+
     // Group by PIC
     const memberMap = new Map<string, {
       name: string;
@@ -33,7 +70,10 @@ export async function GET(request: NextRequest) {
       late: number;
     }>();
 
-    (tasks || []).forEach((task) => {
+    // For day/week view, use filteredTasks for stats but tasks for totals
+    const tasksForStats = viewType === 'month' ? (tasks || []) : filteredTasks;
+
+    tasksForStats.forEach((task) => {
       const pic = task.pic || 'Unknown';
 
       if (!memberMap.has(pic)) {

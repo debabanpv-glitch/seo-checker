@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Users, FileText, CheckCircle2, Clock, TrendingUp, Plus, Trash2, Calendar, Pencil } from 'lucide-react';
+import { Users, CheckCircle2, Clock, Plus, Trash2, Pencil } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
 import ProgressBar from '@/components/ProgressBar';
 import { MemberStats, Project } from '@/types';
-import { formatDate } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 interface MemberInfo {
   id: string;
@@ -16,11 +16,14 @@ interface MemberInfo {
   start_date: string;
 }
 
+type ViewType = 'day' | 'week' | 'month';
+
 export default function MembersPage() {
   const [members, setMembers] = useState<MemberStats[]>([]);
   const [memberInfos, setMemberInfos] = useState<MemberInfo[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [viewType, setViewType] = useState<ViewType>('month');
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return `${now.getMonth() + 1}-${now.getFullYear()}`;
@@ -31,14 +34,14 @@ export default function MembersPage() {
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedMonth]);
+  }, [selectedMonth, viewType]);
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
       const [month, year] = selectedMonth.split('-');
       const [membersRes, projectsRes] = await Promise.all([
-        fetch(`/api/members?month=${month}&year=${year}`),
+        fetch(`/api/members?month=${month}&year=${year}&view=${viewType}`),
         fetch('/api/projects'),
       ]);
 
@@ -94,7 +97,7 @@ export default function MembersPage() {
     const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
     monthOptions.push({
       value: `${date.getMonth() + 1}-${date.getFullYear()}`,
-      label: `Tháng ${date.getMonth() + 1}/${date.getFullYear()}`,
+      label: `T${date.getMonth() + 1}/${date.getFullYear()}`,
     });
   }
 
@@ -110,38 +113,78 @@ export default function MembersPage() {
       .map((p) => p.name);
   };
 
+  // Get view label
+  const getViewLabel = () => {
+    if (viewType === 'day') return 'Hôm nay';
+    if (viewType === 'week') return 'Tuần này';
+    return selectedMonth.split('-').map((s, i) => i === 0 ? `T${s}` : s).join('/');
+  };
+
+  // Calculate totals
+  const totalPublished = members.reduce((sum, m) => sum + m.published, 0);
+  const totalInProgress = members.reduce((sum, m) => sum + m.inProgress, 0);
+
   if (isLoading) {
     return <PageLoading />;
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Thành viên</h1>
-          <p className="text-[#8888a0] text-sm">Thống kê hiệu suất từng người</p>
-        </div>
+    <div className="space-y-4">
+      {/* Header - Compact */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-bold text-white">Thành viên</h1>
+        <div className="flex items-center gap-2">
+          {/* View Toggle */}
+          <div className="flex gap-1 p-1 bg-card border border-border rounded-lg">
+            <button
+              onClick={() => setViewType('day')}
+              className={cn(
+                "px-3 py-1 text-xs rounded transition-colors",
+                viewType === 'day' ? 'bg-accent text-white' : 'text-[#8888a0] hover:text-white'
+              )}
+            >
+              Ngày
+            </button>
+            <button
+              onClick={() => setViewType('week')}
+              className={cn(
+                "px-3 py-1 text-xs rounded transition-colors",
+                viewType === 'week' ? 'bg-accent text-white' : 'text-[#8888a0] hover:text-white'
+              )}
+            >
+              Tuần
+            </button>
+            <button
+              onClick={() => setViewType('month')}
+              className={cn(
+                "px-3 py-1 text-xs rounded transition-colors",
+                viewType === 'month' ? 'bg-accent text-white' : 'text-[#8888a0] hover:text-white'
+              )}
+            >
+              Tháng
+            </button>
+          </div>
 
-        <div className="flex items-center gap-3">
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="px-4 py-2 bg-card border border-border rounded-lg text-white"
-          >
-            {monthOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+          {viewType === 'month' && (
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="px-3 py-1.5 bg-card border border-border rounded-lg text-white text-sm"
+            >
+              {monthOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          )}
 
           <button
             onClick={() => {
               setEditingMember(null);
               setShowAddModal(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent/90 rounded-lg text-white font-medium transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent/90 rounded-lg text-white text-sm font-medium"
           >
             <Plus className="w-4 h-4" />
             Thêm
@@ -149,135 +192,140 @@ export default function MembersPage() {
         </div>
       </div>
 
-      {/* Members Grid */}
+      {/* Summary Stats */}
+      <div className="bg-card border border-border rounded-xl p-4">
+        <div className="flex flex-wrap items-center gap-6">
+          <div className="flex items-center gap-3">
+            <Users className="w-5 h-5 text-accent" />
+            <span className="text-white font-bold text-lg">{members.length}</span>
+            <span className="text-[#8888a0] text-sm">người</span>
+          </div>
+          <div className="h-6 w-px bg-border" />
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-success" />
+            <span className="text-success font-bold">{totalPublished}</span>
+            <span className="text-[#8888a0] text-sm">publish ({getViewLabel()})</span>
+          </div>
+          <div className="h-6 w-px bg-border" />
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-warning" />
+            <span className="text-warning font-bold">{totalInProgress}</span>
+            <span className="text-[#8888a0] text-sm">đang làm</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Members Table */}
       {members.length > 0 ? (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {members.map((member) => {
-            const info = getMemberInfo(member.name);
-            const projectNames = info?.projects ? getProjectNames(info.projects) : [];
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-secondary text-left">
+                <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase">Thành viên</th>
+                <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase">Dự án</th>
+                <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase text-center">Tổng</th>
+                <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase text-center">Publish</th>
+                <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase text-center">Đang làm</th>
+                <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase text-center">Đúng hạn</th>
+                <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase">KPI</th>
+                <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase text-right"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {members.map((member) => {
+                const info = getMemberInfo(member.name);
+                const projectNames = info?.projects ? getProjectNames(info.projects) : [];
+                const kpiTarget = viewType === 'day' ? 1 : viewType === 'week' ? 5 : 20;
 
-            return (
-              <div
-                key={member.name}
-                className="bg-card border border-border rounded-xl p-6 card-hover"
-              >
-                {/* Header */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-accent/20 rounded-full flex items-center justify-center">
-                      <span className="text-accent font-bold text-lg">
-                        {member.name?.charAt(0).toUpperCase() || '?'}
-                      </span>
-                    </div>
-                    <div>
-                      <h3 className="text-white font-semibold">{member.name}</h3>
-                      <p className="text-xs text-[#8888a0]">{info?.role || 'Content Writer'}</p>
-                    </div>
-                  </div>
-                  {info && (
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => {
-                          setEditingMember(info);
-                          setShowAddModal(true);
-                        }}
-                        className="p-1.5 text-[#8888a0] hover:text-accent transition-colors"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => info.id && handleDeleteMember(info.id)}
-                        className="p-1.5 text-[#8888a0] hover:text-danger transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Project & Start Date Info */}
-                {(projectNames.length > 0 || info?.start_date) && (
-                  <div className="mb-4 p-3 bg-secondary rounded-lg space-y-2">
-                    {projectNames.length > 0 && (
-                      <div className="flex items-start gap-2">
-                        <span className="text-xs text-[#8888a0] w-16 flex-shrink-0">Dự án:</span>
-                        <div className="flex flex-wrap gap-1">
-                          {projectNames.map((name) => (
-                            <span key={name} className="text-xs px-2 py-0.5 bg-accent/20 text-accent rounded">
-                              {name}
-                            </span>
-                          ))}
+                return (
+                  <tr key={member.name} className="hover:bg-secondary/50 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-accent/20 rounded-full flex items-center justify-center flex-shrink-0">
+                          <span className="text-accent font-bold text-sm">
+                            {member.name?.charAt(0).toUpperCase() || '?'}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-white font-medium">{member.name}</p>
+                          <p className="text-xs text-[#8888a0]">{info?.role || 'Content Writer'}</p>
                         </div>
                       </div>
-                    )}
-                    {info?.start_date && (
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        {projectNames.length > 0 ? (
+                          projectNames.slice(0, 2).map((name) => (
+                            <span key={name} className="px-2 py-0.5 bg-accent/20 text-accent rounded text-xs">
+                              {name}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-[#8888a0] text-xs">-</span>
+                        )}
+                        {projectNames.length > 2 && (
+                          <span className="text-[#8888a0] text-xs">+{projectNames.length - 2}</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="text-white font-mono">{member.totalThisMonth}</span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="text-success font-bold font-mono">{member.published}</span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="text-warning font-mono">{member.inProgress}</span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={cn(
+                        "font-mono",
+                        member.onTimeRate >= 80 ? "text-success" : member.onTimeRate >= 50 ? "text-warning" : "text-danger"
+                      )}>
+                        {member.onTimeRate}%
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-[#8888a0] w-16 flex-shrink-0">Bắt đầu:</span>
-                        <span className="text-xs text-white flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          {formatDate(info.start_date)}
+                        <div className="w-16">
+                          <ProgressBar value={member.published} max={kpiTarget} showLabel={false} size="sm" />
+                        </div>
+                        <span className="text-xs text-[#8888a0] w-12">
+                          {member.published}/{kpiTarget}
                         </span>
                       </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Stats Grid */}
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div className="bg-secondary rounded-lg p-3">
-                    <div className="flex items-center gap-2 text-[#8888a0] text-xs mb-1">
-                      <FileText className="w-3 h-3" />
-                      Tổng bài
-                    </div>
-                    <p className="text-white font-bold font-mono text-lg">
-                      {member.totalThisMonth}
-                    </p>
-                  </div>
-                  <div className="bg-secondary rounded-lg p-3">
-                    <div className="flex items-center gap-2 text-[#8888a0] text-xs mb-1">
-                      <CheckCircle2 className="w-3 h-3" />
-                      Đã publish
-                    </div>
-                    <p className="text-success font-bold font-mono text-lg">
-                      {member.published}
-                    </p>
-                  </div>
-                  <div className="bg-secondary rounded-lg p-3">
-                    <div className="flex items-center gap-2 text-[#8888a0] text-xs mb-1">
-                      <Clock className="w-3 h-3" />
-                      Đang làm
-                    </div>
-                    <p className="text-warning font-bold font-mono text-lg">
-                      {member.inProgress}
-                    </p>
-                  </div>
-                  <div className="bg-secondary rounded-lg p-3">
-                    <div className="flex items-center gap-2 text-[#8888a0] text-xs mb-1">
-                      <TrendingUp className="w-3 h-3" />
-                      Đúng hạn
-                    </div>
-                    <p className="text-accent font-bold font-mono text-lg">
-                      {member.onTimeRate}%
-                    </p>
-                  </div>
-                </div>
-
-                {/* Progress to KPI */}
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="text-[#8888a0]">Tiến độ KPI</span>
-                    <span className="text-white">{member.published}/20</span>
-                  </div>
-                  <ProgressBar value={member.published} max={20} showLabel={false} />
-                </div>
-              </div>
-            );
-          })}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {info && (
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => {
+                              setEditingMember(info);
+                              setShowAddModal(true);
+                            }}
+                            className="p-1.5 text-[#8888a0] hover:text-accent transition-colors"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => info.id && handleDeleteMember(info.id)}
+                            className="p-1.5 text-[#8888a0] hover:text-danger transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       ) : (
         <EmptyState
           icon={Users}
-          title="Chưa có dữ liệu thành viên"
+          title={viewType === 'day' ? 'Chưa có dữ liệu hôm nay' : viewType === 'week' ? 'Chưa có dữ liệu tuần này' : 'Chưa có dữ liệu thành viên'}
           description="Sync dữ liệu từ Google Sheets để xem thống kê"
         />
       )}
