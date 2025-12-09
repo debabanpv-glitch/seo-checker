@@ -34,8 +34,12 @@ async function fetchGoogleSheet(sheetId: string, sheetName: string) {
   }
 }
 
+// Cell type from Google Sheets gviz response
+type SheetCell = { v: string | number | null; f?: string };
+type SheetRow = { c: Array<SheetCell> };
+
 // Check if row has valid data (not empty/Untitled)
-function isValidRow(row: { c: Array<{ v: string | number | null }> }): boolean {
+function isValidRow(row: SheetRow): boolean {
   if (!row.c) return false;
   const parentKeyword = row.c[3]?.v; // Column D - Parent Keyword
   const keywordSub = row.c[4]?.v;    // Column E - Keyword phụ
@@ -45,10 +49,19 @@ function isValidRow(row: { c: Array<{ v: string | number | null }> }): boolean {
 }
 
 // Map sheet columns to task fields
-function mapRowToTask(row: { c: Array<{ v: string | number | null }> }, projectId: string) {
+function mapRowToTask(row: SheetRow, projectId: string) {
   const getValue = (index: number) => {
     const cell = row.c[index];
     return cell?.v ?? null;
+  };
+
+  const getFormattedValue = (index: number): string => {
+    // Get formatted value (f) which is what user sees, or fall back to raw value (v)
+    const cell = row.c[index];
+    if (!cell) return '';
+    // Prefer formatted value for dates
+    if (cell.f) return String(cell.f);
+    return cell.v !== null ? String(cell.v) : '';
   };
 
   const getStringValue = (index: number): string => {
@@ -75,11 +88,18 @@ function mapRowToTask(row: { c: Array<{ v: string | number | null }> }, projectI
   const statusOutline = getStringValue(9);
   const pic = getStringValue(10);
   const contentFile = getStringValue(11);
-  const deadline = parseSheetDate(getStringValue(12));
+  const rawDeadline = getFormattedValue(12);
+  const deadline = parseSheetDate(rawDeadline);
   const statusContent = getStringValue(13);
   const linkPublish = getStringValue(14);
-  const publishDate = parseSheetDate(getStringValue(15));
+  const rawPublishDate = getFormattedValue(15);
+  const publishDate = parseSheetDate(rawPublishDate);
   const note = getStringValue(16);
+
+  // Debug log for dates
+  if (rawPublishDate || rawDeadline) {
+    console.log(`[SYNC DEBUG] Row ${stt}: deadline="${rawDeadline}" -> ${deadline}, publishDate="${rawPublishDate}" -> ${publishDate}`);
+  }
 
   return {
     project_id: projectId,
@@ -132,8 +152,8 @@ export async function POST() {
         // Skip header row and map data - only include rows with valid data
         const tasks = sheetData.rows
           .slice(1) // Skip header
-          .filter((row: { c: Array<{ v: string | number | null }> }) => isValidRow(row))
-          .map((row: { c: Array<{ v: string | number | null }> }) => mapRowToTask(row, project.id));
+          .filter((row: SheetRow) => isValidRow(row))
+          .map((row: SheetRow) => mapRowToTask(row, project.id));
 
         // Delete existing tasks for this project and insert new ones
         await supabase.from('tasks').delete().eq('project_id', project.id);
