@@ -658,29 +658,34 @@ function WorkflowItem({
       {isExpanded && tasks.length > 0 && (
         <div className="mt-2 ml-6 pl-3 border-l-2 border-border space-y-1.5">
           {tasks.map((task, idx) => (
-            <div key={task.id || idx} className="flex items-center gap-2 text-sm py-1 px-2 bg-secondary/50 rounded">
-              <User className="w-3 h-3 text-[#8888a0] flex-shrink-0" />
-              <span className="text-white flex-1 truncate text-xs">{task.title}</span>
-              <span className="text-xs text-[#8888a0] flex-shrink-0">{task.pic}</span>
-              {task.waitDays !== undefined && task.waitDays > 0 && (
-                <span className={`text-xs px-1.5 py-0.5 rounded flex-shrink-0 ${
-                  task.waitDays >= 3 ? 'bg-danger/20 text-danger' :
-                  task.waitDays >= 1 ? 'bg-warning/20 text-warning' :
-                  'bg-secondary text-[#8888a0]'
-                }`}>
-                  {task.waitDays}d
-                </span>
-              )}
-              {task.link && (
-                <a
-                  href={task.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-accent hover:underline flex-shrink-0"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              )}
+            <div key={task.id || idx} className="flex flex-col gap-1 text-sm py-2 px-2 bg-secondary/50 rounded">
+              <div className="flex items-center gap-2">
+                <User className="w-3 h-3 text-[#8888a0] flex-shrink-0" />
+                <span className="text-white flex-1 truncate text-xs">{task.title}</span>
+                {task.link && (
+                  <a
+                    href={task.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-accent hover:underline flex-shrink-0"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+              </div>
+              <div className="flex items-center justify-between text-xs pl-5">
+                <span className="text-[#8888a0]">{task.pic} • {task.project}</span>
+                {task.waitDays !== undefined && (
+                  <span className={`px-1.5 py-0.5 rounded ${
+                    task.waitDays >= 5 ? 'bg-danger/20 text-danger' :
+                    task.waitDays >= 3 ? 'bg-orange-500/20 text-orange-400' :
+                    task.waitDays >= 1 ? 'bg-warning/20 text-warning' :
+                    'bg-secondary text-[#8888a0]'
+                  }`}>
+                    {task.waitDays === 0 ? 'Hôm nay' : `${task.waitDays} ngày trước`}
+                  </span>
+                )}
+              </div>
             </div>
           ))}
         </div>
