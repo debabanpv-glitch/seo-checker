@@ -48,6 +48,8 @@ export default function DashboardPage() {
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
   // Project workflow status expanded state
   const [expandedProjectStatus, setExpandedProjectStatus] = useState<string | null>(null);
+  // Attention box - expanded project
+  const [expandedAttentionProject, setExpandedAttentionProject] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDashboardData();
@@ -422,108 +424,123 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* Box Cần chú ý - Group theo dự án */}
+      {/* Box Cần chú ý - Compact với collapse */}
       {totalAttention > 0 && (
         <div className="bg-card border-2 border-danger/40 rounded-xl overflow-hidden">
           {/* Header */}
-          <div className="bg-danger/10 px-4 py-3 flex items-center justify-between">
+          <div className="bg-danger/10 px-4 py-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-danger" />
-              <h3 className="font-semibold text-danger">Cần chú ý</h3>
+              <AlertTriangle className="w-4 h-4 text-danger" />
+              <h3 className="font-semibold text-danger text-sm">Cần chú ý</h3>
             </div>
-            <div className="flex items-center gap-3 text-sm">
-              <span className="px-2 py-1 bg-danger/20 text-danger rounded font-medium">
+            <div className="flex items-center gap-2 text-xs">
+              <span className="px-2 py-0.5 bg-danger/20 text-danger rounded font-medium">
                 {overdueTasks.length} trễ
               </span>
-              <span className="px-2 py-1 bg-warning/20 text-warning rounded font-medium">
+              <span className="px-2 py-0.5 bg-warning/20 text-warning rounded font-medium">
                 {dueSoonTasks.length} sắp trễ
               </span>
             </div>
           </div>
 
-          {/* Content - Group by Project */}
-          <div className="p-4 space-y-4 max-h-[400px] overflow-y-auto">
-            {attentionByProject.map((project) => (
-              <div key={project.id} className="bg-secondary/50 rounded-lg overflow-hidden">
-                {/* Project Header */}
-                <div className="bg-secondary px-3 py-2 flex items-center justify-between">
-                  <span className="font-medium text-[var(--text-primary)]">{project.projectName}</span>
-                  <div className="flex items-center gap-2 text-xs">
-                    {project.overdue.length > 0 && (
-                      <span className="px-1.5 py-0.5 bg-danger/20 text-danger rounded">
-                        {project.overdue.length} trễ
-                      </span>
-                    )}
-                    {project.dueSoon.length > 0 && (
-                      <span className="px-1.5 py-0.5 bg-warning/20 text-warning rounded">
-                        {project.dueSoon.length} sắp trễ
-                      </span>
-                    )}
-                  </div>
-                </div>
+          {/* Content - Collapsible by Project */}
+          <div className="p-2 space-y-1">
+            {attentionByProject.map((project) => {
+              const isExpanded = expandedAttentionProject === project.id;
 
-                {/* Tasks */}
-                <div className="p-2 space-y-1.5">
-                  {/* Overdue Tasks */}
-                  {project.overdue.map((task) => (
-                    <div key={task.id} className="flex items-center gap-2 p-2 bg-danger/5 border border-danger/20 rounded">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-[var(--text-primary)] truncate">
-                          {task.title || task.keyword_sub || 'Không có tiêu đề'}
-                        </p>
-                        <div className="flex items-center gap-2 text-xs text-[#8888a0]">
-                          <span className="text-accent">{task.pic || 'N/A'}</span>
-                          <span>•</span>
-                          <span>DL: {formatDate(task.deadline!)}</span>
-                        </div>
-                      </div>
-                      <span className="px-2 py-1 bg-danger text-white text-xs font-bold rounded flex-shrink-0">
-                        -{task.daysLate}d
-                      </span>
-                      {task.content_file && (
-                        <a
-                          href={task.content_file}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-1 text-accent hover:bg-accent/20 rounded"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </a>
+              return (
+                <div key={project.id} className="border border-border rounded-lg overflow-hidden">
+                  {/* Project Header - Clickable */}
+                  <button
+                    onClick={() => setExpandedAttentionProject(isExpanded ? null : project.id)}
+                    className="w-full bg-secondary/50 px-3 py-2 flex items-center justify-between hover:bg-secondary transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      {isExpanded ? (
+                        <ChevronUp className="w-4 h-4 text-[#8888a0]" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 text-[#8888a0]" />
+                      )}
+                      <span className="font-medium text-[var(--text-primary)] text-sm">{project.projectName}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {project.overdue.length > 0 && (
+                        <span className="px-1.5 py-0.5 bg-danger text-white text-xs font-bold rounded">
+                          {project.overdue.length}
+                        </span>
+                      )}
+                      {project.dueSoon.length > 0 && (
+                        <span className="px-1.5 py-0.5 bg-warning text-white text-xs font-bold rounded">
+                          {project.dueSoon.length}
+                        </span>
                       )}
                     </div>
-                  ))}
+                  </button>
 
-                  {/* Due Soon Tasks */}
-                  {project.dueSoon.map((task) => (
-                    <div key={task.id} className="flex items-center gap-2 p-2 bg-warning/5 border border-warning/20 rounded">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-[var(--text-primary)] truncate">
-                          {task.title || task.keyword_sub || 'Không có tiêu đề'}
-                        </p>
-                        <div className="flex items-center gap-2 text-xs text-[#8888a0]">
-                          <span className="text-accent">{task.pic || 'N/A'}</span>
-                          <span>•</span>
-                          <span>DL: {formatDate(task.deadline!)}</span>
-                        </div>
+                  {/* Tasks - Expandable, hiển thị theo hàng ngang */}
+                  {isExpanded && (
+                    <div className="p-2 bg-secondary/20">
+                      <div className="flex flex-wrap gap-1.5">
+                        {/* Overdue Tasks */}
+                        {project.overdue.map((task) => (
+                          <div
+                            key={task.id}
+                            className="inline-flex items-center gap-1.5 px-2 py-1 bg-danger/10 border border-danger/30 rounded text-xs"
+                            title={`${task.title || task.keyword_sub} - ${task.pic} - DL: ${formatDate(task.deadline!)}`}
+                          >
+                            <span className="text-[var(--text-primary)] max-w-[120px] truncate">
+                              {task.title || task.keyword_sub || 'N/A'}
+                            </span>
+                            <span className="text-accent font-medium">{task.pic || 'N/A'}</span>
+                            <span className="px-1 py-0.5 bg-danger text-white text-[10px] font-bold rounded">
+                              -{task.daysLate}d
+                            </span>
+                            {task.content_file && (
+                              <a
+                                href={task.content_file}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-accent hover:text-accent-dark"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                        {/* Due Soon Tasks */}
+                        {project.dueSoon.map((task) => (
+                          <div
+                            key={task.id}
+                            className="inline-flex items-center gap-1.5 px-2 py-1 bg-warning/10 border border-warning/30 rounded text-xs"
+                            title={`${task.title || task.keyword_sub} - ${task.pic} - DL: ${formatDate(task.deadline!)}`}
+                          >
+                            <span className="text-[var(--text-primary)] max-w-[120px] truncate">
+                              {task.title || task.keyword_sub || 'N/A'}
+                            </span>
+                            <span className="text-accent font-medium">{task.pic || 'N/A'}</span>
+                            <span className="px-1 py-0.5 bg-warning text-white text-[10px] font-bold rounded">
+                              {task.daysLeft === 0 ? 'Nay' : `${task.daysLeft}d`}
+                            </span>
+                            {task.content_file && (
+                              <a
+                                href={task.content_file}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-accent hover:text-accent-dark"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                      <span className="px-2 py-1 bg-warning text-white text-xs font-bold rounded flex-shrink-0">
-                        {task.daysLeft === 0 ? 'Hôm nay' : `${task.daysLeft}d`}
-                      </span>
-                      {task.content_file && (
-                        <a
-                          href={task.content_file}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-1 text-accent hover:bg-accent/20 rounded"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </a>
-                      )}
                     </div>
-                  ))}
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
