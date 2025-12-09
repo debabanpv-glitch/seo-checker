@@ -195,9 +195,8 @@ export async function POST() {
           continue;
         }
 
-        // Skip header row and map data - only include rows with valid data
+        // Map data - only include rows with valid data (no header skip)
         const tasks = sheetData.rows
-          .slice(1) // Skip header
           .filter((row: SheetRow) => isValidRow(row))
           .map((row: SheetRow) => mapRowToTask(row, project.id));
 
