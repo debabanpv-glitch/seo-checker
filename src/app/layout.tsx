@@ -14,7 +14,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="vi">
-      <body className="min-h-screen bg-primary text-white antialiased">
+      <body className="min-h-screen bg-primary text-[var(--text-primary)] antialiased">
         <AuthProvider>
           {children}
         </AuthProvider>
