@@ -30,16 +30,9 @@ const isPublished = (statusContent: string | null | undefined) => {
 };
 
 export default function DashboardPage() {
-  // Date range state
-  const [dateRange, setDateRange] = useState(() => {
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    return {
-      from: firstDay.toISOString().split('T')[0],
-      to: lastDay.toISOString().split('T')[0],
-    };
-  });
+  // Month/Year state
+  const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
 
   const [stats, setStats] = useState<Stats | null>(null);
   const [projectStats, setProjectStats] = useState<ProjectStats[]>([]);
@@ -51,22 +44,15 @@ export default function DashboardPage() {
   // Workflow expanded state
   const [expandedWorkflow, setExpandedWorkflow] = useState<string | null>(null);
 
-  // Get month/year from date range for API
-  const selectedMonth = useMemo(() => {
-    const fromDate = new Date(dateRange.from);
-    return `${fromDate.getMonth() + 1}-${fromDate.getFullYear()}`;
-  }, [dateRange.from]);
-
   useEffect(() => {
     fetchDashboardData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedMonth]);
+  }, [selectedMonth, selectedYear]);
 
   const fetchDashboardData = async () => {
     setIsLoading(true);
     try {
-      const [month, year] = selectedMonth.split('-');
-      const res = await fetch(`/api/stats?month=${month}&year=${year}`);
+      const res = await fetch(`/api/stats?month=${selectedMonth}&year=${selectedYear}`);
       const data = await res.json();
 
       setStats(data.stats);
@@ -81,25 +67,12 @@ export default function DashboardPage() {
     }
   };
 
-  // Filter stats based on date range
+  // Calculate stats based on all tasks
   const filteredStats = useMemo(() => {
     if (!stats) return null;
 
-    const fromDate = new Date(dateRange.from);
-    const toDate = new Date(dateRange.to);
-    fromDate.setHours(0, 0, 0, 0);
-    toDate.setHours(23, 59, 59, 999);
-
-    // Filter all tasks by date range - use publish_date if published, otherwise deadline
-    const filteredTasks = allTasks.filter((task) => {
-      const taskDate = task.publish_date ? new Date(task.publish_date) :
-                       task.deadline ? new Date(task.deadline) : null;
-      if (!taskDate) return true; // Include tasks without dates
-      return taskDate >= fromDate && taskDate <= toDate;
-    });
-
-    const published = filteredTasks.filter((t) => isPublished(t.status_content)).length;
-    const inProgress = filteredTasks.filter((t) =>
+    const published = allTasks.filter((t) => isPublished(t.status_content)).length;
+    const inProgress = allTasks.filter((t) =>
       t.status_content &&
       !isPublished(t.status_content)
     ).length;
@@ -109,30 +82,16 @@ export default function DashboardPage() {
       total: published + inProgress,
       published,
       inProgress,
-      overdue: filteredTasks.filter((t) => {
+      overdue: allTasks.filter((t) => {
         if (!t.deadline || isPublished(t.status_content)) return false;
         return new Date(t.deadline) < new Date();
       }).length,
     };
-  }, [stats, dateRange, allTasks]);
+  }, [stats, allTasks]);
 
-  // Calculate leaderboard - person + published count
+  // Calculate leaderboard - person + published count for current month
   const leaderboard = useMemo(() => {
-    const fromDate = new Date(dateRange.from);
-    const toDate = new Date(dateRange.to);
-    fromDate.setHours(0, 0, 0, 0);
-    toDate.setHours(23, 59, 59, 999);
-
-    const publishedTasks = allTasks.filter((t) => {
-      if (!isPublished(t.status_content)) return false;
-      // If has publish_date, filter by date range
-      if (t.publish_date) {
-        const pubDate = new Date(t.publish_date);
-        return pubDate >= fromDate && pubDate <= toDate;
-      }
-      // If no publish_date but is published, include it
-      return true;
-    });
+    const publishedTasks = allTasks.filter((t) => isPublished(t.status_content));
 
     // Count by PIC
     const picCount: Record<string, number> = {};
@@ -146,7 +105,7 @@ export default function DashboardPage() {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([name, count], index) => ({ name, count, rank: index + 1 }));
-  }, [allTasks, dateRange]);
+  }, [allTasks]);
 
   // Calculate completion rate
   const completionRate = filteredStats?.total
@@ -162,66 +121,56 @@ export default function DashboardPage() {
   const totalPlanned = allTasks.length;
   const missingPlan = totalTarget - totalPlanned;
 
-  // Calculate weekly report for each project
-  // Show: 2 weeks before + current week + next week = 4 weeks total
+  // Calculate weekly report for each project - weeks within selected month
   const weeklyReports = useMemo(() => {
     const now = new Date();
+    const currentWeekInMonth = Math.ceil(now.getDate() / 7);
+    const isCurrentMonth = selectedMonth === (now.getMonth() + 1) && selectedYear === now.getFullYear();
 
-    // Get week number of year (ISO week)
-    const getWeekOfYear = (date: Date) => {
-      const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-      const dayNum = d.getUTCDay() || 7;
-      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-      return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+    // Get weeks in the selected month (up to 5 weeks)
+    const getWeeksInMonth = () => {
+      const lastDay = new Date(selectedYear, selectedMonth, 0);
+      const totalDays = lastDay.getDate();
+      const weeks: { weekNum: number; start: Date; end: Date }[] = [];
+
+      for (let week = 1; week <= 5; week++) {
+        const startDay = (week - 1) * 7 + 1;
+        if (startDay > totalDays) break;
+
+        const endDay = Math.min(week * 7, totalDays);
+        const start = new Date(selectedYear, selectedMonth - 1, startDay);
+        const end = new Date(selectedYear, selectedMonth - 1, endDay, 23, 59, 59);
+
+        weeks.push({ weekNum: week, start, end });
+      }
+
+      return weeks;
     };
 
-    // Get start and end of a specific week
-    const getWeekRange = (weekNum: number, year: number) => {
-      const jan1 = new Date(year, 0, 1);
-      const daysToAdd = (weekNum - 1) * 7 - jan1.getDay() + 1;
-      const weekStart = new Date(year, 0, 1 + daysToAdd);
-      weekStart.setHours(0, 0, 0, 0);
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 7);
-      return { start: weekStart, end: weekEnd };
-    };
+    const weeksInMonth = getWeeksInMonth();
 
-    const currentWeek = getWeekOfYear(now);
-    const currentYear = now.getFullYear();
-
-    // Generate 4 weeks: 2 before + current + 1 after
-    const weeksToShow = [
-      currentWeek - 2,
-      currentWeek - 1,
-      currentWeek,
-      currentWeek + 1,
-    ];
-
-    // Weekly target = monthly target / 4 weeks
+    // Weekly target = monthly target / number of weeks
     return projectStats.map((project) => {
-      const weeklyTarget = Math.ceil(project.target / 4);
+      const weeklyTarget = Math.ceil(project.target / weeksInMonth.length);
 
       // Get published tasks for this project (with publish_date)
       const projectTasks = allTasks.filter(
         (t) => t.project?.id === project.id && isPublished(t.status_content)
       );
 
-      const weeklyData = weeksToShow.map((weekNum) => {
-        const { start, end } = getWeekRange(weekNum, currentYear);
-
+      const weeklyData = weeksInMonth.map((week) => {
         // Count tasks published in this week
         const tasksInWeek = projectTasks.filter((t) => {
           if (!t.publish_date) return false;
           const pubDate = new Date(t.publish_date);
-          return pubDate >= start && pubDate < end;
+          return pubDate >= week.start && pubDate <= week.end;
         });
 
         return {
-          weekOfYear: weekNum,
+          weekNum: week.weekNum,
           count: tasksInWeek.length,
           target: weeklyTarget,
-          isCurrent: weekNum === currentWeek,
+          isCurrent: isCurrentMonth && week.weekNum === currentWeekInMonth,
         };
       });
 
@@ -232,7 +181,7 @@ export default function DashboardPage() {
         weeks: weeklyData,
       };
     });
-  }, [projectStats, allTasks]);
+  }, [projectStats, allTasks, selectedMonth, selectedYear]);
 
   // Get tasks for workflow section
   const getWorkflowTasks = (type: string): BottleneckTask[] => {
@@ -262,22 +211,36 @@ export default function DashboardPage() {
           <p className="text-[#8888a0] text-xs md:text-sm">Tổng quan tiến độ công việc</p>
         </div>
 
-        {/* Date Range Picker */}
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* Month/Year Picker */}
+        <div className="flex items-center gap-2">
           <Calendar className="w-4 h-4 text-[#8888a0]" />
-          <input
-            type="date"
-            value={dateRange.from}
-            onChange={(e) => setDateRange({ ...dateRange, from: e.target.value })}
-            className="px-2 py-1.5 bg-card border border-border rounded-lg text-white text-sm"
-          />
-          <span className="text-[#8888a0]">-</span>
-          <input
-            type="date"
-            value={dateRange.to}
-            onChange={(e) => setDateRange({ ...dateRange, to: e.target.value })}
-            className="px-2 py-1.5 bg-card border border-border rounded-lg text-white text-sm"
-          />
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+            className="px-3 py-1.5 bg-card border border-border rounded-lg text-white text-sm cursor-pointer"
+          >
+            <option value={1}>Tháng 1</option>
+            <option value={2}>Tháng 2</option>
+            <option value={3}>Tháng 3</option>
+            <option value={4}>Tháng 4</option>
+            <option value={5}>Tháng 5</option>
+            <option value={6}>Tháng 6</option>
+            <option value={7}>Tháng 7</option>
+            <option value={8}>Tháng 8</option>
+            <option value={9}>Tháng 9</option>
+            <option value={10}>Tháng 10</option>
+            <option value={11}>Tháng 11</option>
+            <option value={12}>Tháng 12</option>
+          </select>
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+            className="px-3 py-1.5 bg-card border border-border rounded-lg text-white text-sm cursor-pointer"
+          >
+            {[2024, 2025, 2026].map((year) => (
+              <option key={year} value={year}>{year}</option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -390,6 +353,16 @@ export default function DashboardPage() {
           {bottleneck ? (
             <div className="space-y-2">
               {/* Workflow Items */}
+              {/* Content đang làm Outline */}
+              <WorkflowItem
+                label="Content đang làm Outline"
+                count={bottleneck.content.doingOutline}
+                color="warning"
+                tasks={getWorkflowTasks('doingOutline')}
+                isExpanded={expandedWorkflow === 'doingOutline'}
+                onToggle={() => setExpandedWorkflow(expandedWorkflow === 'doingOutline' ? null : 'doingOutline')}
+              />
+              {/* SEO QC Outline */}
               <WorkflowItem
                 label="SEO QC Outline"
                 count={bottleneck.seo.qcOutline}
@@ -398,6 +371,18 @@ export default function DashboardPage() {
                 isExpanded={expandedWorkflow === 'qcOutline'}
                 onToggle={() => setExpandedWorkflow(expandedWorkflow === 'qcOutline' ? null : 'qcOutline')}
               />
+              {/* Content đang sửa Outline */}
+              {bottleneck.content.fixingOutline > 0 && (
+                <WorkflowItem
+                  label="Content đang sửa Outline"
+                  count={bottleneck.content.fixingOutline}
+                  color="orange"
+                  tasks={getWorkflowTasks('fixingOutline')}
+                  isExpanded={expandedWorkflow === 'fixingOutline'}
+                  onToggle={() => setExpandedWorkflow(expandedWorkflow === 'fixingOutline' ? null : 'fixingOutline')}
+                />
+              )}
+              {/* Content đang viết */}
               <WorkflowItem
                 label="Content đang viết"
                 count={bottleneck.content.doingContent}
@@ -406,6 +391,7 @@ export default function DashboardPage() {
                 isExpanded={expandedWorkflow === 'doingContent'}
                 onToggle={() => setExpandedWorkflow(expandedWorkflow === 'doingContent' ? null : 'doingContent')}
               />
+              {/* SEO QC Content */}
               <WorkflowItem
                 label="SEO QC Content"
                 count={bottleneck.seo.qcContent}
@@ -414,6 +400,18 @@ export default function DashboardPage() {
                 isExpanded={expandedWorkflow === 'qcContent'}
                 onToggle={() => setExpandedWorkflow(expandedWorkflow === 'qcContent' ? null : 'qcContent')}
               />
+              {/* Content đang sửa Content */}
+              {bottleneck.content.fixingContent > 0 && (
+                <WorkflowItem
+                  label="Content đang sửa Content"
+                  count={bottleneck.content.fixingContent}
+                  color="orange"
+                  tasks={getWorkflowTasks('fixingContent')}
+                  isExpanded={expandedWorkflow === 'fixingContent'}
+                  onToggle={() => setExpandedWorkflow(expandedWorkflow === 'fixingContent' ? null : 'fixingContent')}
+                />
+              )}
+              {/* Chờ Publish */}
               <WorkflowItem
                 label="Chờ Publish"
                 count={bottleneck.seo.waitPublish}
@@ -422,28 +420,6 @@ export default function DashboardPage() {
                 isExpanded={expandedWorkflow === 'waitPublish'}
                 onToggle={() => setExpandedWorkflow(expandedWorkflow === 'waitPublish' ? null : 'waitPublish')}
               />
-
-              {/* Fixing items - now clickable with task details */}
-              {bottleneck.content.fixingOutline > 0 && (
-                <WorkflowItem
-                  label="Đang sửa Outline"
-                  count={bottleneck.content.fixingOutline}
-                  color="orange"
-                  tasks={getWorkflowTasks('fixingOutline')}
-                  isExpanded={expandedWorkflow === 'fixingOutline'}
-                  onToggle={() => setExpandedWorkflow(expandedWorkflow === 'fixingOutline' ? null : 'fixingOutline')}
-                />
-              )}
-              {bottleneck.content.fixingContent > 0 && (
-                <WorkflowItem
-                  label="Đang sửa Content"
-                  count={bottleneck.content.fixingContent}
-                  color="orange"
-                  tasks={getWorkflowTasks('fixingContent')}
-                  isExpanded={expandedWorkflow === 'fixingContent'}
-                  onToggle={() => setExpandedWorkflow(expandedWorkflow === 'fixingContent' ? null : 'fixingContent')}
-                />
-              )}
             </div>
           ) : (
             <p className="text-[#8888a0] text-center py-4 text-sm">Không có dữ liệu</p>
@@ -496,13 +472,13 @@ export default function DashboardPage() {
               weeklyReports.map((report) => (
                 <div key={report.projectId} className="bg-secondary rounded-lg p-4">
                   <p className="text-white font-medium mb-3">{report.projectName}</p>
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-5 gap-2">
                     {report.weeks.map((week) => {
                       const isAchieved = week.count >= week.target;
                       const isCurrent = week.isCurrent;
                       return (
                         <div
-                          key={week.weekOfYear}
+                          key={week.weekNum}
                           className={`text-center p-2 rounded-lg relative ${
                             isCurrent ? 'ring-2 ring-accent' : ''
                           } ${
@@ -514,7 +490,7 @@ export default function DashboardPage() {
                               Hiện tại
                             </span>
                           )}
-                          <p className="text-xs text-[#8888a0] mb-1">Tuần {week.weekOfYear}</p>
+                          <p className="text-xs text-[#8888a0] mb-1">Tuần {week.weekNum}</p>
                           <p className={`text-xl font-bold ${isAchieved ? 'text-success' : week.count > 0 ? 'text-warning' : 'text-[#8888a0]'}`}>
                             {week.count}
                           </p>
