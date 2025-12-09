@@ -7,14 +7,11 @@ import {
   AlertTriangle,
   ExternalLink,
   RefreshCw,
-  FileText,
-  Image as ImageIcon,
-  Code,
   ChevronDown,
-  ChevronUp,
-  Filter,
+  ChevronRight,
   Loader2,
   CheckCircle,
+  TrendingUp,
 } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
@@ -80,6 +77,7 @@ export default function SEOAuditPage() {
   const [selectedProject, setSelectedProject] = useState('');
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [checkingAll, setCheckingAll] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'content' | 'images' | 'technical'>('all');
 
   useEffect(() => {
     fetchTasks();
@@ -171,7 +169,7 @@ export default function SEOAuditPage() {
     const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
     monthOptions.push({
       value: `${date.getMonth() + 1}-${date.getFullYear()}`,
-      label: `Tháng ${date.getMonth() + 1}/${date.getFullYear()}`,
+      label: `T${date.getMonth() + 1}/${date.getFullYear()}`,
     });
   }
 
@@ -179,130 +177,72 @@ export default function SEOAuditPage() {
   const avgScore = checkedTasks.length > 0
     ? Math.round(checkedTasks.reduce((sum, t) => sum + (t.seoScore || 0), 0) / checkedTasks.length)
     : 0;
-  const goodCount = checkedTasks.filter((t) => (t.seoScore || 0) >= 70).length;
-  const warningCount = checkedTasks.filter((t) => (t.seoScore || 0) >= 50 && (t.seoScore || 0) < 70).length;
-  const badCount = checkedTasks.filter((t) => (t.seoScore || 0) < 50).length;
 
   if (isLoading) {
     return <PageLoading />;
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white">SEO Audit</h1>
-          <p className="text-[#8888a0] text-sm">Kiểm tra SEO on-page theo checklist chuẩn</p>
+    <div className="space-y-4">
+      {/* Header Compact */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-4">
+          <h1 className="text-xl font-bold text-white">SEO Audit</h1>
+          {checkedTasks.length > 0 && (
+            <div className="flex items-center gap-2">
+              <ScoreBadge score={avgScore} size="sm" />
+              <span className="text-xs text-[#8888a0]">
+                {checkedTasks.length}/{tasks.length} checked
+              </span>
+            </div>
+          )}
         </div>
 
-        <div className="flex flex-wrap gap-3">
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-[#8888a0]" />
-            <select
-              value={selectedProject}
-              onChange={(e) => setSelectedProject(e.target.value)}
-              className="px-3 py-2 bg-card border border-border rounded-lg text-white text-sm"
-            >
-              <option value="">Tất cả dự án</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={selectedProject}
+            onChange={(e) => setSelectedProject(e.target.value)}
+            className="px-2 py-1.5 bg-card border border-border rounded-lg text-white text-sm"
+          >
+            <option value="">Tất cả</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
 
           <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            className="px-4 py-2 bg-card border border-border rounded-lg text-white"
+            className="px-2 py-1.5 bg-card border border-border rounded-lg text-white text-sm"
           >
             {monthOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
 
           <button
             onClick={checkAllSEO}
             disabled={checkingAll || tasks.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent/90 disabled:bg-accent/50 rounded-lg text-white font-medium transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent/90 disabled:bg-accent/50 rounded-lg text-white text-sm font-medium"
           >
-            <RefreshCw className={cn("w-4 h-4", checkingAll && "animate-spin")} />
-            {checkingAll ? 'Đang check...' : 'Check tất cả'}
+            <RefreshCw className={cn("w-3.5 h-3.5", checkingAll && "animate-spin")} />
+            {checkingAll ? 'Checking...' : 'Check All'}
           </button>
-        </div>
-      </div>
-
-      {/* Summary Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-[#8888a0] text-xs mb-1">Tổng bài</p>
-          <p className="text-2xl font-bold text-white">{tasks.length}</p>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-[#8888a0] text-xs mb-1">Đã check</p>
-          <p className="text-2xl font-bold text-accent">{checkedTasks.length}</p>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-[#8888a0] text-xs mb-1">Điểm TB</p>
-          <p className={cn(
-            "text-2xl font-bold",
-            avgScore >= 70 ? "text-success" : avgScore >= 50 ? "text-warning" : "text-danger"
-          )}>
-            {avgScore}/100
-          </p>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-[#8888a0] text-xs mb-1">Tốt (≥70)</p>
-          <p className="text-2xl font-bold text-success">{goodCount}</p>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-[#8888a0] text-xs mb-1">Cần cải thiện</p>
-          <p className="text-2xl font-bold text-warning">{warningCount + badCount}</p>
-        </div>
-      </div>
-
-      {/* Checklist Info */}
-      <div className="bg-card border border-border rounded-xl p-4">
-        <h3 className="text-white font-medium mb-3">Checklist SEO On-Page</h3>
-        <div className="grid sm:grid-cols-3 gap-4 text-sm">
-          <div className="flex items-start gap-2">
-            <FileText className="w-4 h-4 text-accent mt-0.5" />
-            <div>
-              <p className="text-white font-medium">Nội dung</p>
-              <p className="text-[#8888a0] text-xs">Title, Meta, Keyword, Heading, Độ dài bài</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-2">
-            <ImageIcon className="w-4 h-4 text-accent mt-0.5" />
-            <div>
-              <p className="text-white font-medium">Hình ảnh</p>
-              <p className="text-[#8888a0] text-xs">Alt text, Số lượng ảnh, Keyword trong alt</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-2">
-            <Code className="w-4 h-4 text-accent mt-0.5" />
-            <div>
-              <p className="text-white font-medium">Kỹ thuật</p>
-              <p className="text-[#8888a0] text-xs">H1, Internal/External links, Canonical</p>
-            </div>
-          </div>
         </div>
       </div>
 
       {/* Tasks List */}
       {tasks.length > 0 ? (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {tasks.map((task) => (
-            <TaskCard
+            <TaskRow
               key={task.id}
               task={task}
               isExpanded={expandedTask === task.id}
               onToggle={() => setExpandedTask(expandedTask === task.id ? null : task.id)}
               onCheck={() => checkSEO(task)}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
             />
           ))}
         </div>
@@ -310,221 +250,229 @@ export default function SEOAuditPage() {
         <EmptyState
           icon={Search}
           title="Không có bài viết"
-          description="Không tìm thấy bài viết đã publish trong tháng này"
+          description="Không tìm thấy bài viết đã publish"
         />
       )}
     </div>
   );
 }
 
-function TaskCard({
+function ScoreBadge({ score, size = 'md' }: { score: number; size?: 'sm' | 'md' | 'lg' }) {
+  const getColor = (s: number) => {
+    if (s >= 80) return { bg: 'bg-green-500/20', text: 'text-green-400', border: 'border-green-500/30' };
+    if (s >= 60) return { bg: 'bg-yellow-500/20', text: 'text-yellow-400', border: 'border-yellow-500/30' };
+    if (s >= 40) return { bg: 'bg-orange-500/20', text: 'text-orange-400', border: 'border-orange-500/30' };
+    return { bg: 'bg-red-500/20', text: 'text-red-400', border: 'border-red-500/30' };
+  };
+
+  const colors = getColor(score);
+  const sizeClasses = {
+    sm: 'text-sm px-2 py-0.5',
+    md: 'text-base px-3 py-1',
+    lg: 'text-xl px-4 py-2',
+  };
+
+  return (
+    <span className={cn(
+      "font-bold rounded-md border",
+      colors.bg, colors.text, colors.border,
+      sizeClasses[size]
+    )}>
+      {score}
+    </span>
+  );
+}
+
+function TaskRow({
   task,
   isExpanded,
   onToggle,
   onCheck,
+  activeTab,
+  setActiveTab,
 }: {
   task: TaskWithSEO;
   isExpanded: boolean;
   onToggle: () => void;
   onCheck: () => void;
+  activeTab: string;
+  setActiveTab: (tab: 'all' | 'content' | 'images' | 'technical') => void;
 }) {
-  const score = task.seoScore || 0;
-  const scoreColor = score >= 70 ? 'text-success' : score >= 50 ? 'text-warning' : 'text-danger';
-  const scoreBg = score >= 70 ? 'bg-success/20' : score >= 50 ? 'bg-warning/20' : 'bg-danger/20';
-
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden">
-      <div className="p-4 flex items-center gap-4">
+      {/* Main Row */}
+      <div className="flex items-center gap-3 p-3">
+        {/* Expand Toggle */}
+        {task.seoChecked && (
+          <button onClick={onToggle} className="text-[#8888a0] hover:text-white">
+            {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+          </button>
+        )}
+        {!task.seoChecked && <div className="w-4" />}
+
+        {/* Score */}
+        <div className="w-12 flex-shrink-0">
+          {task.seoChecked ? (
+            <ScoreBadge score={task.seoScore || 0} size="sm" />
+          ) : task.seoLoading ? (
+            <Loader2 className="w-5 h-5 animate-spin text-accent" />
+          ) : (
+            <span className="text-[#8888a0] text-sm">--</span>
+          )}
+        </div>
+
+        {/* Title & Info */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <p className="text-white font-medium truncate">{task.title || task.keyword_sub}</p>
-            {task.project && (
-              <span className="px-2 py-0.5 bg-accent/20 text-accent rounded text-xs flex-shrink-0">
-                {task.project.name}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-3 text-xs text-[#8888a0]">
-            <span>PIC: {task.pic || 'N/A'}</span>
+          <p className="text-white text-sm font-medium truncate">
+            {task.title || task.keyword_sub}
+          </p>
+          <div className="flex items-center gap-2 text-xs text-[#8888a0]">
+            <span>{task.pic}</span>
             {task.parent_keyword && (
               <>
                 <span>•</span>
-                <span>KW: {task.parent_keyword}</span>
+                <span className="truncate max-w-[150px]">{task.parent_keyword}</span>
               </>
             )}
           </div>
         </div>
 
-        {task.seoChecked ? (
-          <button
-            onClick={onToggle}
-            className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-lg font-bold",
-              scoreBg,
-              scoreColor
-            )}
-          >
-            <span className="text-xl">{score}</span>
-            <span className="text-sm font-normal">/100</span>
-            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
-        ) : task.seoLoading ? (
-          <div className="flex items-center gap-2 px-4 py-2 bg-secondary rounded-lg text-[#8888a0]">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            <span className="text-sm">Đang check...</span>
+        {/* Category Scores - Only show when checked */}
+        {task.seoChecked && task.seoResult?.success && (
+          <div className="hidden md:flex items-center gap-2">
+            <MiniScore label="C" score={task.seoResult.categories.content} />
+            <MiniScore label="I" score={task.seoResult.categories.images} />
+            <MiniScore label="T" score={task.seoResult.categories.technical} />
           </div>
-        ) : (
-          <button
-            onClick={onCheck}
-            className="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent/90 rounded-lg text-white text-sm font-medium transition-colors"
-          >
-            <Search className="w-4 h-4" />
-            Check SEO
-          </button>
         )}
 
-        <a
-          href={task.link_publish}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="p-2 text-accent hover:bg-accent/20 rounded transition-colors"
-        >
-          <ExternalLink className="w-5 h-5" />
-        </a>
+        {/* Actions */}
+        <div className="flex items-center gap-1">
+          {!task.seoChecked && !task.seoLoading && (
+            <button
+              onClick={onCheck}
+              className="px-2.5 py-1 bg-accent hover:bg-accent/90 rounded text-white text-xs font-medium"
+            >
+              Check
+            </button>
+          )}
+          <a
+            href={task.link_publish}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-1.5 text-[#8888a0] hover:text-accent rounded"
+          >
+            <ExternalLink className="w-4 h-4" />
+          </a>
+        </div>
       </div>
 
-      {isExpanded && task.seoResult && (
-        <div className="border-t border-border bg-secondary/30 p-4">
-          {task.seoResult.success ? (
-            <div className="space-y-4">
-              {/* Category Summary */}
-              <div className="grid sm:grid-cols-3 gap-4">
-                {Object.entries(task.seoResult.categories).map(([key, cat]) => (
-                  <CategoryCard key={key} category={cat} />
-                ))}
-              </div>
+      {/* Expanded Details */}
+      {isExpanded && task.seoResult?.success && (
+        <div className="border-t border-border">
+          {/* Category Tabs */}
+          <div className="flex border-b border-border bg-secondary/30">
+            {['all', 'content', 'images', 'technical'].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab as 'all' | 'content' | 'images' | 'technical')}
+                className={cn(
+                  "px-4 py-2 text-xs font-medium transition-colors",
+                  activeTab === tab
+                    ? "text-accent border-b-2 border-accent"
+                    : "text-[#8888a0] hover:text-white"
+                )}
+              >
+                {tab === 'all' ? 'Tất cả' : tab === 'content' ? 'Nội dung' : tab === 'images' ? 'Hình ảnh' : 'Kỹ thuật'}
+              </button>
+            ))}
+          </div>
 
-              {/* Details by Category */}
-              <div className="space-y-4">
-                <ChecklistSection
-                  title="Nội dung"
-                  icon={FileText}
-                  checks={task.seoResult.details.filter(d => d.category === 'content')}
-                />
-                <ChecklistSection
-                  title="Hình ảnh"
-                  icon={ImageIcon}
-                  checks={task.seoResult.details.filter(d => d.category === 'images')}
-                />
-                <ChecklistSection
-                  title="Kỹ thuật"
-                  icon={Code}
-                  checks={task.seoResult.details.filter(d => d.category === 'technical')}
-                />
-              </div>
+          {/* Checklist Grid */}
+          <div className="p-3">
+            <div className="grid gap-1.5">
+              {task.seoResult.details
+                .filter(d => activeTab === 'all' || d.category === activeTab)
+                .map((check) => (
+                  <CheckRow key={check.id} check={check} />
+                ))}
             </div>
-          ) : (
-            <div className="text-center py-4">
-              <XCircle className="w-8 h-8 text-danger mx-auto mb-2" />
-              <p className="text-danger">{task.seoResult.error || 'Không thể kiểm tra URL này'}</p>
-            </div>
-          )}
+          </div>
+        </div>
+      )}
+
+      {isExpanded && task.seoResult && !task.seoResult.success && (
+        <div className="border-t border-border p-4 text-center">
+          <XCircle className="w-6 h-6 text-red-400 mx-auto mb-1" />
+          <p className="text-red-400 text-sm">{task.seoResult.error}</p>
         </div>
       )}
     </div>
   );
 }
 
-function CategoryCard({ category }: { category: CategoryResult }) {
-  const percentage = Math.round((category.score / category.maxScore) * 100);
-  const color = percentage >= 70 ? 'text-success' : percentage >= 50 ? 'text-warning' : 'text-danger';
-  const bg = percentage >= 70 ? 'bg-success/20' : percentage >= 50 ? 'bg-warning/20' : 'bg-danger/20';
+function MiniScore({ label, score }: { label: string; score: CategoryResult }) {
+  const pct = Math.round((score.score / score.maxScore) * 100);
+  const color = pct >= 70 ? 'text-green-400' : pct >= 50 ? 'text-yellow-400' : 'text-red-400';
 
   return (
-    <div className={cn("rounded-lg p-3", bg)}>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-white font-medium">{category.name}</span>
-        <span className={cn("font-bold", color)}>{percentage}%</span>
-      </div>
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-[#8888a0]">
-          {category.passed}/{category.total} đạt
-        </span>
-        <span className={color}>
-          {category.score}/{category.maxScore} điểm
-        </span>
-      </div>
+    <div className="text-center">
+      <span className={cn("text-xs font-bold", color)}>{pct}%</span>
+      <span className="text-[10px] text-[#8888a0] block">{label}</span>
     </div>
   );
 }
 
-function ChecklistSection({
-  title,
-  icon: Icon,
-  checks,
-}: {
-  title: string;
-  icon: React.ElementType;
-  checks: CheckDetail[];
-}) {
-  if (checks.length === 0) return null;
+function CheckRow({ check }: { check: CheckDetail }) {
+  const [expanded, setExpanded] = useState(false);
 
-  return (
-    <div className="bg-card rounded-lg p-4">
-      <div className="flex items-center gap-2 mb-3">
-        <Icon className="w-4 h-4 text-accent" />
-        <h4 className="text-white font-medium">{title}</h4>
-      </div>
-      <div className="space-y-2">
-        {checks.map((check) => (
-          <CheckItem key={check.id} check={check} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function CheckItem({ check }: { check: CheckDetail }) {
-  const statusIcon = {
-    pass: <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />,
-    warning: <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0" />,
-    fail: <XCircle className="w-4 h-4 text-danger flex-shrink-0" />,
+  const statusConfig = {
+    pass: { icon: CheckCircle, color: 'text-green-400', bg: 'bg-green-500/10' },
+    warning: { icon: AlertTriangle, color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
+    fail: { icon: XCircle, color: 'text-red-400', bg: 'bg-red-500/10' },
   };
 
-  const statusBg = {
-    pass: 'bg-success/10',
-    warning: 'bg-warning/10',
-    fail: 'bg-danger/10',
-  };
+  const config = statusConfig[check.status];
+  const Icon = config.icon;
+  const hasDetails = check.value || check.suggestion;
 
   return (
-    <div className={cn("rounded-lg p-3", statusBg[check.status])}>
-      <div className="flex items-start gap-3">
-        {statusIcon[check.status]}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-white text-sm font-medium">{check.name}</span>
-            <span className={cn(
-              "text-xs font-mono",
-              check.status === 'pass' ? 'text-success' : check.status === 'warning' ? 'text-warning' : 'text-danger'
-            )}>
-              {check.score}/{check.maxScore}
-            </span>
-          </div>
-          <p className="text-[#8888a0] text-xs mt-0.5">{check.description}</p>
+    <div className={cn("rounded-lg", config.bg)}>
+      <div
+        className={cn(
+          "flex items-center gap-2 px-3 py-2",
+          hasDetails ? "cursor-pointer hover:bg-white/5" : ""
+        )}
+        onClick={() => hasDetails && setExpanded(!expanded)}
+      >
+        <Icon className={cn("w-4 h-4 flex-shrink-0", config.color)} />
+        <span className="flex-1 text-sm text-white">{check.name}</span>
+        <span className={cn("text-xs font-mono", config.color)}>
+          {check.score}/{check.maxScore}
+        </span>
+        {hasDetails && (
+          <ChevronDown className={cn(
+            "w-3.5 h-3.5 text-[#8888a0] transition-transform",
+            expanded && "rotate-180"
+          )} />
+        )}
+      </div>
+
+      {expanded && hasDetails && (
+        <div className="px-3 pb-2 pt-0 space-y-1">
           {check.value && (
-            <p className="text-white text-xs mt-1 font-mono bg-secondary/50 px-2 py-1 rounded inline-block">
+            <div className="text-xs text-[#8888a0] bg-black/20 px-2 py-1 rounded font-mono">
               {check.value}
-            </p>
+            </div>
           )}
           {check.suggestion && (
-            <p className="text-warning text-xs mt-1 flex items-start gap-1">
-              <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" />
-              {check.suggestion}
-            </p>
+            <div className="flex items-start gap-1.5 text-xs text-yellow-400">
+              <TrendingUp className="w-3 h-3 mt-0.5 flex-shrink-0" />
+              <span>{check.suggestion}</span>
+            </div>
           )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
