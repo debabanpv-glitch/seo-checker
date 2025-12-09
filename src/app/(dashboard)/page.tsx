@@ -420,6 +420,16 @@ export default function DashboardPage() {
                 isExpanded={expandedWorkflow === 'waitPublish'}
                 onToggle={() => setExpandedWorkflow(expandedWorkflow === 'waitPublish' ? null : 'waitPublish')}
               />
+
+              {/* Total Summary */}
+              <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
+                <span className="text-sm text-[#8888a0]">Tổng đang làm:</span>
+                <span className="text-lg font-bold text-white">
+                  {bottleneck.content.doingOutline + bottleneck.content.fixingOutline +
+                   bottleneck.content.doingContent + bottleneck.content.fixingContent +
+                   bottleneck.seo.qcOutline + bottleneck.seo.qcContent + bottleneck.seo.waitPublish} bài
+                </span>
+              </div>
             </div>
           ) : (
             <p className="text-[#8888a0] text-center py-4 text-sm">Không có dữ liệu</p>
