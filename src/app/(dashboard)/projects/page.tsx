@@ -1,65 +1,64 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   FolderKanban,
-  Plus,
-  Trash2,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  AlertTriangle,
+  Clock,
+  Target,
+  BarChart3,
   ExternalLink,
-  Edit2,
-  X,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
 import ProgressBar from '@/components/ProgressBar';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
-import { Project } from '@/types';
 import { cn } from '@/lib/utils';
 
-interface ProjectWithStats extends Project {
-  actual: number;
+interface ProjectReport {
+  id: string;
+  name: string;
+  sheet_id: string;
+  sheet_name: string;
+  // Stats
   target: number;
-  totalTasks: number;
-  thisMonthTotal: number;
+  published: number;
   inProgress: number;
   doneQC: number;
   overdue: number;
+  // Analysis
+  weeklyRate: number; // bài/tuần thực tế
+  requiredRate: number; // bài/tuần cần để đạt KPI
+  daysRemaining: number;
+  projectedTotal: number; // dự báo cuối tháng
+  trend: 'up' | 'down' | 'stable';
+  health: 'good' | 'warning' | 'danger';
+  bottleneck: string | null;
+  // Team
   pics: string[];
+  topPerformer: { name: string; count: number } | null;
 }
 
 export default function ProjectsPage() {
-  const [projects, setProjects] = useState<ProjectWithStats[]>([]);
+  const [projects, setProjects] = useState<ProjectReport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingProject, setEditingProject] = useState<ProjectWithStats | null>(null);
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
-  const [selectedMonth, setSelectedMonth] = useState(() => {
-    const now = new Date();
-    return `${now.getMonth() + 1}-${now.getFullYear()}`;
-  });
-
-  // Generate month options
-  const monthOptions = [];
-  const now = new Date();
-  for (let i = 0; i < 12; i++) {
-    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    monthOptions.push({
-      value: `${date.getMonth() + 1}-${date.getFullYear()}`,
-      label: `T${date.getMonth() + 1}/${date.getFullYear()}`,
-    });
-  }
+  const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
 
   useEffect(() => {
     fetchProjects();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedMonth]);
+  }, [selectedMonth, selectedYear]);
 
   const fetchProjects = async () => {
     setIsLoading(true);
     try {
-      const [month, year] = selectedMonth.split('-');
-      const res = await fetch(`/api/projects?month=${month}&year=${year}`);
+      const res = await fetch(`/api/projects/report?month=${selectedMonth}&year=${selectedYear}`);
       const data = await res.json();
       setProjects(data.projects || []);
     } catch (error) {
@@ -69,400 +68,384 @@ export default function ProjectsPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Xóa dự án sẽ xóa tất cả tasks liên quan. Bạn có chắc chắn?')) return;
+  // Summary calculations
+  const summary = useMemo(() => {
+    const totalTarget = projects.reduce((sum, p) => sum + p.target, 0);
+    const totalPublished = projects.reduce((sum, p) => sum + p.published, 0);
+    const totalInProgress = projects.reduce((sum, p) => sum + p.inProgress, 0);
+    const totalOverdue = projects.reduce((sum, p) => sum + p.overdue, 0);
+    const progress = totalTarget > 0 ? Math.round((totalPublished / totalTarget) * 100) : 0;
 
-    try {
-      const res = await fetch(`/api/projects?id=${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        setProjects(projects.filter((p) => p.id !== id));
-      }
-    } catch (error) {
-      console.error('Failed to delete project:', error);
-    }
-  };
+    // Count health statuses
+    const healthCounts = {
+      good: projects.filter(p => p.health === 'good').length,
+      warning: projects.filter(p => p.health === 'warning').length,
+      danger: projects.filter(p => p.health === 'danger').length,
+    };
 
-  const totalPublished = projects.reduce((sum, p) => sum + p.actual, 0);
-  const totalTarget = projects.reduce((sum, p) => sum + p.target, 0);
-  const totalInProgress = projects.reduce((sum, p) => sum + p.inProgress, 0);
-  const totalOverdue = projects.reduce((sum, p) => sum + p.overdue, 0);
-  const overallProgress = totalTarget > 0 ? Math.round((totalPublished / totalTarget) * 100) : 0;
+    return { totalTarget, totalPublished, totalInProgress, totalOverdue, progress, healthCounts };
+  }, [projects]);
 
   if (isLoading) {
     return <PageLoading />;
   }
 
   return (
-    <div className="space-y-4">
-      {/* Header - Compact */}
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-bold text-white">Dự án</h1>
+    <div className="space-y-4 md:space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold text-white">Báo cáo Dự án</h1>
+          <p className="text-[#8888a0] text-xs md:text-sm">Phân tích hiệu suất và tiến độ</p>
+        </div>
+
+        {/* Month/Year Picker */}
         <div className="flex items-center gap-2">
           <select
             value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="px-3 py-1.5 bg-card border border-border rounded-lg text-white text-sm"
+            onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+            className="px-3 py-1.5 bg-card border border-border rounded-lg text-white text-sm cursor-pointer"
           >
-            {monthOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
+            {Array.from({ length: 12 }, (_, i) => (
+              <option key={i + 1} value={i + 1}>Tháng {i + 1}</option>
             ))}
           </select>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent/90 rounded-lg text-white text-sm font-medium"
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+            className="px-3 py-1.5 bg-card border border-border rounded-lg text-white text-sm cursor-pointer"
           >
-            <Plus className="w-4 h-4" />
-            Thêm
-          </button>
+            {[2024, 2025, 2026].map((year) => (
+              <option key={year} value={year}>{year}</option>
+            ))}
+          </select>
         </div>
       </div>
 
-      {/* Summary - Single Row */}
-      <div className="bg-card border border-border rounded-xl p-4">
-        <div className="flex flex-wrap items-center gap-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        <SummaryCard
+          label="Tổng publish"
+          value={summary.totalPublished}
+          subValue={`/${summary.totalTarget} bài`}
+          progress={summary.progress}
+          color={summary.progress >= 80 ? 'success' : summary.progress >= 50 ? 'warning' : 'danger'}
+        />
+        <SummaryCard
+          label="Đang thực hiện"
+          value={summary.totalInProgress}
+          subValue="bài"
+          icon={Clock}
+          color="warning"
+        />
+        <SummaryCard
+          label="Trễ deadline"
+          value={summary.totalOverdue}
+          subValue="bài"
+          icon={AlertTriangle}
+          color={summary.totalOverdue > 0 ? 'danger' : 'success'}
+        />
+        <div className="bg-card border border-border rounded-xl p-4">
+          <p className="text-[#8888a0] text-xs mb-2">Sức khỏe dự án</p>
           <div className="flex items-center gap-3">
-            <FolderKanban className="w-5 h-5 text-accent" />
-            <span className="text-white font-bold text-lg">{projects.length}</span>
-            <span className="text-[#8888a0] text-sm">dự án</span>
-          </div>
-          <div className="h-6 w-px bg-border" />
-          <div className="flex items-center gap-2">
-            <span className="text-success font-bold">{totalPublished}</span>
-            <span className="text-[#8888a0]">/</span>
-            <span className="text-white">{totalTarget}</span>
-            <span className="text-[#8888a0] text-sm">publish</span>
-          </div>
-          <div className="h-6 w-px bg-border" />
-          <div className="flex items-center gap-2">
-            <span className="text-warning font-bold">{totalInProgress}</span>
-            <span className="text-[#8888a0] text-sm">đang làm</span>
-          </div>
-          {totalOverdue > 0 && (
-            <>
-              <div className="h-6 w-px bg-border" />
-              <div className="flex items-center gap-2">
-                <span className="text-danger font-bold">{totalOverdue}</span>
-                <span className="text-[#8888a0] text-sm">trễ hạn</span>
+            {summary.healthCounts.good > 0 && (
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full bg-success" />
+                <span className="text-success font-bold">{summary.healthCounts.good}</span>
               </div>
-            </>
-          )}
-          <div className="ml-auto flex items-center gap-2">
-            <div className="w-24">
-              <ProgressBar value={totalPublished} max={totalTarget} showLabel={false} size="sm" />
-            </div>
-            <span className={cn(
-              "font-bold text-sm",
-              overallProgress >= 100 ? "text-success" : overallProgress >= 70 ? "text-warning" : "text-white"
-            )}>
-              {overallProgress}%
-            </span>
+            )}
+            {summary.healthCounts.warning > 0 && (
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full bg-warning" />
+                <span className="text-warning font-bold">{summary.healthCounts.warning}</span>
+              </div>
+            )}
+            {summary.healthCounts.danger > 0 && (
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full bg-danger" />
+                <span className="text-danger font-bold">{summary.healthCounts.danger}</span>
+              </div>
+            )}
           </div>
+          <p className="text-xs text-[#8888a0] mt-2">
+            {summary.healthCounts.danger > 0
+              ? `${summary.healthCounts.danger} dự án cần chú ý`
+              : summary.healthCounts.warning > 0
+              ? `${summary.healthCounts.warning} dự án cần theo dõi`
+              : 'Tất cả dự án đang tốt'}
+          </p>
         </div>
       </div>
 
-      {/* Projects Table */}
+      {/* Projects List */}
       {projects.length > 0 ? (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-secondary text-left">
-                <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase">Dự án</th>
-                <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase text-center">Target</th>
-                <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase text-center">Publish</th>
-                <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase text-center">Đang làm</th>
-                <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase text-center">Chờ pub</th>
-                <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase text-center">Trễ</th>
-                <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase">Tiến độ</th>
-                <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase text-right"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {projects.map((project) => {
-                const progress = project.target > 0 ? Math.round((project.actual / project.target) * 100) : 0;
-                const isExpanded = expandedProject === project.id;
-
-                return (
-                  <>
-                    <tr key={project.id} className="hover:bg-secondary/50 transition-colors">
-                      <td className="px-4 py-3">
-                        <button
-                          onClick={() => setExpandedProject(isExpanded ? null : project.id)}
-                          className="flex items-center gap-2 text-left"
-                        >
-                          {isExpanded ? (
-                            <ChevronUp className="w-4 h-4 text-[#8888a0]" />
-                          ) : (
-                            <ChevronDown className="w-4 h-4 text-[#8888a0]" />
-                          )}
-                          <span className="text-white font-medium">{project.name}</span>
-                        </button>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="text-white font-mono">{project.target}</span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="text-success font-bold font-mono">{project.actual}</span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="text-warning font-mono">{project.inProgress}</span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="text-accent font-mono">{project.doneQC}</span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {project.overdue > 0 ? (
-                          <span className="text-danger font-mono">{project.overdue}</span>
-                        ) : (
-                          <span className="text-[#8888a0]">-</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-20">
-                            <ProgressBar value={project.actual} max={project.target} showLabel={false} size="sm" />
-                          </div>
-                          <span className={cn(
-                            "text-xs font-bold w-10",
-                            progress >= 100 ? "text-success" : progress >= 70 ? "text-warning" : "text-white"
-                          )}>
-                            {progress}%
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <a
-                            href={`https://docs.google.com/spreadsheets/d/${project.sheet_id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-1.5 text-[#8888a0] hover:text-accent transition-colors"
-                            title="Mở Sheet"
-                          >
-                            <ExternalLink className="w-4 h-4" />
-                          </a>
-                          <button
-                            onClick={() => setEditingProject(project)}
-                            className="p-1.5 text-[#8888a0] hover:text-white transition-colors"
-                            title="Sửa"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(project.id)}
-                            className="p-1.5 text-[#8888a0] hover:text-danger transition-colors"
-                            title="Xóa"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                    {/* Expanded Details */}
-                    {isExpanded && (
-                      <tr key={`${project.id}-details`}>
-                        <td colSpan={8} className="px-4 py-3 bg-secondary/30">
-                          <div className="flex flex-wrap gap-4 text-sm">
-                            <div>
-                              <span className="text-[#8888a0]">Sheet: </span>
-                              <span className="text-white">{project.sheet_name}</span>
-                            </div>
-                            <div>
-                              <span className="text-[#8888a0]">Tổng tasks: </span>
-                              <span className="text-white">{project.totalTasks}</span>
-                            </div>
-                            <div>
-                              <span className="text-[#8888a0]">Tháng này: </span>
-                              <span className="text-white">{project.thisMonthTotal} tasks</span>
-                            </div>
-                            {project.pics.length > 0 && (
-                              <div className="flex items-center gap-2">
-                                <span className="text-[#8888a0]">Team: </span>
-                                <div className="flex gap-1">
-                                  {project.pics.map((pic) => (
-                                    <span key={pic} className="px-2 py-0.5 bg-accent/20 text-accent rounded text-xs">
-                                      {pic}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="space-y-3">
+          {projects.map((project) => (
+            <ProjectCard
+              key={project.id}
+              project={project}
+              isExpanded={expandedProject === project.id}
+              onToggle={() => setExpandedProject(expandedProject === project.id ? null : project.id)}
+            />
+          ))}
         </div>
       ) : (
         <EmptyState
           icon={FolderKanban}
-          title="Chưa có dự án nào"
-          description="Thêm dự án đầu tiên để bắt đầu theo dõi"
-          action={
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="px-4 py-2 bg-accent hover:bg-accent/90 rounded-lg text-white font-medium"
-            >
-              Thêm dự án
-            </button>
-          }
-        />
-      )}
-
-      {/* Add Project Modal */}
-      {showAddModal && (
-        <ProjectModal
-          onClose={() => setShowAddModal(false)}
-          onSuccess={() => {
-            setShowAddModal(false);
-            fetchProjects();
-          }}
-        />
-      )}
-
-      {/* Edit Project Modal */}
-      {editingProject && (
-        <ProjectModal
-          project={editingProject}
-          onClose={() => setEditingProject(null)}
-          onSuccess={() => {
-            setEditingProject(null);
-            fetchProjects();
-          }}
+          title="Chưa có dữ liệu"
+          description="Thêm dự án trong phần Cài đặt để bắt đầu theo dõi"
         />
       )}
     </div>
   );
 }
 
-function ProjectModal({
-  project,
-  onClose,
-  onSuccess,
+// Summary Card Component
+function SummaryCard({
+  label,
+  value,
+  subValue,
+  progress,
+  icon: Icon,
+  color,
 }: {
-  project?: ProjectWithStats;
-  onClose: () => void;
-  onSuccess: () => void;
+  label: string;
+  value: number;
+  subValue: string;
+  progress?: number;
+  icon?: React.ElementType;
+  color: 'success' | 'warning' | 'danger';
 }) {
-  const isEditing = !!project;
-  const [formData, setFormData] = useState({
-    name: project?.name || '',
-    sheet_id: project?.sheet_id || '',
-    sheet_name: project?.sheet_name || 'Content',
-    monthly_target: project?.monthly_target || 20,
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    try {
-      const res = await fetch('/api/projects', {
-        method: isEditing ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(isEditing ? { id: project.id, ...formData } : formData),
-      });
-
-      if (res.ok) {
-        onSuccess();
-      }
-    } catch (error) {
-      console.error('Failed to save project:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
+  const colorClasses = {
+    success: 'text-success',
+    warning: 'text-warning',
+    danger: 'text-danger',
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-card border border-border rounded-2xl w-full max-w-md p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-white">
-            {isEditing ? 'Chỉnh sửa dự án' : 'Thêm dự án mới'}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-2 text-[#8888a0] hover:text-white transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+    <div className="bg-card border border-border rounded-xl p-4">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[#8888a0] text-xs">{label}</p>
+        {Icon && <Icon className={cn("w-4 h-4", colorClasses[color])} />}
+      </div>
+      <div className="flex items-baseline gap-1">
+        <span className={cn("text-2xl font-bold", colorClasses[color])}>{value}</span>
+        <span className="text-[#8888a0] text-sm">{subValue}</span>
+      </div>
+      {progress !== undefined && (
+        <div className="mt-2">
+          <ProgressBar value={progress} max={100} showLabel={false} size="sm" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Project Card Component
+function ProjectCard({
+  project,
+  isExpanded,
+  onToggle,
+}: {
+  project: ProjectReport;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  const progress = project.target > 0 ? Math.round((project.published / project.target) * 100) : 0;
+
+  const healthColors = {
+    good: 'border-success/30 bg-success/5',
+    warning: 'border-warning/30 bg-warning/5',
+    danger: 'border-danger/30 bg-danger/5',
+  };
+
+  const healthBadge = {
+    good: { label: 'Tốt', color: 'bg-success/20 text-success' },
+    warning: { label: 'Cần theo dõi', color: 'bg-warning/20 text-warning' },
+    danger: { label: 'Cần chú ý', color: 'bg-danger/20 text-danger' },
+  };
+
+  const TrendIcon = project.trend === 'up' ? TrendingUp : project.trend === 'down' ? TrendingDown : Minus;
+  const trendColor = project.trend === 'up' ? 'text-success' : project.trend === 'down' ? 'text-danger' : 'text-[#8888a0]';
+
+  return (
+    <div className={cn("bg-card border rounded-xl overflow-hidden transition-all", healthColors[project.health])}>
+      {/* Header Row - Always visible */}
+      <button
+        onClick={onToggle}
+        className="w-full p-4 flex items-center gap-4 text-left hover:bg-secondary/30 transition-colors"
+      >
+        {/* Project Name & Health */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="text-white font-semibold truncate">{project.name}</h3>
+            <span className={cn("px-2 py-0.5 rounded text-xs font-medium", healthBadge[project.health].color)}>
+              {healthBadge[project.health].label}
+            </span>
+          </div>
+          <div className="flex items-center gap-3 text-sm">
+            <span className="text-success font-bold">{project.published}</span>
+            <span className="text-[#8888a0]">/</span>
+            <span className="text-white">{project.target}</span>
+            <span className="text-[#8888a0]">publish</span>
+            {project.inProgress > 0 && (
+              <>
+                <span className="text-[#8888a0]">•</span>
+                <span className="text-warning">{project.inProgress} đang làm</span>
+              </>
+            )}
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm text-[#8888a0] mb-2">Tên dự án</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="VD: Samcotech"
-              className="w-full px-4 py-3 bg-secondary border border-border rounded-lg text-white placeholder-[#8888a0]"
-              required
+        {/* Progress */}
+        <div className="hidden sm:flex items-center gap-3 w-32">
+          <div className="flex-1">
+            <ProgressBar value={project.published} max={project.target} showLabel={false} size="sm" />
+          </div>
+          <span className={cn(
+            "text-sm font-bold w-10 text-right",
+            progress >= 80 ? "text-success" : progress >= 50 ? "text-warning" : "text-danger"
+          )}>
+            {progress}%
+          </span>
+        </div>
+
+        {/* Trend */}
+        <div className="hidden md:flex items-center gap-1">
+          <TrendIcon className={cn("w-4 h-4", trendColor)} />
+          <span className={cn("text-sm font-medium", trendColor)}>
+            {project.weeklyRate.toFixed(1)}/tuần
+          </span>
+        </div>
+
+        {/* Expand Icon */}
+        <div className="text-[#8888a0]">
+          {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+        </div>
+      </button>
+
+      {/* Expanded Details */}
+      {isExpanded && (
+        <div className="px-4 pb-4 space-y-4 border-t border-border/50">
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4">
+            <StatItem
+              icon={Target}
+              label="Tốc độ cần"
+              value={`${project.requiredRate.toFixed(1)} bài/tuần`}
+              subtext={`còn ${project.daysRemaining} ngày`}
+            />
+            <StatItem
+              icon={BarChart3}
+              label="Tốc độ thực tế"
+              value={`${project.weeklyRate.toFixed(1)} bài/tuần`}
+              subtext={project.weeklyRate >= project.requiredRate ? 'Đang đạt' : 'Chưa đạt'}
+              valueColor={project.weeklyRate >= project.requiredRate ? 'success' : 'danger'}
+            />
+            <StatItem
+              icon={TrendingUp}
+              label="Dự báo cuối tháng"
+              value={`${project.projectedTotal} bài`}
+              subtext={project.projectedTotal >= project.target ? 'Đạt KPI' : `Thiếu ${project.target - project.projectedTotal}`}
+              valueColor={project.projectedTotal >= project.target ? 'success' : 'danger'}
+            />
+            <StatItem
+              icon={AlertTriangle}
+              label="Trễ deadline"
+              value={project.overdue.toString()}
+              subtext={project.overdue > 0 ? 'Cần xử lý' : 'Không có'}
+              valueColor={project.overdue > 0 ? 'danger' : 'success'}
             />
           </div>
 
-          <div>
-            <label className="block text-sm text-[#8888a0] mb-2">Google Sheet ID</label>
-            <input
-              type="text"
-              value={formData.sheet_id}
-              onChange={(e) => setFormData({ ...formData, sheet_id: e.target.value })}
-              placeholder="19FcF4TUJmFpTt..."
-              className="w-full px-4 py-3 bg-secondary border border-border rounded-lg text-white placeholder-[#8888a0]"
-              required
-            />
-            <p className="text-xs text-[#8888a0] mt-1">
-              Lấy từ URL: docs.google.com/spreadsheets/d/<span className="text-accent">SHEET_ID</span>/edit
-            </p>
+          {/* Bottleneck & Insights */}
+          <div className="grid md:grid-cols-2 gap-3">
+            {/* Bottleneck */}
+            {project.bottleneck && (
+              <div className="bg-secondary/50 rounded-lg p-3">
+                <p className="text-xs text-[#8888a0] mb-1">Điểm nghẽn</p>
+                <p className="text-warning text-sm font-medium">{project.bottleneck}</p>
+              </div>
+            )}
+
+            {/* Top Performer */}
+            {project.topPerformer && (
+              <div className="bg-secondary/50 rounded-lg p-3">
+                <p className="text-xs text-[#8888a0] mb-1">Người đóng góp nhiều nhất</p>
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 bg-accent/20 rounded-full flex items-center justify-center">
+                    <span className="text-accent text-xs font-bold">
+                      {project.topPerformer.name.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <span className="text-white text-sm">{project.topPerformer.name}</span>
+                  <span className="text-success text-sm font-bold">{project.topPerformer.count} bài</span>
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-[#8888a0] mb-2">Tên Sheet</label>
-              <input
-                type="text"
-                value={formData.sheet_name}
-                onChange={(e) => setFormData({ ...formData, sheet_name: e.target.value })}
-                placeholder="Content"
-                className="w-full px-4 py-3 bg-secondary border border-border rounded-lg text-white placeholder-[#8888a0]"
-              />
+          {/* Team */}
+          {project.pics.length > 0 && (
+            <div className="bg-secondary/50 rounded-lg p-3">
+              <p className="text-xs text-[#8888a0] mb-2">Team ({project.pics.length} người)</p>
+              <div className="flex flex-wrap gap-2">
+                {project.pics.map((pic) => (
+                  <span key={pic} className="px-2 py-1 bg-card rounded text-white text-xs">
+                    {pic}
+                  </span>
+                ))}
+              </div>
             </div>
-            <div>
-              <label className="block text-sm text-[#8888a0] mb-2">Target/tháng</label>
-              <input
-                type="number"
-                value={formData.monthly_target}
-                onChange={(e) => setFormData({ ...formData, monthly_target: parseInt(e.target.value) || 0 })}
-                className="w-full px-4 py-3 bg-secondary border border-border rounded-lg text-white"
-                min="1"
-              />
-            </div>
-          </div>
+          )}
 
-          <div className="flex gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-3 bg-secondary hover:bg-border rounded-lg text-white font-medium transition-colors"
+          {/* Action Link */}
+          <div className="flex justify-end">
+            <a
+              href={`https://docs.google.com/spreadsheets/d/${project.sheet_id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-accent hover:underline text-sm"
             >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex-1 py-3 bg-accent hover:bg-accent/90 disabled:bg-accent/50 rounded-lg text-white font-medium transition-colors"
-            >
-              {isSubmitting ? 'Đang lưu...' : isEditing ? 'Cập nhật' : 'Thêm'}
-            </button>
+              <ExternalLink className="w-4 h-4" />
+              Xem Google Sheet
+            </a>
           </div>
-        </form>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Stat Item Component
+function StatItem({
+  icon: Icon,
+  label,
+  value,
+  subtext,
+  valueColor = 'white',
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string;
+  subtext: string;
+  valueColor?: 'white' | 'success' | 'warning' | 'danger';
+}) {
+  const colorClasses = {
+    white: 'text-white',
+    success: 'text-success',
+    warning: 'text-warning',
+    danger: 'text-danger',
+  };
+
+  return (
+    <div className="bg-secondary/50 rounded-lg p-3">
+      <div className="flex items-center gap-2 mb-1">
+        <Icon className="w-4 h-4 text-[#8888a0]" />
+        <span className="text-xs text-[#8888a0]">{label}</span>
       </div>
+      <p className={cn("text-lg font-bold", colorClasses[valueColor])}>{value}</p>
+      <p className="text-xs text-[#8888a0]">{subtext}</p>
     </div>
   );
 }
