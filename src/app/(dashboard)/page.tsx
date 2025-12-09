@@ -163,63 +163,67 @@ export default function DashboardPage() {
   const missingPlan = totalTarget - totalPlanned;
 
   // Calculate weekly report for each project
+  // Show: 2 weeks before + current week + next week = 4 weeks total
   const weeklyReports = useMemo(() => {
-    const fromDate = new Date(dateRange.from);
-    const currentMonth = fromDate.getMonth();
-    const currentYear = fromDate.getFullYear();
+    const now = new Date();
 
-    // Get last day of month
-    const lastDay = new Date(currentYear, currentMonth + 1, 0);
-
-    // Calculate week number in month (starting from 1)
-    const getWeekOfMonth = (date: Date) => {
-      const firstDayOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
-      const dayOfMonth = date.getDate();
-      const firstDayWeekday = firstDayOfMonth.getDay(); // 0 = Sunday
-      return Math.ceil((dayOfMonth + firstDayWeekday) / 7);
-    };
-
-    // Get absolute week number of year
+    // Get week number of year (ISO week)
     const getWeekOfYear = (date: Date) => {
-      const startOfYear = new Date(date.getFullYear(), 0, 1);
-      const diffDays = Math.floor((date.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
-      return Math.ceil((diffDays + startOfYear.getDay() + 1) / 7);
+      const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+      const dayNum = d.getUTCDay() || 7;
+      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+      return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
     };
 
-    // Calculate weekly KPI target per project
-    const weeksInMonth = getWeekOfMonth(lastDay);
+    // Get start and end of a specific week
+    const getWeekRange = (weekNum: number, year: number) => {
+      const jan1 = new Date(year, 0, 1);
+      const daysToAdd = (weekNum - 1) * 7 - jan1.getDay() + 1;
+      const weekStart = new Date(year, 0, 1 + daysToAdd);
+      weekStart.setHours(0, 0, 0, 0);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 7);
+      return { start: weekStart, end: weekEnd };
+    };
 
+    const currentWeek = getWeekOfYear(now);
+    const currentYear = now.getFullYear();
+
+    // Generate 4 weeks: 2 before + current + 1 after
+    const weeksToShow = [
+      currentWeek - 2,
+      currentWeek - 1,
+      currentWeek,
+      currentWeek + 1,
+    ];
+
+    // Weekly target = monthly target / 4 weeks
     return projectStats.map((project) => {
-      const weeklyTarget = Math.ceil(project.target / weeksInMonth);
+      const weeklyTarget = Math.ceil(project.target / 4);
 
-      // Get published tasks for this project
+      // Get published tasks for this project (with publish_date)
       const projectTasks = allTasks.filter(
-        (t) => t.project?.id === project.id && isPublished(t.status_content) && t.publish_date
+        (t) => t.project?.id === project.id && isPublished(t.status_content)
       );
 
-      // Group by week
-      const weeklyData: { week: number; weekOfYear: number; count: number; target: number }[] = [];
-      for (let w = 1; w <= weeksInMonth; w++) {
-        // Find tasks published in this week
+      const weeklyData = weeksToShow.map((weekNum) => {
+        const { start, end } = getWeekRange(weekNum, currentYear);
+
+        // Count tasks published in this week
         const tasksInWeek = projectTasks.filter((t) => {
           if (!t.publish_date) return false;
           const pubDate = new Date(t.publish_date);
-          return pubDate.getMonth() === currentMonth &&
-                 pubDate.getFullYear() === currentYear &&
-                 getWeekOfMonth(pubDate) === w;
+          return pubDate >= start && pubDate < end;
         });
 
-        // Get week of year for the first day of this week in month
-        const weekStartDate = new Date(currentYear, currentMonth, (w - 1) * 7 + 1);
-        if (weekStartDate > lastDay) continue;
-
-        weeklyData.push({
-          week: w,
-          weekOfYear: getWeekOfYear(weekStartDate),
+        return {
+          weekOfYear: weekNum,
           count: tasksInWeek.length,
           target: weeklyTarget,
-        });
-      }
+          isCurrent: weekNum === currentWeek,
+        };
+      });
 
       return {
         projectId: project.id,
@@ -228,7 +232,7 @@ export default function DashboardPage() {
         weeks: weeklyData,
       };
     });
-  }, [projectStats, allTasks, dateRange]);
+  }, [projectStats, allTasks]);
 
   // Get tasks for workflow section
   const getWorkflowTasks = (type: string): BottleneckTask[] => {
@@ -492,21 +496,29 @@ export default function DashboardPage() {
               weeklyReports.map((report) => (
                 <div key={report.projectId} className="bg-secondary rounded-lg p-4">
                   <p className="text-white font-medium mb-3">{report.projectName}</p>
-                  <div className="grid grid-cols-5 gap-2">
+                  <div className="grid grid-cols-4 gap-2">
                     {report.weeks.map((week) => {
                       const isAchieved = week.count >= week.target;
+                      const isCurrent = week.isCurrent;
                       return (
                         <div
-                          key={week.week}
-                          className={`text-center p-2 rounded-lg ${
+                          key={week.weekOfYear}
+                          className={`text-center p-2 rounded-lg relative ${
+                            isCurrent ? 'ring-2 ring-accent' : ''
+                          } ${
                             isAchieved ? 'bg-success/20 border border-success/30' : week.count > 0 ? 'bg-warning/20 border border-warning/30' : 'bg-card border border-border'
                           }`}
                         >
+                          {isCurrent && (
+                            <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[8px] bg-accent text-white px-1.5 py-0.5 rounded">
+                              Hiện tại
+                            </span>
+                          )}
                           <p className="text-xs text-[#8888a0] mb-1">Tuần {week.weekOfYear}</p>
-                          <p className={`text-lg font-bold ${isAchieved ? 'text-success' : week.count > 0 ? 'text-warning' : 'text-[#8888a0]'}`}>
+                          <p className={`text-xl font-bold ${isAchieved ? 'text-success' : week.count > 0 ? 'text-warning' : 'text-[#8888a0]'}`}>
                             {week.count}
                           </p>
-                          <p className="text-[10px] text-[#8888a0]">/{week.target} bài</p>
+                          <p className="text-xs text-[#8888a0]">/{week.target} bài</p>
                         </div>
                       );
                     })}
