@@ -58,7 +58,12 @@ export default function DashboardPage() {
       setStats(data.stats);
       setProjectStats(data.projectStats);
       setBottleneck(data.bottleneck);
-      setRecentTasks((data.recentTasks || []).filter((t: Task) => t.title || t.keyword_sub));
+      // Bài viết gần đây = chỉ bài đã publish VÀ có link
+      setRecentTasks((data.allTasks || []).filter((t: Task) =>
+        (t.title || t.keyword_sub) &&
+        t.link_publish &&
+        isPublished(t.status_content)
+      ));
       setAllTasks((data.allTasks || data.recentTasks || []));
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
