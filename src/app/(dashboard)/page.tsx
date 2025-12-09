@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import ProgressBar from '@/components/ProgressBar';
 import { PageLoading } from '@/components/LoadingSpinner';
-import { formatDate, isOverdue } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
 import { Task, ProjectStats, BottleneckData, Stats, BottleneckTask } from '@/types';
 
 // Helper to check if task is published - support multiple formats
@@ -45,7 +45,6 @@ export default function DashboardPage() {
   const [projectStats, setProjectStats] = useState<ProjectStats[]>([]);
   const [bottleneck, setBottleneck] = useState<BottleneckData | null>(null);
   const [recentTasks, setRecentTasks] = useState<Task[]>([]);
-  const [alerts, setAlerts] = useState<Task[]>([]);
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -74,8 +73,7 @@ export default function DashboardPage() {
       setProjectStats(data.projectStats);
       setBottleneck(data.bottleneck);
       setRecentTasks((data.recentTasks || []).filter((t: Task) => t.title || t.keyword_sub));
-      setAlerts((data.alerts || []).filter((t: Task) => t.title || t.keyword_sub));
-      setAllTasks((data.allTasks || data.recentTasks || []).concat(data.alerts || []));
+      setAllTasks((data.allTasks || data.recentTasks || []));
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
     } finally {
@@ -100,14 +98,17 @@ export default function DashboardPage() {
       return taskDate >= fromDate && taskDate <= toDate;
     });
 
+    const published = filteredTasks.filter((t) => isPublished(t.status_content)).length;
+    const inProgress = filteredTasks.filter((t) =>
+      t.status_content &&
+      !isPublished(t.status_content)
+    ).length;
+
     return {
-      total: filteredTasks.length,
-      published: filteredTasks.filter((t) => isPublished(t.status_content)).length,
-      inProgress: filteredTasks.filter((t) =>
-        t.status_content &&
-        !isPublished(t.status_content) &&
-        t.status_content.toLowerCase().includes('doing')
-      ).length,
+      // Tổng bài = Published + Đang làm
+      total: published + inProgress,
+      published,
+      inProgress,
       overdue: filteredTasks.filter((t) => {
         if (!t.deadline || isPublished(t.status_content)) return false;
         return new Date(t.deadline) < new Date();
@@ -156,6 +157,78 @@ export default function DashboardPage() {
   const totalTarget = projectStats.reduce((sum, p) => sum + p.target, 0);
   const totalActual = projectStats.reduce((sum, p) => sum + p.actual, 0);
   const targetProgress = totalTarget ? Math.round((totalActual / totalTarget) * 100) : 0;
+
+  // Calculate planned articles (total tasks in allTasks for the month)
+  const totalPlanned = allTasks.length;
+  const missingPlan = totalTarget - totalPlanned;
+
+  // Calculate weekly report for each project
+  const weeklyReports = useMemo(() => {
+    const fromDate = new Date(dateRange.from);
+    const currentMonth = fromDate.getMonth();
+    const currentYear = fromDate.getFullYear();
+
+    // Get last day of month
+    const lastDay = new Date(currentYear, currentMonth + 1, 0);
+
+    // Calculate week number in month (starting from 1)
+    const getWeekOfMonth = (date: Date) => {
+      const firstDayOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+      const dayOfMonth = date.getDate();
+      const firstDayWeekday = firstDayOfMonth.getDay(); // 0 = Sunday
+      return Math.ceil((dayOfMonth + firstDayWeekday) / 7);
+    };
+
+    // Get absolute week number of year
+    const getWeekOfYear = (date: Date) => {
+      const startOfYear = new Date(date.getFullYear(), 0, 1);
+      const diffDays = Math.floor((date.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
+      return Math.ceil((diffDays + startOfYear.getDay() + 1) / 7);
+    };
+
+    // Calculate weekly KPI target per project
+    const weeksInMonth = getWeekOfMonth(lastDay);
+
+    return projectStats.map((project) => {
+      const weeklyTarget = Math.ceil(project.target / weeksInMonth);
+
+      // Get published tasks for this project
+      const projectTasks = allTasks.filter(
+        (t) => t.project?.id === project.id && isPublished(t.status_content) && t.publish_date
+      );
+
+      // Group by week
+      const weeklyData: { week: number; weekOfYear: number; count: number; target: number }[] = [];
+      for (let w = 1; w <= weeksInMonth; w++) {
+        // Find tasks published in this week
+        const tasksInWeek = projectTasks.filter((t) => {
+          if (!t.publish_date) return false;
+          const pubDate = new Date(t.publish_date);
+          return pubDate.getMonth() === currentMonth &&
+                 pubDate.getFullYear() === currentYear &&
+                 getWeekOfMonth(pubDate) === w;
+        });
+
+        // Get week of year for the first day of this week in month
+        const weekStartDate = new Date(currentYear, currentMonth, (w - 1) * 7 + 1);
+        if (weekStartDate > lastDay) continue;
+
+        weeklyData.push({
+          week: w,
+          weekOfYear: getWeekOfYear(weekStartDate),
+          count: tasksInWeek.length,
+          target: weeklyTarget,
+        });
+      }
+
+      return {
+        projectId: project.id,
+        projectName: project.name,
+        weeklyTarget,
+        weeks: weeklyData,
+      };
+    });
+  }, [projectStats, allTasks, dateRange]);
 
   // Get tasks for workflow section
   const getWorkflowTasks = (type: string): BottleneckTask[] => {
@@ -232,70 +305,73 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* KPI Progress + Leaderboard */}
-      <div className="grid lg:grid-cols-3 gap-4 md:gap-6">
-        {/* Target Progress */}
-        <div className="lg:col-span-2 bg-gradient-to-r from-accent/20 to-accent/5 border border-accent/30 rounded-xl p-4 md:p-6">
-          <div className="flex items-center gap-2 mb-3 md:mb-4">
-            <Target className="w-5 h-5 text-accent" />
-            <h2 className="text-base md:text-lg font-semibold text-white">Tiến độ KPI tháng</h2>
+      {/* KPI Progress (compact) + Missing Plan Warning + Leaderboard */}
+      <div className="grid lg:grid-cols-4 gap-3 md:gap-4">
+        {/* Target Progress - Compact */}
+        <div className="lg:col-span-2 bg-gradient-to-r from-accent/20 to-accent/5 border border-accent/30 rounded-xl p-3 md:p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Target className="w-4 h-4 text-accent" />
+              <span className="text-sm font-medium text-white">KPI tháng</span>
+            </div>
+            <p className={`text-lg font-bold ${targetProgress >= 100 ? 'text-success' : targetProgress >= 70 ? 'text-warning' : 'text-white'}`}>
+              {targetProgress}%
+            </p>
           </div>
-          <div className="flex items-end gap-3 md:gap-4">
+          <div className="flex items-center gap-2 mt-2">
             <div className="flex-1">
-              <div className="flex items-baseline gap-1 md:gap-2 mb-2">
-                <span className="text-2xl md:text-4xl font-bold text-white">{totalActual}</span>
-                <span className="text-lg md:text-2xl text-[#8888a0]">/ {totalTarget}</span>
-                <span className="text-sm md:text-lg text-[#8888a0]">bài</span>
-              </div>
-              <ProgressBar value={totalActual} max={totalTarget} showLabel={false} />
+              <ProgressBar value={totalActual} max={totalTarget} showLabel={false} size="sm" />
             </div>
-            <div className="text-right">
-              <p className={`text-2xl md:text-3xl font-bold ${targetProgress >= 100 ? 'text-success' : targetProgress >= 70 ? 'text-warning' : 'text-white'}`}>
-                {targetProgress}%
-              </p>
-              <p className="text-xs text-[#8888a0]">
-                {targetProgress >= 100 ? 'Đạt KPI!' : `Còn ${totalTarget - totalActual} bài`}
-              </p>
-            </div>
+            <span className="text-sm text-[#8888a0]">{totalActual}/{totalTarget}</span>
           </div>
         </div>
 
-        {/* Leaderboard */}
-        <div className="bg-card border border-border rounded-xl p-4 md:p-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Trophy className="w-5 h-5 text-yellow-500" />
-            <h2 className="text-base md:text-lg font-semibold text-white">Top dẫn đầu</h2>
+        {/* Missing Plan Warning */}
+        <div className={`rounded-xl p-3 md:p-4 border ${missingPlan > 0 ? 'bg-warning/10 border-warning/30' : 'bg-success/10 border-success/30'}`}>
+          <div className="flex items-center gap-2">
+            <AlertTriangle className={`w-4 h-4 ${missingPlan > 0 ? 'text-warning' : 'text-success'}`} />
+            <span className="text-sm font-medium text-white">Kế hoạch</span>
           </div>
-          <div className="space-y-2">
+          <div className="mt-1">
+            {missingPlan > 0 ? (
+              <p className="text-sm text-warning">
+                Thiếu <span className="font-bold">{missingPlan}</span> bài
+              </p>
+            ) : (
+              <p className="text-sm text-success">Đủ kế hoạch</p>
+            )}
+            <p className="text-xs text-[#8888a0]">{totalPlanned}/{totalTarget} bài có plan</p>
+          </div>
+        </div>
+
+        {/* Leaderboard - Compact */}
+        <div className="bg-card border border-border rounded-xl p-3 md:p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Trophy className="w-4 h-4 text-yellow-500" />
+            <span className="text-sm font-medium text-white">Top dẫn đầu</span>
+          </div>
+          <div className="space-y-1">
             {leaderboard.length > 0 ? (
-              leaderboard.map((item) => (
+              leaderboard.slice(0, 3).map((item) => (
                 <div
                   key={item.name}
-                  className={`flex items-center gap-3 p-2 rounded-lg ${
-                    item.rank === 1 ? 'bg-yellow-500/10' :
-                    item.rank === 2 ? 'bg-gray-400/10' :
-                    item.rank === 3 ? 'bg-orange-500/10' : 'bg-secondary'
-                  }`}
+                  className="flex items-center gap-2"
                 >
-                  <div className="w-6 h-6 flex items-center justify-center">
+                  <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
                     {item.rank === 1 ? (
-                      <Crown className="w-5 h-5 text-yellow-500" />
+                      <Crown className="w-4 h-4 text-yellow-500" />
                     ) : item.rank === 2 ? (
-                      <Medal className="w-5 h-5 text-gray-400" />
-                    ) : item.rank === 3 ? (
-                      <Medal className="w-5 h-5 text-orange-500" />
+                      <Medal className="w-4 h-4 text-gray-400" />
                     ) : (
-                      <span className="text-sm text-[#8888a0]">{item.rank}</span>
+                      <Medal className="w-4 h-4 text-orange-500" />
                     )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-medium truncate">{item.name}</p>
-                  </div>
-                  <span className="text-accent font-bold text-sm">{item.count} bài</span>
+                  <span className="text-white text-xs truncate flex-1">{item.name}</span>
+                  <span className="text-accent font-bold text-xs">{item.count}</span>
                 </div>
               ))
             ) : (
-              <p className="text-[#8888a0] text-center py-4 text-sm">Chưa có dữ liệu</p>
+              <p className="text-[#8888a0] text-center py-2 text-xs">Chưa có</p>
             )}
           </div>
         </div>
@@ -402,59 +478,42 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Alerts & Recent Tasks */}
-      <div className="grid md:grid-cols-2 gap-4 md:gap-6">
-        {/* Alerts */}
+      {/* Weekly Report + Recent Published */}
+      <div className="grid lg:grid-cols-2 gap-4 md:gap-6">
+        {/* Weekly Report */}
         <div className="bg-card border border-border rounded-xl p-4 md:p-6">
           <div className="flex items-center gap-2 mb-3 md:mb-4">
-            <AlertTriangle className="w-4 h-4 md:w-5 md:h-5 text-danger" />
-            <h2 className="text-base md:text-lg font-semibold text-white">Cần lưu ý</h2>
-            {alerts.length > 0 && (
-              <span className="ml-auto text-xs bg-danger/20 text-danger px-2 py-0.5 rounded-full">
-                {alerts.length}
-              </span>
-            )}
+            <Calendar className="w-4 h-4 md:w-5 md:h-5 text-accent" />
+            <h2 className="text-base md:text-lg font-semibold text-white">Báo cáo tuần</h2>
           </div>
 
-          <div className="space-y-2 max-h-[300px] overflow-y-auto">
-            {alerts.length > 0 ? (
-              alerts.map((task) => (
-                <div
-                  key={task.id}
-                  className={`p-3 rounded-lg border ${
-                    isOverdue(task.deadline)
-                      ? 'bg-danger/10 border-danger/30'
-                      : 'bg-warning/10 border-warning/30'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white text-sm font-medium">
-                        {task.title || task.keyword_sub || 'Không có tiêu đề'}
-                      </p>
-                      <p className="text-xs text-[#8888a0] mt-1">
-                        <span className="text-accent">{task.project?.name || '-'}</span>
-                        {' • '}{task.pic || 'Chưa assign'}
-                        {task.deadline && ` • DL: ${formatDate(task.deadline)}`}
-                      </p>
-                    </div>
-                    <span
-                      className={`text-xs px-2 py-1 rounded font-medium whitespace-nowrap ${
-                        isOverdue(task.deadline)
-                          ? 'bg-danger/20 text-danger'
-                          : 'bg-warning/20 text-warning'
-                      }`}
-                    >
-                      {isOverdue(task.deadline) ? 'Trễ hạn' : 'Sắp đến hạn'}
-                    </span>
+          <div className="space-y-3 max-h-[300px] overflow-y-auto">
+            {weeklyReports.length > 0 ? (
+              weeklyReports.map((report) => (
+                <div key={report.projectId} className="bg-secondary rounded-lg p-3">
+                  <p className="text-white text-sm font-medium mb-2">{report.projectName}</p>
+                  <div className="grid grid-cols-4 gap-1">
+                    {report.weeks.map((week) => {
+                      const isAchieved = week.count >= week.target;
+                      return (
+                        <div
+                          key={week.week}
+                          className={`text-center p-1.5 rounded ${
+                            isAchieved ? 'bg-success/20' : week.count > 0 ? 'bg-warning/20' : 'bg-secondary'
+                          }`}
+                        >
+                          <p className="text-[10px] text-[#8888a0]">T{week.weekOfYear}</p>
+                          <p className={`text-xs font-bold ${isAchieved ? 'text-success' : week.count > 0 ? 'text-warning' : 'text-[#8888a0]'}`}>
+                            {week.count}/{week.target}
+                          </p>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               ))
             ) : (
-              <div className="text-center py-6">
-                <CheckCircle2 className="w-10 h-10 text-success mx-auto mb-2 opacity-50" />
-                <p className="text-[#8888a0] text-sm">Không có task trễ/sắp hạn</p>
-              </div>
+              <p className="text-[#8888a0] text-center py-6 text-sm">Chưa có dữ liệu</p>
             )}
           </div>
         </div>
@@ -468,33 +527,53 @@ export default function DashboardPage() {
 
           <div className="space-y-2 max-h-[300px] overflow-y-auto">
             {recentTasks.length > 0 ? (
-              recentTasks.slice(0, 10).map((task) => (
-                <div
-                  key={task.id}
-                  className="flex items-center gap-3 p-2 bg-secondary rounded-lg"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-medium truncate">
-                      {task.title || task.keyword_sub || 'Không có tiêu đề'}
-                    </p>
-                    <p className="text-xs text-[#8888a0]">
-                      {task.pic || 'N/A'}
-                      {task.publish_date && ` • ${formatDate(task.publish_date)}`}
-                    </p>
+              recentTasks.slice(0, 10).map((task) => {
+                // Calculate time ago
+                const getTimeAgo = (dateStr: string | null | undefined) => {
+                  if (!dateStr) return null;
+                  const date = new Date(dateStr);
+                  const now = new Date();
+                  const diffMs = now.getTime() - date.getTime();
+                  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                  if (diffDays === 0) return 'Hôm nay';
+                  if (diffDays === 1) return 'Hôm qua';
+                  if (diffDays < 7) return `${diffDays} ngày trước`;
+                  if (diffDays < 30) return `${Math.floor(diffDays / 7)} tuần trước`;
+                  return formatDate(dateStr);
+                };
+
+                const timeAgo = getTimeAgo(task.publish_date || task.updated_at);
+
+                return (
+                  <div
+                    key={task.id}
+                    className="flex items-center gap-3 p-2 bg-secondary rounded-lg"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-sm font-medium truncate">
+                        {task.title || task.keyword_sub || 'Không có tiêu đề'}
+                      </p>
+                      <p className="text-xs text-[#8888a0]">
+                        {task.pic || 'N/A'}
+                        {timeAgo && (
+                          <span className="text-accent"> • {timeAgo}</span>
+                        )}
+                      </p>
+                    </div>
+                    {task.link_publish && (
+                      <a
+                        href={task.link_publish}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 text-accent hover:bg-accent/20 rounded transition-colors flex-shrink-0"
+                        title="Xem bài viết"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    )}
                   </div>
-                  {task.link_publish && (
-                    <a
-                      href={task.link_publish}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-1.5 text-accent hover:bg-accent/20 rounded transition-colors flex-shrink-0"
-                      title="Xem bài viết"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
-                  )}
-                </div>
-              ))
+                );
+              })
             ) : (
               <p className="text-[#8888a0] text-center py-6 text-sm">Chưa có bài viết nào</p>
             )}
