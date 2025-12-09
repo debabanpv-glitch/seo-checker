@@ -79,11 +79,11 @@ export default function Sidebar() {
     <>
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-6 border-b border-border">
-        <div className="w-10 h-10 bg-gradient-to-br from-accent-light to-accent rounded-xl flex items-center justify-center shadow-warm">
+        <div className="w-10 h-10 bg-gradient-to-br from-accent-light to-accent rounded-xl flex items-center justify-center shadow-gold">
           <span className="text-white font-bold text-lg">CT</span>
         </div>
         <div>
-          <h1 className="font-semibold text-white">Content Tracker</h1>
+          <h1 className="font-semibold text-[var(--text-primary)]">Content Tracker</h1>
           <p className="text-xs text-[var(--text-secondary)]">Team Management</p>
         </div>
       </div>
@@ -96,7 +96,7 @@ export default function Sidebar() {
               <Shield className="w-4 h-4 text-accent" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">
+              <p className="text-sm font-medium text-[var(--text-primary)] truncate">
                 {user.display_name}
               </p>
               <span className={cn(
