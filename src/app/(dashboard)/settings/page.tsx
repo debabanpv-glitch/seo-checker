@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Settings, RefreshCw, Check, AlertCircle, Database, Plus, Trash2, Save } from 'lucide-react';
+import { Settings, RefreshCw, Check, AlertCircle, Database, Plus, Trash2, Save, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import { Project } from '@/types';
 
@@ -13,9 +13,22 @@ interface MonthlyTarget {
   target: number;
 }
 
+interface SyncLog {
+  id: number;
+  started_at: string;
+  completed_at: string | null;
+  status: 'running' | 'success' | 'failed';
+  tasks_synced: number;
+  projects_synced: number;
+  error: string | null;
+  duration_ms: number | null;
+}
+
 export default function SettingsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [monthlyTargets, setMonthlyTargets] = useState<MonthlyTarget[]>([]);
+  const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
+  const [lastSync, setLastSync] = useState<SyncLog | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -34,16 +47,20 @@ export default function SettingsPage() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [projectsRes, targetsRes] = await Promise.all([
+      const [projectsRes, targetsRes, logsRes] = await Promise.all([
         fetch('/api/projects'),
         fetch('/api/targets'),
+        fetch('/api/sync/logs'),
       ]);
 
       const projectsData = await projectsRes.json();
       const targetsData = await targetsRes.json();
+      const logsData = await logsRes.json();
 
       setProjects(projectsData.projects || []);
       setMonthlyTargets(targetsData.targets || []);
+      setSyncLogs(logsData.logs || []);
+      setLastSync(logsData.lastSync || null);
 
       if (projectsData.projects?.length > 0) {
         setSelectedProject(projectsData.projects[0].id);
@@ -68,6 +85,11 @@ export default function SettingsPage() {
           success: true,
           message: `Đồng bộ thành công! ${data.syncedCount || 0} tasks được cập nhật.`,
         });
+        // Refresh sync logs
+        const logsRes = await fetch('/api/sync/logs');
+        const logsData = await logsRes.json();
+        setSyncLogs(logsData.logs || []);
+        setLastSync(logsData.lastSync || null);
       } else {
         setSyncResult({
           success: false,
@@ -143,6 +165,17 @@ export default function SettingsPage() {
     return `Tháng ${month}`;
   };
 
+  const formatDateTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
   // Group targets by project
   const targetsByProject = projects.map((project) => ({
     project,
@@ -201,7 +234,74 @@ export default function SettingsPage() {
             </div>
           )}
         </div>
+
+        {/* Last Sync Info */}
+        {lastSync && (
+          <div className="mt-4 p-4 bg-secondary rounded-lg">
+            <div className="flex items-center gap-3">
+              {lastSync.status === 'success' ? (
+                <CheckCircle className="w-5 h-5 text-success" />
+              ) : lastSync.status === 'failed' ? (
+                <XCircle className="w-5 h-5 text-danger" />
+              ) : (
+                <RefreshCw className="w-5 h-5 text-accent animate-spin" />
+              )}
+              <div>
+                <p className="text-white text-sm font-medium">
+                  Lần đồng bộ gần nhất: {formatDateTime(lastSync.started_at)}
+                </p>
+                <p className="text-[#8888a0] text-xs">
+                  {lastSync.status === 'success'
+                    ? `${lastSync.tasks_synced} tasks từ ${lastSync.projects_synced} dự án • ${lastSync.duration_ms}ms`
+                    : lastSync.status === 'failed'
+                    ? `Lỗi: ${lastSync.error || 'Unknown error'}`
+                    : 'Đang chạy...'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Sync History */}
+      {syncLogs.length > 0 && (
+        <div className="bg-card border border-border rounded-xl p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Clock className="w-5 h-5 text-accent" />
+            <h2 className="text-lg font-semibold text-white">Lịch sử đồng bộ</h2>
+          </div>
+
+          <div className="space-y-2">
+            {syncLogs.slice(0, 5).map((log) => (
+              <div key={log.id} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
+                <div className="flex items-center gap-3">
+                  {log.status === 'success' ? (
+                    <CheckCircle className="w-4 h-4 text-success" />
+                  ) : log.status === 'failed' ? (
+                    <XCircle className="w-4 h-4 text-danger" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4 text-accent animate-spin" />
+                  )}
+                  <span className="text-white text-sm">{formatDateTime(log.started_at)}</span>
+                </div>
+                <div className="flex items-center gap-4 text-xs">
+                  {log.status === 'success' ? (
+                    <>
+                      <span className="text-[#8888a0]">{log.tasks_synced} tasks</span>
+                      <span className="text-[#8888a0]">{log.projects_synced} dự án</span>
+                      <span className="text-[#8888a0] font-mono">{log.duration_ms}ms</span>
+                    </>
+                  ) : log.status === 'failed' ? (
+                    <span className="text-danger truncate max-w-[200px]">{log.error}</span>
+                  ) : (
+                    <span className="text-accent">Đang chạy...</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Add New Target */}
       <div className="bg-card border border-border rounded-xl p-6">
@@ -337,8 +437,8 @@ export default function SettingsPage() {
             <p className="text-white font-mono">Supabase PostgreSQL</p>
           </div>
           <div className="p-4 bg-secondary rounded-lg">
-            <p className="text-[#8888a0] mb-1">Sync Interval</p>
-            <p className="text-white font-mono">Hàng ngày lúc 8h (Vercel Cron)</p>
+            <p className="text-[#8888a0] mb-1">Sync</p>
+            <p className="text-white font-mono">Thủ công (nút Đồng bộ ngay)</p>
           </div>
           <div className="p-4 bg-secondary rounded-lg">
             <p className="text-[#8888a0] mb-1">Số dự án</p>
@@ -346,7 +446,7 @@ export default function SettingsPage() {
           </div>
           <div className="p-4 bg-secondary rounded-lg">
             <p className="text-[#8888a0] mb-1">Version</p>
-            <p className="text-white font-mono">1.0.0</p>
+            <p className="text-white font-mono">1.3.0</p>
           </div>
         </div>
       </div>

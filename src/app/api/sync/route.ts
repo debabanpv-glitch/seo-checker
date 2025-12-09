@@ -125,8 +125,52 @@ function mapRowToTask(row: SheetRow, projectId: string) {
   };
 }
 
+// Create sync log entry
+async function createSyncLog() {
+  const { data, error } = await supabase
+    .from('sync_logs')
+    .insert({ status: 'running' })
+    .select('id')
+    .single();
+
+  if (error) {
+    console.error('Failed to create sync log:', error);
+    return null;
+  }
+  return data?.id;
+}
+
+// Update sync log
+async function updateSyncLog(
+  logId: number | null,
+  status: 'success' | 'failed',
+  tasksSynced: number,
+  projectsSynced: number,
+  error?: string,
+  startTime?: number
+) {
+  if (!logId) return;
+
+  const duration = startTime ? Date.now() - startTime : null;
+
+  await supabase
+    .from('sync_logs')
+    .update({
+      status,
+      completed_at: new Date().toISOString(),
+      tasks_synced: tasksSynced,
+      projects_synced: projectsSynced,
+      error: error || null,
+      duration_ms: duration,
+    })
+    .eq('id', logId);
+}
+
 // POST: Manual sync trigger
 export async function POST() {
+  const startTime = Date.now();
+  const logId = await createSyncLog();
+
   try {
     // Fetch all projects
     const { data: projects, error: projectError } = await supabase
@@ -134,10 +178,12 @@ export async function POST() {
       .select('*');
 
     if (projectError) {
+      await updateSyncLog(logId, 'failed', 0, 0, projectError.message, startTime);
       return NextResponse.json({ error: projectError.message }, { status: 500 });
     }
 
     let totalSynced = 0;
+    let projectsSynced = 0;
 
     for (const project of projects || []) {
       try {
@@ -170,27 +216,35 @@ export async function POST() {
         }
 
         totalSynced += tasks.length;
+        projectsSynced++;
         console.log(`Synced ${tasks.length} tasks for ${project.name}`);
       } catch (error) {
         console.error(`Error syncing project ${project.name}:`, error);
       }
     }
 
+    await updateSyncLog(logId, 'success', totalSynced, projectsSynced, undefined, startTime);
+
     return NextResponse.json({
       success: true,
       syncedCount: totalSynced,
-      message: `Đồng bộ thành công ${totalSynced} tasks`,
+      projectsSynced,
+      message: `Đồng bộ thành công ${totalSynced} tasks từ ${projectsSynced} dự án`,
+      duration: Date.now() - startTime,
     });
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    await updateSyncLog(logId, 'failed', 0, 0, errorMsg, startTime);
+
     console.error('Sync error:', error);
     return NextResponse.json(
-      { error: 'Sync failed', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Sync failed', details: errorMsg },
       { status: 500 }
     );
   }
 }
 
-// GET: For Vercel Cron
+// GET: For Vercel Cron or manual trigger
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function GET(_request: NextRequest) {
   // For Vercel Cron, just run the sync
