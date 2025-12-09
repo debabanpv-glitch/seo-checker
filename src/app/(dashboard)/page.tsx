@@ -527,9 +527,7 @@ export default function DashboardPage() {
                     </p>
                     <p className="text-xs text-[#8888a0]">
                       {task.pic || 'N/A'}
-                      {task.publish_date && (
-                        <span className="text-accent"> • {formatDate(task.publish_date)}</span>
-                      )}
+                      <span className="text-accent"> • {task.publish_date ? formatDate(task.publish_date) : 'Chưa có ngày'}</span>
                     </p>
                   </div>
                   {task.link_publish && (
