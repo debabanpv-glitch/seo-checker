@@ -1,81 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// SEO Check Result Interface
-interface SEOCheckResult {
-  url: string;
-  success: boolean;
-  error?: string;
+interface CheckDetail {
+  id: string;
+  category: 'content' | 'images' | 'technical';
+  name: string;
+  description: string;
+  status: 'pass' | 'fail' | 'warning';
   score: number;
-  checks: {
-    title: {
-      exists: boolean;
-      content: string;
-      length: number;
-      hasKeyword: boolean;
-      score: number;
-      issues: string[];
-    };
-    metaDescription: {
-      exists: boolean;
-      content: string;
-      length: number;
-      hasKeyword: boolean;
-      score: number;
-      issues: string[];
-    };
-    headings: {
-      h1Count: number;
-      h1Content: string[];
-      h2Count: number;
-      h3Count: number;
-      hasKeywordInH1: boolean;
-      score: number;
-      issues: string[];
-    };
-    images: {
-      total: number;
-      withAlt: number;
-      withoutAlt: number;
-      altWithKeyword: number;
-      score: number;
-      issues: string[];
-    };
-    content: {
-      wordCount: number;
-      keywordCount: number;
-      keywordDensity: number;
-      subKeywordCount: number;
-      score: number;
-      issues: string[];
-    };
-    links: {
-      internal: number;
-      external: number;
-      total: number;
-      score: number;
-      issues: string[];
-    };
-    technical: {
-      hasCanonical: boolean;
-      hasViewport: boolean;
-      hasCharset: boolean;
-      score: number;
-      issues: string[];
-    };
-  };
+  maxScore: number;
+  value?: string | number;
+  suggestion?: string;
 }
 
-// Helper to extract text content
+// Helper functions
 function extractText(html: string): string {
   return html
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
+    .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
+    .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
     .replace(/<[^>]+>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
-// Helper to count keyword occurrences (case-insensitive, whole word)
 function countKeyword(text: string, keyword: string): number {
   if (!keyword || !text) return 0;
   const regex = new RegExp(keyword.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
@@ -83,10 +32,38 @@ function countKeyword(text: string, keyword: string): number {
   return matches ? matches.length : 0;
 }
 
-// Helper to check if text contains keyword
 function hasKeyword(text: string, keyword: string): boolean {
   if (!keyword || !text) return false;
   return text.toLowerCase().includes(keyword.toLowerCase());
+}
+
+function getFirstParagraph(html: string): string {
+  // Get content after first heading or beginning
+  const articleMatch = html.match(/<article[^>]*>([\s\S]*?)<\/article>/i) ||
+                       html.match(/<main[^>]*>([\s\S]*?)<\/main>/i) ||
+                       html.match(/<div[^>]*class="[^"]*content[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+
+  const content = articleMatch ? articleMatch[1] : html;
+  const pMatch = content.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+  return pMatch ? extractText(pMatch[1]) : '';
+}
+
+function getLastParagraphs(html: string): string {
+  const paragraphs = html.match(/<p[^>]*>[\s\S]*?<\/p>/gi) || [];
+  const last3 = paragraphs.slice(-3);
+  return last3.map(p => extractText(p)).join(' ');
+}
+
+function countWords(text: string): number {
+  return text.split(/\s+/).filter(w => w.length > 0).length;
+}
+
+function checkHasConclusion(html: string): boolean {
+  const conclusionPatterns = [
+    /tóm lại/i, /lời kết/i, /kết luận/i, /tổng kết/i,
+    /conclusion/i, /summary/i, /in conclusion/i
+  ];
+  return conclusionPatterns.some(p => p.test(html));
 }
 
 export async function POST(request: NextRequest) {
@@ -103,10 +80,10 @@ export async function POST(request: NextRequest) {
     try {
       const response = await fetch(url, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; SEOChecker/1.0)',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
           'Accept': 'text/html,application/xhtml+xml',
         },
-        signal: AbortSignal.timeout(15000), // 15 second timeout
+        signal: AbortSignal.timeout(15000),
       });
 
       if (!response.ok) {
@@ -120,201 +97,287 @@ export async function POST(request: NextRequest) {
         success: false,
         error: `Không thể truy cập URL: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`,
         score: 0,
-        checks: null,
+        maxScore: 100,
+        categories: {},
+        details: [],
       });
     }
 
-    const result: SEOCheckResult = {
-      url,
-      success: true,
-      score: 0,
-      checks: {
-        title: { exists: false, content: '', length: 0, hasKeyword: false, score: 0, issues: [] },
-        metaDescription: { exists: false, content: '', length: 0, hasKeyword: false, score: 0, issues: [] },
-        headings: { h1Count: 0, h1Content: [], h2Count: 0, h3Count: 0, hasKeywordInH1: false, score: 0, issues: [] },
-        images: { total: 0, withAlt: 0, withoutAlt: 0, altWithKeyword: 0, score: 0, issues: [] },
-        content: { wordCount: 0, keywordCount: 0, keywordDensity: 0, subKeywordCount: 0, score: 0, issues: [] },
-        links: { internal: 0, external: 0, total: 0, score: 0, issues: [] },
-        technical: { hasCanonical: false, hasViewport: false, hasCharset: false, score: 0, issues: [] },
-      },
-    };
+    const details: CheckDetail[] = [];
 
-    // 1. Check Title
+    // Extract common data
+    const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+    const bodyHtml = bodyMatch ? bodyMatch[1] : html;
+    const bodyText = extractText(bodyHtml);
+    const wordCount = countWords(bodyText);
+    const firstPara = getFirstParagraph(bodyHtml);
+    const lastParas = getLastParagraphs(bodyHtml);
+    const urlObj = new URL(url);
+
+    // ==================== CONTENT CHECKS ====================
+
+    // 1. Meta Title
     const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
-    if (titleMatch) {
-      result.checks.title.exists = true;
-      result.checks.title.content = titleMatch[1].trim();
-      result.checks.title.length = titleMatch[1].trim().length;
-      result.checks.title.hasKeyword = hasKeyword(titleMatch[1], keyword);
+    const titleContent = titleMatch ? titleMatch[1].trim() : '';
+    const titleLength = titleContent.length;
 
-      // Score title (max 15)
-      let titleScore = 0;
-      if (result.checks.title.exists) titleScore += 5;
-      if (result.checks.title.length >= 30 && result.checks.title.length <= 60) {
-        titleScore += 5;
-      } else if (result.checks.title.length > 0) {
-        titleScore += 2;
-        if (result.checks.title.length < 30) {
-          result.checks.title.issues.push('Title quá ngắn (< 30 ký tự)');
-        } else {
-          result.checks.title.issues.push('Title quá dài (> 60 ký tự)');
-        }
-      }
-      if (result.checks.title.hasKeyword) titleScore += 5;
-      else if (keyword) result.checks.title.issues.push('Title không chứa keyword chính');
-      result.checks.title.score = titleScore;
-    } else {
-      result.checks.title.issues.push('Không tìm thấy thẻ title');
-    }
+    details.push({
+      id: 'title-length',
+      category: 'content',
+      name: 'Độ dài Title',
+      description: 'Title 60-70 ký tự',
+      status: titleLength >= 60 && titleLength <= 70 ? 'pass' : titleLength >= 50 && titleLength <= 80 ? 'warning' : 'fail',
+      score: titleLength >= 60 && titleLength <= 70 ? 3 : titleLength >= 50 && titleLength <= 80 ? 2 : 0,
+      maxScore: 3,
+      value: `${titleLength} ký tự`,
+      suggestion: titleLength < 60 ? 'Title quá ngắn, thêm chi tiết' : titleLength > 70 ? 'Title quá dài, rút gọn lại' : undefined,
+    });
 
-    // 2. Check Meta Description
+    details.push({
+      id: 'title-keyword',
+      category: 'content',
+      name: 'Title chứa keyword',
+      description: 'Title phải chứa keyword chính',
+      status: hasKeyword(titleContent, keyword) ? 'pass' : 'fail',
+      score: hasKeyword(titleContent, keyword) ? 3 : 0,
+      maxScore: 3,
+      value: titleContent.substring(0, 60) + (titleContent.length > 60 ? '...' : ''),
+      suggestion: !hasKeyword(titleContent, keyword) ? `Thêm keyword "${keyword}" vào title` : undefined,
+    });
+
+    // 2. Meta Description
     const metaDescMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["']/i) ||
                           html.match(/<meta[^>]*content=["']([^"']*)["'][^>]*name=["']description["']/i);
-    if (metaDescMatch) {
-      result.checks.metaDescription.exists = true;
-      result.checks.metaDescription.content = metaDescMatch[1].trim();
-      result.checks.metaDescription.length = metaDescMatch[1].trim().length;
-      result.checks.metaDescription.hasKeyword = hasKeyword(metaDescMatch[1], keyword);
+    const metaDesc = metaDescMatch ? metaDescMatch[1].trim() : '';
+    const metaDescLength = metaDesc.length;
 
-      // Score meta description (max 15)
-      let metaScore = 0;
-      if (result.checks.metaDescription.exists) metaScore += 5;
-      if (result.checks.metaDescription.length >= 120 && result.checks.metaDescription.length <= 160) {
-        metaScore += 5;
-      } else if (result.checks.metaDescription.length > 0) {
-        metaScore += 2;
-        if (result.checks.metaDescription.length < 120) {
-          result.checks.metaDescription.issues.push('Meta description quá ngắn (< 120 ký tự)');
-        } else {
-          result.checks.metaDescription.issues.push('Meta description quá dài (> 160 ký tự)');
-        }
-      }
-      if (result.checks.metaDescription.hasKeyword) metaScore += 5;
-      else if (keyword) result.checks.metaDescription.issues.push('Meta description không chứa keyword');
-      result.checks.metaDescription.score = metaScore;
-    } else {
-      result.checks.metaDescription.issues.push('Không tìm thấy meta description');
-    }
+    details.push({
+      id: 'meta-desc-length',
+      category: 'content',
+      name: 'Độ dài Meta Description',
+      description: 'Tối đa 160 ký tự',
+      status: metaDescLength > 0 && metaDescLength <= 160 ? 'pass' : metaDescLength === 0 ? 'fail' : 'warning',
+      score: metaDescLength > 0 && metaDescLength <= 160 ? 2 : metaDescLength > 160 ? 1 : 0,
+      maxScore: 2,
+      value: `${metaDescLength} ký tự`,
+      suggestion: metaDescLength === 0 ? 'Thiếu meta description' : metaDescLength > 160 ? 'Meta description quá dài' : undefined,
+    });
 
-    // 3. Check Headings
-    const h1Matches = html.match(/<h1[^>]*>([^<]*)<\/h1>/gi) || [];
-    const h2Matches = html.match(/<h2[^>]*>/gi) || [];
-    const h3Matches = html.match(/<h3[^>]*>/gi) || [];
+    details.push({
+      id: 'meta-desc-keyword',
+      category: 'content',
+      name: 'Meta Description chứa keyword',
+      description: 'Chứa keyword chính (bắt buộc) và keyword phụ (ưu tiên)',
+      status: hasKeyword(metaDesc, keyword) && hasKeyword(metaDesc, subKeyword) ? 'pass' : hasKeyword(metaDesc, keyword) ? 'warning' : 'fail',
+      score: hasKeyword(metaDesc, keyword) && hasKeyword(metaDesc, subKeyword) ? 3 : hasKeyword(metaDesc, keyword) ? 2 : 0,
+      maxScore: 3,
+      value: hasKeyword(metaDesc, keyword) ? (hasKeyword(metaDesc, subKeyword) ? 'Có cả 2 keyword' : 'Chỉ có keyword chính') : 'Thiếu keyword',
+      suggestion: !hasKeyword(metaDesc, keyword) ? `Thêm keyword "${keyword}" vào meta description` : !hasKeyword(metaDesc, subKeyword) ? `Nên thêm keyword phụ "${subKeyword}"` : undefined,
+    });
 
-    result.checks.headings.h1Count = h1Matches.length;
-    result.checks.headings.h1Content = h1Matches.map(h => h.replace(/<[^>]+>/g, '').trim());
-    result.checks.headings.h2Count = h2Matches.length;
-    result.checks.headings.h3Count = h3Matches.length;
-    result.checks.headings.hasKeywordInH1 = result.checks.headings.h1Content.some(h => hasKeyword(h, keyword));
+    // 3. Sapo/Mở bài
+    const sapoHasKeyword = hasKeyword(firstPara, keyword);
+    details.push({
+      id: 'sapo-keyword',
+      category: 'content',
+      name: 'Sapo chứa keyword',
+      description: 'Đoạn mở bài chứa keyword chính',
+      status: sapoHasKeyword ? 'pass' : 'fail',
+      score: sapoHasKeyword ? 3 : 0,
+      maxScore: 3,
+      value: firstPara.substring(0, 100) + '...',
+      suggestion: !sapoHasKeyword ? 'Thêm keyword vào đoạn mở bài và in đậm' : undefined,
+    });
 
-    // Score headings (max 15)
-    let headingScore = 0;
-    if (result.checks.headings.h1Count === 1) {
-      headingScore += 5;
-    } else if (result.checks.headings.h1Count === 0) {
-      result.checks.headings.issues.push('Không có thẻ H1');
-    } else {
-      headingScore += 2;
-      result.checks.headings.issues.push(`Có ${result.checks.headings.h1Count} thẻ H1 (nên chỉ có 1)`);
-    }
-    if (result.checks.headings.h2Count >= 2) headingScore += 5;
-    else if (result.checks.headings.h2Count > 0) {
-      headingScore += 2;
-      result.checks.headings.issues.push('Nên có ít nhất 2 thẻ H2');
-    } else {
-      result.checks.headings.issues.push('Không có thẻ H2');
-    }
-    if (result.checks.headings.hasKeywordInH1) headingScore += 5;
-    else if (keyword) result.checks.headings.issues.push('H1 không chứa keyword');
-    result.checks.headings.score = headingScore;
+    // 4. Keyword đầu và cuối bài
+    const kwInFirst = hasKeyword(firstPara, keyword);
+    const kwInLast = hasKeyword(lastParas, keyword);
+    details.push({
+      id: 'keyword-position',
+      category: 'content',
+      name: 'Keyword đầu và cuối bài',
+      description: 'Keyword xuất hiện đầu và cuối bài',
+      status: kwInFirst && kwInLast ? 'pass' : kwInFirst || kwInLast ? 'warning' : 'fail',
+      score: kwInFirst && kwInLast ? 3 : kwInFirst || kwInLast ? 1 : 0,
+      maxScore: 3,
+      value: `Đầu: ${kwInFirst ? 'Có' : 'Không'}, Cuối: ${kwInLast ? 'Có' : 'Không'}`,
+      suggestion: !kwInFirst ? 'Thêm keyword vào đầu bài' : !kwInLast ? 'Thêm keyword vào cuối bài' : undefined,
+    });
 
-    // 4. Check Images
-    const imgMatches = html.match(/<img[^>]*>/gi) || [];
-    result.checks.images.total = imgMatches.length;
+    // 5. Keyword phụ
+    const subKwCount = countKeyword(bodyText, subKeyword);
+    details.push({
+      id: 'sub-keyword',
+      category: 'content',
+      name: 'Keyword phụ trong bài',
+      description: 'Keyword phụ xuất hiện ít nhất 1 lần',
+      status: subKwCount >= 1 ? 'pass' : 'fail',
+      score: subKwCount >= 1 ? 2 : 0,
+      maxScore: 2,
+      value: `${subKwCount} lần`,
+      suggestion: subKwCount === 0 ? `Thêm keyword phụ "${subKeyword}" vào nội dung` : undefined,
+    });
 
-    imgMatches.forEach(img => {
+    // 6. Headings H2
+    const h2Matches = bodyHtml.match(/<h2[^>]*>([\s\S]*?)<\/h2>/gi) || [];
+    const h2Contents = h2Matches.map(h => extractText(h));
+    const h2WithKw = h2Contents.filter(h => hasKeyword(h, keyword) || hasKeyword(h, subKeyword)).length;
+
+    details.push({
+      id: 'h2-keyword',
+      category: 'content',
+      name: 'H2 chứa keyword',
+      description: 'Ít nhất 2 H2 chứa keyword chính hoặc phụ',
+      status: h2WithKw >= 2 ? 'pass' : h2WithKw >= 1 ? 'warning' : 'fail',
+      score: h2WithKw >= 2 ? 3 : h2WithKw >= 1 ? 1 : 0,
+      maxScore: 3,
+      value: `${h2WithKw}/${h2Contents.length} H2 có keyword`,
+      suggestion: h2WithKw < 2 ? 'Thêm keyword vào các thẻ H2' : undefined,
+    });
+
+    // 7. Heading ngắn gọn
+    const longHeadings = h2Contents.filter(h => h.length > 60).length;
+    details.push({
+      id: 'heading-length',
+      category: 'content',
+      name: 'Heading ngắn gọn',
+      description: 'Heading không dài dòng',
+      status: longHeadings === 0 ? 'pass' : 'warning',
+      score: longHeadings === 0 ? 2 : 1,
+      maxScore: 2,
+      value: longHeadings === 0 ? 'Tất cả heading ngắn gọn' : `${longHeadings} heading quá dài`,
+      suggestion: longHeadings > 0 ? 'Rút gọn các heading dài' : undefined,
+    });
+
+    // 8. Word count
+    details.push({
+      id: 'word-count',
+      category: 'content',
+      name: 'Độ dài bài viết',
+      description: 'Ít nhất 1200 chữ',
+      status: wordCount >= 1200 ? 'pass' : wordCount >= 800 ? 'warning' : 'fail',
+      score: wordCount >= 1200 ? 5 : wordCount >= 800 ? 3 : 1,
+      maxScore: 5,
+      value: `${wordCount} từ`,
+      suggestion: wordCount < 1200 ? `Cần thêm ${1200 - wordCount} từ nữa` : undefined,
+    });
+
+    // 9. Kết bài
+    const hasConclusion = checkHasConclusion(bodyHtml);
+    details.push({
+      id: 'conclusion',
+      category: 'content',
+      name: 'Có phần Kết bài',
+      description: 'Có heading "Tóm lại" hoặc "Lời kết"',
+      status: hasConclusion ? 'pass' : 'fail',
+      score: hasConclusion ? 2 : 0,
+      maxScore: 2,
+      value: hasConclusion ? 'Có' : 'Không',
+      suggestion: !hasConclusion ? 'Thêm phần "Tóm lại" hoặc "Lời kết" cuối bài' : undefined,
+    });
+
+    // 10. Keyword density
+    const keywordCount = countKeyword(bodyText, keyword);
+    const density = wordCount > 0 ? (keywordCount / wordCount) * 100 : 0;
+    details.push({
+      id: 'keyword-density',
+      category: 'content',
+      name: 'Mật độ keyword',
+      description: 'Mật độ hợp lý 0.5-2.5%',
+      status: density >= 0.5 && density <= 2.5 ? 'pass' : density > 0 ? 'warning' : 'fail',
+      score: density >= 0.5 && density <= 2.5 ? 3 : density > 0 ? 1 : 0,
+      maxScore: 3,
+      value: `${density.toFixed(2)}% (${keywordCount} lần)`,
+      suggestion: density < 0.5 ? 'Tăng mật độ keyword' : density > 2.5 ? 'Giảm mật độ keyword, tránh spam' : undefined,
+    });
+
+    // ==================== IMAGE CHECKS ====================
+
+    const imgMatches = bodyHtml.match(/<img[^>]*>/gi) || [];
+    let imagesWithAlt = 0;
+    let imagesWithKwAlt = 0;
+
+    imgMatches.forEach((img) => {
       const altMatch = img.match(/alt=["']([^"']*)["']/i);
+
       if (altMatch && altMatch[1].trim()) {
-        result.checks.images.withAlt++;
+        imagesWithAlt++;
         if (hasKeyword(altMatch[1], keyword)) {
-          result.checks.images.altWithKeyword++;
+          imagesWithKwAlt++;
         }
-      } else {
-        result.checks.images.withoutAlt++;
       }
     });
 
-    // Score images (max 10)
-    let imageScore = 0;
-    if (result.checks.images.total > 0) {
-      const altRatio = result.checks.images.withAlt / result.checks.images.total;
-      if (altRatio >= 0.9) imageScore += 5;
-      else if (altRatio >= 0.5) {
-        imageScore += 3;
-        result.checks.images.issues.push(`${result.checks.images.withoutAlt} ảnh thiếu alt text`);
-      } else {
-        imageScore += 1;
-        result.checks.images.issues.push(`${result.checks.images.withoutAlt} ảnh thiếu alt text`);
-      }
-      if (result.checks.images.altWithKeyword > 0) imageScore += 5;
-      else if (keyword) result.checks.images.issues.push('Không có alt chứa keyword');
-    } else {
-      imageScore += 5; // No images is okay
-      result.checks.images.issues.push('Không có hình ảnh (nên thêm ảnh minh họa)');
-    }
-    result.checks.images.score = imageScore;
+    details.push({
+      id: 'image-alt',
+      category: 'images',
+      name: 'Ảnh có Alt text',
+      description: 'Tất cả ảnh phải có alt text',
+      status: imgMatches.length === 0 || imagesWithAlt === imgMatches.length ? 'pass' : imagesWithAlt > imgMatches.length / 2 ? 'warning' : 'fail',
+      score: imgMatches.length === 0 ? 3 : imagesWithAlt === imgMatches.length ? 3 : Math.round((imagesWithAlt / imgMatches.length) * 3),
+      maxScore: 3,
+      value: `${imagesWithAlt}/${imgMatches.length} ảnh có alt`,
+      suggestion: imagesWithAlt < imgMatches.length ? 'Thêm alt text cho tất cả ảnh' : undefined,
+    });
 
-    // 5. Check Content
-    const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-    const bodyText = bodyMatch ? extractText(bodyMatch[1]) : extractText(html);
-    const words = bodyText.split(/\s+/).filter(w => w.length > 0);
+    details.push({
+      id: 'image-alt-keyword',
+      category: 'images',
+      name: 'Alt chứa keyword',
+      description: 'Alt text nên match với heading/keyword',
+      status: imagesWithKwAlt > 0 ? 'pass' : imgMatches.length === 0 ? 'pass' : 'warning',
+      score: imagesWithKwAlt > 0 ? 2 : imgMatches.length === 0 ? 2 : 0,
+      maxScore: 2,
+      value: `${imagesWithKwAlt} ảnh có keyword trong alt`,
+      suggestion: imagesWithKwAlt === 0 && imgMatches.length > 0 ? 'Thêm keyword vào alt text của ảnh' : undefined,
+    });
 
-    result.checks.content.wordCount = words.length;
-    result.checks.content.keywordCount = countKeyword(bodyText, keyword);
-    result.checks.content.keywordDensity = words.length > 0
-      ? Math.round((result.checks.content.keywordCount / words.length) * 1000) / 10
-      : 0;
-    result.checks.content.subKeywordCount = countKeyword(bodyText, subKeyword);
+    details.push({
+      id: 'image-count',
+      category: 'images',
+      name: 'Số lượng ảnh',
+      description: 'Mỗi heading nên có ảnh minh họa',
+      status: imgMatches.length >= h2Contents.length ? 'pass' : imgMatches.length >= h2Contents.length / 2 ? 'warning' : 'fail',
+      score: imgMatches.length >= h2Contents.length ? 3 : imgMatches.length >= h2Contents.length / 2 ? 2 : 1,
+      maxScore: 3,
+      value: `${imgMatches.length} ảnh / ${h2Contents.length} H2`,
+      suggestion: imgMatches.length < h2Contents.length ? 'Thêm ảnh minh họa cho các heading' : undefined,
+    });
 
-    // Score content (max 20)
-    let contentScore = 0;
-    if (result.checks.content.wordCount >= 1500) {
-      contentScore += 10;
-    } else if (result.checks.content.wordCount >= 800) {
-      contentScore += 7;
-    } else if (result.checks.content.wordCount >= 300) {
-      contentScore += 4;
-      result.checks.content.issues.push('Nội dung ngắn (< 800 từ)');
-    } else {
-      contentScore += 1;
-      result.checks.content.issues.push('Nội dung quá ngắn (< 300 từ)');
-    }
+    // ==================== TECHNICAL CHECKS ====================
 
-    if (result.checks.content.keywordDensity >= 0.5 && result.checks.content.keywordDensity <= 2.5) {
-      contentScore += 5;
-    } else if (result.checks.content.keywordDensity > 0) {
-      contentScore += 2;
-      if (result.checks.content.keywordDensity < 0.5) {
-        result.checks.content.issues.push('Mật độ keyword thấp (< 0.5%)');
-      } else {
-        result.checks.content.issues.push('Mật độ keyword cao (> 2.5%) - có thể spam');
-      }
-    } else if (keyword) {
-      result.checks.content.issues.push('Không tìm thấy keyword trong nội dung');
-    }
+    // Canonical
+    const hasCanonical = /<link[^>]*rel=["']canonical["']/i.test(html);
+    details.push({
+      id: 'canonical',
+      category: 'technical',
+      name: 'Canonical Tag',
+      description: 'Có thẻ canonical',
+      status: hasCanonical ? 'pass' : 'fail',
+      score: hasCanonical ? 2 : 0,
+      maxScore: 2,
+      value: hasCanonical ? 'Có' : 'Không',
+      suggestion: !hasCanonical ? 'Thêm canonical tag' : undefined,
+    });
 
-    if (result.checks.content.subKeywordCount > 0) {
-      contentScore += 5;
-    } else if (subKeyword) {
-      result.checks.content.issues.push('Không tìm thấy keyword phụ trong nội dung');
-    } else {
-      contentScore += 5; // No sub keyword provided
-    }
-    result.checks.content.score = contentScore;
+    // Viewport
+    const hasViewport = /<meta[^>]*name=["']viewport["']/i.test(html);
+    details.push({
+      id: 'viewport',
+      category: 'technical',
+      name: 'Mobile Viewport',
+      description: 'Có thẻ viewport cho mobile',
+      status: hasViewport ? 'pass' : 'fail',
+      score: hasViewport ? 2 : 0,
+      maxScore: 2,
+      value: hasViewport ? 'Có' : 'Không',
+      suggestion: !hasViewport ? 'Thêm viewport meta tag' : undefined,
+    });
 
-    // 6. Check Links
-    const linkMatches = html.match(/<a[^>]*href=["']([^"']*)["'][^>]*>/gi) || [];
-    const urlObj = new URL(url);
+    // Internal links
+    const linkMatches = bodyHtml.match(/<a[^>]*href=["']([^"']*)["'][^>]*>/gi) || [];
+    let internalLinks = 0;
+    let externalLinks = 0;
 
     linkMatches.forEach(link => {
       const hrefMatch = link.match(/href=["']([^"']*)["']/i);
@@ -324,65 +387,97 @@ export async function POST(request: NextRequest) {
           try {
             const linkUrl = new URL(href);
             if (linkUrl.hostname === urlObj.hostname) {
-              result.checks.links.internal++;
+              internalLinks++;
             } else {
-              result.checks.links.external++;
+              externalLinks++;
             }
           } catch {
-            result.checks.links.internal++;
+            internalLinks++;
           }
-        } else if (href.startsWith('/') || href.startsWith('#')) {
-          result.checks.links.internal++;
+        } else if (href.startsWith('/')) {
+          internalLinks++;
         }
       }
     });
-    result.checks.links.total = result.checks.links.internal + result.checks.links.external;
 
-    // Score links (max 10)
-    let linkScore = 0;
-    if (result.checks.links.internal >= 3) linkScore += 5;
-    else if (result.checks.links.internal > 0) {
-      linkScore += 2;
-      result.checks.links.issues.push('Nên có ít nhất 3 internal links');
-    } else {
-      result.checks.links.issues.push('Không có internal links');
-    }
-    if (result.checks.links.external >= 1 && result.checks.links.external <= 5) {
-      linkScore += 5;
-    } else if (result.checks.links.external > 5) {
-      linkScore += 3;
-      result.checks.links.issues.push('Quá nhiều external links (> 5)');
-    } else {
-      linkScore += 2;
-      result.checks.links.issues.push('Nên có 1-5 external links (nguồn tham khảo)');
-    }
-    result.checks.links.score = linkScore;
+    details.push({
+      id: 'internal-links',
+      category: 'technical',
+      name: 'Internal Links',
+      description: 'Có ít nhất 3 internal links',
+      status: internalLinks >= 3 ? 'pass' : internalLinks > 0 ? 'warning' : 'fail',
+      score: internalLinks >= 3 ? 3 : internalLinks > 0 ? 1 : 0,
+      maxScore: 3,
+      value: `${internalLinks} links`,
+      suggestion: internalLinks < 3 ? 'Thêm internal links đến các bài viết liên quan' : undefined,
+    });
 
-    // 7. Check Technical
-    result.checks.technical.hasCanonical = /<link[^>]*rel=["']canonical["']/i.test(html);
-    result.checks.technical.hasViewport = /<meta[^>]*name=["']viewport["']/i.test(html);
-    result.checks.technical.hasCharset = /<meta[^>]*charset/i.test(html);
+    details.push({
+      id: 'external-links',
+      category: 'technical',
+      name: 'External Links',
+      description: 'Có 1-5 external links (nguồn tham khảo)',
+      status: externalLinks >= 1 && externalLinks <= 5 ? 'pass' : externalLinks === 0 ? 'warning' : 'warning',
+      score: externalLinks >= 1 && externalLinks <= 5 ? 2 : 1,
+      maxScore: 2,
+      value: `${externalLinks} links`,
+      suggestion: externalLinks === 0 ? 'Thêm external links đến nguồn uy tín' : externalLinks > 5 ? 'Giảm số external links' : undefined,
+    });
 
-    // Score technical (max 15)
-    let techScore = 0;
-    if (result.checks.technical.hasCanonical) techScore += 5;
-    else result.checks.technical.issues.push('Thiếu canonical tag');
-    if (result.checks.technical.hasViewport) techScore += 5;
-    else result.checks.technical.issues.push('Thiếu viewport meta (mobile)');
-    if (result.checks.technical.hasCharset) techScore += 5;
-    else result.checks.technical.issues.push('Thiếu charset declaration');
-    result.checks.technical.score = techScore;
+    // H1 check
+    const h1Matches = bodyHtml.match(/<h1[^>]*>([\s\S]*?)<\/h1>/gi) || [];
+    details.push({
+      id: 'h1-count',
+      category: 'technical',
+      name: 'Thẻ H1',
+      description: 'Chỉ có 1 thẻ H1',
+      status: h1Matches.length === 1 ? 'pass' : 'fail',
+      score: h1Matches.length === 1 ? 2 : 0,
+      maxScore: 2,
+      value: `${h1Matches.length} H1`,
+      suggestion: h1Matches.length === 0 ? 'Thiếu thẻ H1' : h1Matches.length > 1 ? 'Chỉ nên có 1 thẻ H1' : undefined,
+    });
 
-    // Calculate total score (max 100)
-    result.score = result.checks.title.score +
-                   result.checks.metaDescription.score +
-                   result.checks.headings.score +
-                   result.checks.images.score +
-                   result.checks.content.score +
-                   result.checks.links.score +
-                   result.checks.technical.score;
+    // Calculate scores by category
+    const contentChecks = details.filter(d => d.category === 'content');
+    const imageChecks = details.filter(d => d.category === 'images');
+    const technicalChecks = details.filter(d => d.category === 'technical');
 
-    return NextResponse.json(result);
+    const categories = {
+      content: {
+        name: 'Nội dung',
+        score: contentChecks.reduce((sum, c) => sum + c.score, 0),
+        maxScore: contentChecks.reduce((sum, c) => sum + c.maxScore, 0),
+        passed: contentChecks.filter(c => c.status === 'pass').length,
+        total: contentChecks.length,
+      },
+      images: {
+        name: 'Hình ảnh',
+        score: imageChecks.reduce((sum, c) => sum + c.score, 0),
+        maxScore: imageChecks.reduce((sum, c) => sum + c.maxScore, 0),
+        passed: imageChecks.filter(c => c.status === 'pass').length,
+        total: imageChecks.length,
+      },
+      technical: {
+        name: 'Kỹ thuật',
+        score: technicalChecks.reduce((sum, c) => sum + c.score, 0),
+        maxScore: technicalChecks.reduce((sum, c) => sum + c.maxScore, 0),
+        passed: technicalChecks.filter(c => c.status === 'pass').length,
+        total: technicalChecks.length,
+      },
+    };
+
+    const totalScore = details.reduce((sum, c) => sum + c.score, 0);
+    const maxScore = details.reduce((sum, c) => sum + c.maxScore, 0);
+
+    return NextResponse.json({
+      url,
+      success: true,
+      score: Math.round((totalScore / maxScore) * 100),
+      maxScore: 100,
+      categories,
+      details,
+    });
   } catch (error) {
     console.error('SEO Check error:', error);
     return NextResponse.json(

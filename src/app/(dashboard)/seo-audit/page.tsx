@@ -8,14 +8,13 @@ import {
   ExternalLink,
   RefreshCw,
   FileText,
-  Image,
-  Link2,
-  Type,
+  Image as ImageIcon,
   Code,
   ChevronDown,
   ChevronUp,
   Filter,
   Loader2,
+  CheckCircle,
 } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
@@ -41,68 +40,33 @@ interface SEOResult {
   success: boolean;
   error?: string;
   score: number;
-  checks: {
-    title: CheckResult;
-    metaDescription: CheckResult;
-    headings: HeadingResult;
-    images: ImageResult;
-    content: ContentResult;
-    links: LinkResult;
-    technical: TechResult;
+  maxScore: number;
+  categories: {
+    content: CategoryResult;
+    images: CategoryResult;
+    technical: CategoryResult;
   };
+  details: CheckDetail[];
 }
 
-interface CheckResult {
-  exists: boolean;
-  content: string;
-  length: number;
-  hasKeyword: boolean;
+interface CategoryResult {
+  name: string;
   score: number;
-  issues: string[];
-}
-
-interface HeadingResult {
-  h1Count: number;
-  h1Content: string[];
-  h2Count: number;
-  h3Count: number;
-  hasKeywordInH1: boolean;
-  score: number;
-  issues: string[];
-}
-
-interface ImageResult {
+  maxScore: number;
+  passed: number;
   total: number;
-  withAlt: number;
-  withoutAlt: number;
-  altWithKeyword: number;
-  score: number;
-  issues: string[];
 }
 
-interface ContentResult {
-  wordCount: number;
-  keywordCount: number;
-  keywordDensity: number;
-  subKeywordCount: number;
+interface CheckDetail {
+  id: string;
+  category: 'content' | 'images' | 'technical';
+  name: string;
+  description: string;
+  status: 'pass' | 'fail' | 'warning';
   score: number;
-  issues: string[];
-}
-
-interface LinkResult {
-  internal: number;
-  external: number;
-  total: number;
-  score: number;
-  issues: string[];
-}
-
-interface TechResult {
-  hasCanonical: boolean;
-  hasViewport: boolean;
-  hasCharset: boolean;
-  score: number;
-  issues: string[];
+  maxScore: number;
+  value?: string | number;
+  suggestion?: string;
 }
 
 export default function SEOAuditPage() {
@@ -130,14 +94,12 @@ export default function SEOAuditPage() {
       const res = await fetch(`/api/tasks?month=${month}&year=${year}${projectParam}&published=true`);
       const data = await res.json();
 
-      // Filter only published tasks with links
       const publishedTasks = (data.tasks || []).filter(
         (t: TaskWithSEO) => t.link_publish && (t.title || t.keyword_sub)
       );
 
       setTasks(publishedTasks);
 
-      // Fetch projects
       const projectsRes = await fetch('/api/projects');
       const projectsData = await projectsRes.json();
       setProjects(projectsData.projects || []);
@@ -149,7 +111,6 @@ export default function SEOAuditPage() {
   };
 
   const checkSEO = async (task: TaskWithSEO) => {
-    // Update loading state
     setTasks((prev) =>
       prev.map((t) => (t.id === task.id ? { ...t, seoLoading: true } : t))
     );
@@ -198,14 +159,12 @@ export default function SEOAuditPage() {
 
     for (const task of uncheckedTasks) {
       await checkSEO(task);
-      // Small delay to avoid rate limiting
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
     setCheckingAll(false);
   };
 
-  // Generate month options
   const monthOptions = [];
   const now = new Date();
   for (let i = 0; i < 12; i++) {
@@ -216,7 +175,6 @@ export default function SEOAuditPage() {
     });
   }
 
-  // Stats
   const checkedTasks = tasks.filter((t) => t.seoChecked);
   const avgScore = checkedTasks.length > 0
     ? Math.round(checkedTasks.reduce((sum, t) => sum + (t.seoScore || 0), 0) / checkedTasks.length)
@@ -235,11 +193,10 @@ export default function SEOAuditPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">SEO Audit</h1>
-          <p className="text-[#8888a0] text-sm">Kiểm tra SEO on-page cho các bài đã publish</p>
+          <p className="text-[#8888a0] text-sm">Kiểm tra SEO on-page theo checklist chuẩn</p>
         </div>
 
         <div className="flex flex-wrap gap-3">
-          {/* Project Filter */}
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-[#8888a0]" />
             <select
@@ -256,7 +213,6 @@ export default function SEOAuditPage() {
             </select>
           </div>
 
-          {/* Month Selector */}
           <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
@@ -269,7 +225,6 @@ export default function SEOAuditPage() {
             ))}
           </select>
 
-          {/* Check All Button */}
           <button
             onClick={checkAllSEO}
             disabled={checkingAll || tasks.length === 0}
@@ -310,20 +265,32 @@ export default function SEOAuditPage() {
         </div>
       </div>
 
-      {/* Score Legend */}
-      <div className="flex items-center gap-6 text-sm">
-        <span className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded-full bg-success" />
-          <span className="text-[#8888a0]">Tốt (≥70)</span>
-        </span>
-        <span className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded-full bg-warning" />
-          <span className="text-[#8888a0]">Trung bình (50-69)</span>
-        </span>
-        <span className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded-full bg-danger" />
-          <span className="text-[#8888a0]">Cần cải thiện (&lt;50)</span>
-        </span>
+      {/* Checklist Info */}
+      <div className="bg-card border border-border rounded-xl p-4">
+        <h3 className="text-white font-medium mb-3">Checklist SEO On-Page</h3>
+        <div className="grid sm:grid-cols-3 gap-4 text-sm">
+          <div className="flex items-start gap-2">
+            <FileText className="w-4 h-4 text-accent mt-0.5" />
+            <div>
+              <p className="text-white font-medium">Nội dung</p>
+              <p className="text-[#8888a0] text-xs">Title, Meta, Keyword, Heading, Độ dài bài</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <ImageIcon className="w-4 h-4 text-accent mt-0.5" />
+            <div>
+              <p className="text-white font-medium">Hình ảnh</p>
+              <p className="text-[#8888a0] text-xs">Alt text, Số lượng ảnh, Keyword trong alt</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <Code className="w-4 h-4 text-accent mt-0.5" />
+            <div>
+              <p className="text-white font-medium">Kỹ thuật</p>
+              <p className="text-[#8888a0] text-xs">H1, Internal/External links, Canonical</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Tasks List */}
@@ -350,7 +317,6 @@ export default function SEOAuditPage() {
   );
 }
 
-// Task Card Component
 function TaskCard({
   task,
   isExpanded,
@@ -368,9 +334,7 @@ function TaskCard({
 
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden">
-      {/* Header */}
       <div className="p-4 flex items-center gap-4">
-        {/* Title & Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <p className="text-white font-medium truncate">{task.title || task.keyword_sub}</p>
@@ -391,7 +355,6 @@ function TaskCard({
           </div>
         </div>
 
-        {/* Score or Check Button */}
         {task.seoChecked ? (
           <button
             onClick={onToggle}
@@ -420,7 +383,6 @@ function TaskCard({
           </button>
         )}
 
-        {/* External Link */}
         <a
           href={task.link_publish}
           target="_blank"
@@ -431,96 +393,33 @@ function TaskCard({
         </a>
       </div>
 
-      {/* Expanded Details */}
       {isExpanded && task.seoResult && (
         <div className="border-t border-border bg-secondary/30 p-4">
           {task.seoResult.success ? (
             <div className="space-y-4">
-              {/* Check Categories */}
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <CheckCategory
-                  icon={Type}
-                  title="Title"
-                  score={task.seoResult.checks.title.score}
-                  maxScore={15}
-                  details={[
-                    `"${task.seoResult.checks.title.content.substring(0, 50)}${task.seoResult.checks.title.content.length > 50 ? '...' : ''}"`,
-                    `Độ dài: ${task.seoResult.checks.title.length} ký tự`,
-                    task.seoResult.checks.title.hasKeyword ? '✓ Có keyword' : '✗ Thiếu keyword',
-                  ]}
-                  issues={task.seoResult.checks.title.issues}
-                />
-                <CheckCategory
+              {/* Category Summary */}
+              <div className="grid sm:grid-cols-3 gap-4">
+                {Object.entries(task.seoResult.categories).map(([key, cat]) => (
+                  <CategoryCard key={key} category={cat} />
+                ))}
+              </div>
+
+              {/* Details by Category */}
+              <div className="space-y-4">
+                <ChecklistSection
+                  title="Nội dung"
                   icon={FileText}
-                  title="Meta Description"
-                  score={task.seoResult.checks.metaDescription.score}
-                  maxScore={15}
-                  details={[
-                    `Độ dài: ${task.seoResult.checks.metaDescription.length} ký tự`,
-                    task.seoResult.checks.metaDescription.hasKeyword ? '✓ Có keyword' : '✗ Thiếu keyword',
-                  ]}
-                  issues={task.seoResult.checks.metaDescription.issues}
+                  checks={task.seoResult.details.filter(d => d.category === 'content')}
                 />
-                <CheckCategory
-                  icon={Type}
-                  title="Headings"
-                  score={task.seoResult.checks.headings.score}
-                  maxScore={15}
-                  details={[
-                    `H1: ${task.seoResult.checks.headings.h1Count}`,
-                    `H2: ${task.seoResult.checks.headings.h2Count}`,
-                    `H3: ${task.seoResult.checks.headings.h3Count}`,
-                    task.seoResult.checks.headings.hasKeywordInH1 ? '✓ H1 có keyword' : '✗ H1 thiếu keyword',
-                  ]}
-                  issues={task.seoResult.checks.headings.issues}
+                <ChecklistSection
+                  title="Hình ảnh"
+                  icon={ImageIcon}
+                  checks={task.seoResult.details.filter(d => d.category === 'images')}
                 />
-                <CheckCategory
-                  icon={Image}
-                  title="Images"
-                  score={task.seoResult.checks.images.score}
-                  maxScore={10}
-                  details={[
-                    `Tổng: ${task.seoResult.checks.images.total} ảnh`,
-                    `Có alt: ${task.seoResult.checks.images.withAlt}`,
-                    `Alt có KW: ${task.seoResult.checks.images.altWithKeyword}`,
-                  ]}
-                  issues={task.seoResult.checks.images.issues}
-                />
-                <CheckCategory
-                  icon={FileText}
-                  title="Content"
-                  score={task.seoResult.checks.content.score}
-                  maxScore={20}
-                  details={[
-                    `${task.seoResult.checks.content.wordCount} từ`,
-                    `KW xuất hiện: ${task.seoResult.checks.content.keywordCount} lần`,
-                    `Mật độ: ${task.seoResult.checks.content.keywordDensity}%`,
-                    `KW phụ: ${task.seoResult.checks.content.subKeywordCount} lần`,
-                  ]}
-                  issues={task.seoResult.checks.content.issues}
-                />
-                <CheckCategory
-                  icon={Link2}
-                  title="Links"
-                  score={task.seoResult.checks.links.score}
-                  maxScore={10}
-                  details={[
-                    `Internal: ${task.seoResult.checks.links.internal}`,
-                    `External: ${task.seoResult.checks.links.external}`,
-                  ]}
-                  issues={task.seoResult.checks.links.issues}
-                />
-                <CheckCategory
+                <ChecklistSection
+                  title="Kỹ thuật"
                   icon={Code}
-                  title="Technical"
-                  score={task.seoResult.checks.technical.score}
-                  maxScore={15}
-                  details={[
-                    task.seoResult.checks.technical.hasCanonical ? '✓ Canonical' : '✗ Canonical',
-                    task.seoResult.checks.technical.hasViewport ? '✓ Viewport' : '✗ Viewport',
-                    task.seoResult.checks.technical.hasCharset ? '✓ Charset' : '✗ Charset',
-                  ]}
-                  issues={task.seoResult.checks.technical.issues}
+                  checks={task.seoResult.details.filter(d => d.category === 'technical')}
                 />
               </div>
             </div>
@@ -536,53 +435,96 @@ function TaskCard({
   );
 }
 
-// Check Category Component
-function CheckCategory({
-  icon: Icon,
-  title,
-  score,
-  maxScore,
-  details,
-  issues,
-}: {
-  icon: React.ElementType;
-  title: string;
-  score: number;
-  maxScore: number;
-  details: string[];
-  issues: string[];
-}) {
-  const percentage = Math.round((score / maxScore) * 100);
+function CategoryCard({ category }: { category: CategoryResult }) {
+  const percentage = Math.round((category.score / category.maxScore) * 100);
   const color = percentage >= 70 ? 'text-success' : percentage >= 50 ? 'text-warning' : 'text-danger';
+  const bg = percentage >= 70 ? 'bg-success/20' : percentage >= 50 ? 'bg-warning/20' : 'bg-danger/20';
 
   return (
-    <div className="bg-card rounded-lg p-3">
+    <div className={cn("rounded-lg p-3", bg)}>
       <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <Icon className="w-4 h-4 text-accent" />
-          <span className="text-white font-medium text-sm">{title}</span>
-        </div>
-        <span className={cn("font-bold text-sm", color)}>
-          {score}/{maxScore}
+        <span className="text-white font-medium">{category.name}</span>
+        <span className={cn("font-bold", color)}>{percentage}%</span>
+      </div>
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-[#8888a0]">
+          {category.passed}/{category.total} đạt
+        </span>
+        <span className={color}>
+          {category.score}/{category.maxScore} điểm
         </span>
       </div>
+    </div>
+  );
+}
 
-      <div className="space-y-1 text-xs">
-        {details.map((detail, idx) => (
-          <p key={idx} className="text-[#8888a0]">{detail}</p>
+function ChecklistSection({
+  title,
+  icon: Icon,
+  checks,
+}: {
+  title: string;
+  icon: React.ElementType;
+  checks: CheckDetail[];
+}) {
+  if (checks.length === 0) return null;
+
+  return (
+    <div className="bg-card rounded-lg p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Icon className="w-4 h-4 text-accent" />
+        <h4 className="text-white font-medium">{title}</h4>
+      </div>
+      <div className="space-y-2">
+        {checks.map((check) => (
+          <CheckItem key={check.id} check={check} />
         ))}
       </div>
+    </div>
+  );
+}
 
-      {issues.length > 0 && (
-        <div className="mt-2 pt-2 border-t border-border space-y-1">
-          {issues.map((issue, idx) => (
-            <div key={idx} className="flex items-start gap-1 text-xs">
-              <AlertTriangle className="w-3 h-3 text-warning flex-shrink-0 mt-0.5" />
-              <span className="text-warning">{issue}</span>
-            </div>
-          ))}
+function CheckItem({ check }: { check: CheckDetail }) {
+  const statusIcon = {
+    pass: <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />,
+    warning: <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0" />,
+    fail: <XCircle className="w-4 h-4 text-danger flex-shrink-0" />,
+  };
+
+  const statusBg = {
+    pass: 'bg-success/10',
+    warning: 'bg-warning/10',
+    fail: 'bg-danger/10',
+  };
+
+  return (
+    <div className={cn("rounded-lg p-3", statusBg[check.status])}>
+      <div className="flex items-start gap-3">
+        {statusIcon[check.status]}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-white text-sm font-medium">{check.name}</span>
+            <span className={cn(
+              "text-xs font-mono",
+              check.status === 'pass' ? 'text-success' : check.status === 'warning' ? 'text-warning' : 'text-danger'
+            )}>
+              {check.score}/{check.maxScore}
+            </span>
+          </div>
+          <p className="text-[#8888a0] text-xs mt-0.5">{check.description}</p>
+          {check.value && (
+            <p className="text-white text-xs mt-1 font-mono bg-secondary/50 px-2 py-1 rounded inline-block">
+              {check.value}
+            </p>
+          )}
+          {check.suggestion && (
+            <p className="text-warning text-xs mt-1 flex items-start gap-1">
+              <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+              {check.suggestion}
+            </p>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
