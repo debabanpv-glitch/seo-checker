@@ -15,12 +15,40 @@ const isDoneQC = (statusContent: string | null) => {
   return status.includes('done qc') || status.includes('3.') || status.includes('chờ publish');
 };
 
+// Get weeks in a month
+function getWeeksInMonth(year: number, month: number) {
+  const lastDay = new Date(year, month, 0);
+  const totalDays = lastDay.getDate();
+  const weeks: { weekNum: number; start: Date; end: Date }[] = [];
+
+  for (let week = 1; week <= 5; week++) {
+    const startDay = (week - 1) * 7 + 1;
+    if (startDay > totalDays) break;
+
+    const endDay = Math.min(week * 7, totalDays);
+    const start = new Date(year, month - 1, startDay);
+    const end = new Date(year, month - 1, endDay, 23, 59, 59);
+
+    weeks.push({ weekNum: week, start, end });
+  }
+
+  return weeks;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const now = new Date();
     const selectedMonth = parseInt(searchParams.get('month') || String(now.getMonth() + 1));
     const selectedYear = parseInt(searchParams.get('year') || String(now.getFullYear()));
+
+    // Calculate previous month
+    let prevMonth = selectedMonth - 1;
+    let prevYear = selectedYear;
+    if (prevMonth === 0) {
+      prevMonth = 12;
+      prevYear = selectedYear - 1;
+    }
 
     // Fetch all projects
     const { data: projects, error: projectError } = await supabase
@@ -31,8 +59,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: projectError.message }, { status: 500 });
     }
 
-    // Fetch all tasks with project info
-    const { data: allTasks, error: taskError } = await supabase
+    // Fetch tasks for current month
+    const { data: currentMonthTasks, error: taskError } = await supabase
       .from('tasks')
       .select('*, project:projects(*)')
       .eq('month', selectedMonth)
@@ -42,7 +70,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: taskError.message }, { status: 500 });
     }
 
-    // Fetch monthly targets
+    // Fetch tasks for previous month (for comparison)
+    const { data: prevMonthTasks } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('month', prevMonth)
+      .eq('year', prevYear);
+
+    // Fetch monthly targets for current month
     const { data: monthlyTargets } = await supabase
       .from('monthly_targets')
       .select('*')
@@ -69,10 +104,19 @@ export async function GET(request: NextRequest) {
     // Weeks elapsed
     const weeksElapsed = Math.max(1, Math.ceil(daysElapsed / 7));
 
+    // Get weeks in selected month
+    const weeksInMonth = getWeeksInMonth(selectedYear, selectedMonth);
+    const currentWeekInMonth = isCurrentMonth ? Math.ceil(today.getDate() / 7) : 0;
+
     // Build project reports
     const projectReports = (projects || []).map((project) => {
-      // Get tasks for this project
-      const projectTasks = (allTasks || []).filter(
+      // Get tasks for this project - current month
+      const projectTasks = (currentMonthTasks || []).filter(
+        (t) => t.project_id === project.id && (t.title || t.keyword_sub)
+      );
+
+      // Get tasks for this project - previous month
+      const prevProjectTasks = (prevMonthTasks || []).filter(
         (t) => t.project_id === project.id && (t.title || t.keyword_sub)
       );
 
@@ -80,7 +124,7 @@ export async function GET(request: NextRequest) {
       const monthlyTarget = monthlyTargets?.find((mt) => mt.project_id === project.id);
       const target = monthlyTarget?.target || project.monthly_target || 20;
 
-      // Count stats
+      // Count stats - current month
       const published = projectTasks.filter((t) => isPublished(t.status_content)).length;
       const doneQC = projectTasks.filter((t) => isDoneQC(t.status_content)).length;
       const inProgress = projectTasks.filter((t) =>
@@ -90,6 +134,31 @@ export async function GET(request: NextRequest) {
         if (!t.deadline || isPublished(t.status_content)) return false;
         return new Date(t.deadline) < new Date();
       }).length;
+
+      // Count stats - previous month
+      const prevPublished = prevProjectTasks.filter((t) => isPublished(t.status_content)).length;
+
+      // Calculate month-over-month change
+      const momChange = prevPublished > 0
+        ? Math.round(((published - prevPublished) / prevPublished) * 100)
+        : published > 0 ? 100 : 0;
+
+      // Calculate weekly breakdown
+      const weeklyTarget = Math.ceil(target / weeksInMonth.length);
+      const weeklyBreakdown = weeksInMonth.map((week) => {
+        const tasksInWeek = projectTasks.filter((t) => {
+          if (!t.publish_date || !isPublished(t.status_content)) return false;
+          const pubDate = new Date(t.publish_date);
+          return pubDate >= week.start && pubDate <= week.end;
+        });
+
+        return {
+          weekNum: week.weekNum,
+          count: tasksInWeek.length,
+          target: weeklyTarget,
+          isCurrent: week.weekNum === currentWeekInMonth,
+        };
+      });
 
       // Calculate rates
       const weeklyRate = weeksElapsed > 0 ? published / weeksElapsed : 0;
@@ -167,6 +236,12 @@ export async function GET(request: NextRequest) {
         inProgress,
         doneQC,
         overdue,
+        // Weekly breakdown
+        weeklyBreakdown,
+        weeklyTarget,
+        // Comparison
+        prevPublished,
+        momChange,
         // Analysis
         weeklyRate,
         requiredRate,
@@ -187,7 +262,18 @@ export async function GET(request: NextRequest) {
       return healthOrder[a.health] - healthOrder[b.health];
     });
 
-    return NextResponse.json({ projects: projectReports });
+    return NextResponse.json({
+      projects: projectReports,
+      meta: {
+        selectedMonth,
+        selectedYear,
+        prevMonth,
+        prevYear,
+        isCurrentMonth,
+        weeksInMonth: weeksInMonth.length,
+        currentWeekInMonth,
+      },
+    });
   } catch (error) {
     console.error('Project report API error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
