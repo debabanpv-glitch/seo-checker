@@ -75,12 +75,28 @@ function mapRowToTask(row: SheetRow, projectId: string) {
   };
 
   // Parse keywords from string - split by newline (various formats), comma, or semicolon
+  // Also handle case where Google Sheets doesn't preserve newlines properly
   const parseKeywords = (str: string): string[] => {
     if (!str) return [];
-    return str
-      .split(/[\r\n]+|,|;/)  // Split by CR, LF, CRLF, comma, or semicolon
+
+    // First try splitting by common delimiters (including \n which gviz uses)
+    let keywords = str
+      .split(/[\r\n]+|\\n|,|;/)  // Also split by literal \n
       .map(k => k.trim())
       .filter(k => k.length > 0);
+
+    // If only 1 result and it's long (likely multiple keywords merged),
+    // try to detect lowercase-uppercase boundaries
+    if (keywords.length === 1 && keywords[0].length > 50) {
+      const merged = keywords[0];
+      // Split where lowercase Vietnamese letter is followed by uppercase
+      const splitByCase = merged.split(/(?<=[a-zàáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵđ])(?=[A-ZÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÈÉẺẼẸÊẾỀỂỄỆÌÍỈĨỊÒÓỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÙÚỦŨỤƯỨỪỬỮỰỲÝỶỸỴĐM])/);
+      if (splitByCase.length > 1) {
+        keywords = splitByCase.map(k => k.trim()).filter(k => k.length > 0);
+      }
+    }
+
+    return keywords;
   };
 
   // Helper to extract month/year from date string (YYYY-MM-DD format)

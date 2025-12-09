@@ -123,9 +123,19 @@ export default function SEOAuditPage() {
 
     try {
       // Use keywords_list (parsed array) instead of raw keyword_sub string
-      const subKeywords = task.keywords_list?.length > 0
+      // Also handle merged keywords (no delimiters)
+      let subKeywords = task.keywords_list?.length > 0
         ? task.keywords_list
-        : (task.keyword_sub || '').split(/[\r\n]+|,|;/).map(k => k.trim()).filter(k => k);
+        : (task.keyword_sub || '').split(/[\r\n]+|\\n|,|;/).map(k => k.trim()).filter(k => k);
+
+      // If only 1 long keyword, try splitting on case boundaries
+      if (subKeywords.length === 1 && subKeywords[0].length > 50) {
+        const merged = subKeywords[0];
+        const split = merged.split(/(?<=[a-zàáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵđ])(?=[A-ZÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÈÉẺẼẸÊẾỀỂỄỆÌÍỈĨỊÒÓỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÙÚỦŨỤƯỨỪỬỮỰỲÝỶỸỴĐM])/);
+        if (split.length > 1) {
+          subKeywords = split.map(k => k.trim()).filter(k => k);
+        }
+      }
 
       // Call SEO check API
       const res = await fetch('/api/seo-check', {
