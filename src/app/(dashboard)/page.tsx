@@ -22,6 +22,13 @@ import { PageLoading } from '@/components/LoadingSpinner';
 import { formatDate, isOverdue } from '@/lib/utils';
 import { Task, ProjectStats, BottleneckData, Stats, BottleneckTask } from '@/types';
 
+// Helper to check if task is published - support multiple formats
+const isPublished = (statusContent: string | null | undefined) => {
+  if (!statusContent) return false;
+  const status = statusContent.toLowerCase().trim();
+  return status.includes('publish') || status.includes('4.') || status === 'done' || status === 'hoàn thành';
+};
+
 export default function DashboardPage() {
   // Date range state
   const [dateRange, setDateRange] = useState(() => {
@@ -85,18 +92,26 @@ export default function DashboardPage() {
     fromDate.setHours(0, 0, 0, 0);
     toDate.setHours(23, 59, 59, 999);
 
-    // Filter all tasks by date range
+    // Filter all tasks by date range - use publish_date if published, otherwise deadline
     const filteredTasks = allTasks.filter((task) => {
-      const taskDate = task.publish_date ? new Date(task.publish_date) : null;
-      if (!taskDate) return false;
+      const taskDate = task.publish_date ? new Date(task.publish_date) :
+                       task.deadline ? new Date(task.deadline) : null;
+      if (!taskDate) return true; // Include tasks without dates
       return taskDate >= fromDate && taskDate <= toDate;
     });
 
     return {
-      total: stats.total,
-      published: filteredTasks.filter((t) => t.status_content === '4. Publish').length,
-      inProgress: stats.inProgress,
-      overdue: stats.overdue,
+      total: filteredTasks.length,
+      published: filteredTasks.filter((t) => isPublished(t.status_content)).length,
+      inProgress: filteredTasks.filter((t) =>
+        t.status_content &&
+        !isPublished(t.status_content) &&
+        t.status_content.toLowerCase().includes('doing')
+      ).length,
+      overdue: filteredTasks.filter((t) => {
+        if (!t.deadline || isPublished(t.status_content)) return false;
+        return new Date(t.deadline) < new Date();
+      }).length,
     };
   }, [stats, dateRange, allTasks]);
 
@@ -104,11 +119,18 @@ export default function DashboardPage() {
   const leaderboard = useMemo(() => {
     const fromDate = new Date(dateRange.from);
     const toDate = new Date(dateRange.to);
+    fromDate.setHours(0, 0, 0, 0);
+    toDate.setHours(23, 59, 59, 999);
 
     const publishedTasks = allTasks.filter((t) => {
-      if (t.status_content !== '4. Publish' || !t.publish_date) return false;
-      const pubDate = new Date(t.publish_date);
-      return pubDate >= fromDate && pubDate <= toDate;
+      if (!isPublished(t.status_content)) return false;
+      // If has publish_date, filter by date range
+      if (t.publish_date) {
+        const pubDate = new Date(t.publish_date);
+        return pubDate >= fromDate && pubDate <= toDate;
+      }
+      // If no publish_date but is published, include it
+      return true;
     });
 
     // Count by PIC
