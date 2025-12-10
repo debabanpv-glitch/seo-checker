@@ -12,6 +12,10 @@ import {
   Clock,
   Calendar,
   Filter,
+  Link2,
+  Tag,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
@@ -34,6 +38,13 @@ interface TaskWithSEO {
   seoLoading?: boolean;
 }
 
+interface LinkInfo {
+  url: string;
+  text: string;
+  isDoFollow: boolean;
+  isDuplicate?: boolean;
+}
+
 interface SEOResultDB {
   id: string;
   task_id: string;
@@ -47,6 +58,14 @@ interface SEOResultDB {
   technical_score: number;
   technical_max: number;
   details: CheckDetail[];
+  links?: {
+    internal: LinkInfo[];
+    external: LinkInfo[];
+  };
+  keywords?: {
+    primary: string;
+    sub: string[];
+  };
   checked_at: string;
 }
 
@@ -63,6 +82,150 @@ interface CheckDetail {
 }
 
 type FilterStatus = 'all' | 'unchecked' | 'passed' | 'failed';
+
+// Links Section Component
+function LinksSection({ links }: { links: { internal: LinkInfo[]; external: LinkInfo[] } }) {
+  const [showInternal, setShowInternal] = useState(false);
+  const [showExternal, setShowExternal] = useState(false);
+
+  const internalDoFollow = links.internal.filter(l => l.isDoFollow).length;
+  const internalNoFollow = links.internal.filter(l => !l.isDoFollow).length;
+  const internalDupes = links.internal.filter(l => l.isDuplicate).length;
+
+  const externalDoFollow = links.external.filter(l => l.isDoFollow).length;
+  const externalNoFollow = links.external.filter(l => !l.isDoFollow).length;
+  const externalDupes = links.external.filter(l => l.isDuplicate).length;
+
+  return (
+    <div className="space-y-3">
+      {/* Internal Links */}
+      <div className="bg-secondary/50 rounded-lg overflow-hidden">
+        <button
+          onClick={() => setShowInternal(!showInternal)}
+          className="w-full px-3 py-2 flex items-center justify-between hover:bg-secondary/80 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Link2 className="w-4 h-4 text-blue-400" />
+            <span className="text-sm font-medium text-[var(--text-primary)]">
+              Internal Links ({links.internal.length})
+            </span>
+            <div className="flex gap-1">
+              <span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded text-xs">
+                {internalDoFollow} do
+              </span>
+              <span className="px-1.5 py-0.5 bg-red-500/20 text-red-400 rounded text-xs">
+                {internalNoFollow} no
+              </span>
+              {internalDupes > 0 && (
+                <span className="px-1.5 py-0.5 bg-yellow-500/20 text-yellow-400 rounded text-xs">
+                  {internalDupes} trùng
+                </span>
+              )}
+            </div>
+          </div>
+          {showInternal ? (
+            <ChevronUp className="w-4 h-4 text-[#8888a0]" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-[#8888a0]" />
+          )}
+        </button>
+        {showInternal && links.internal.length > 0 && (
+          <div className="px-3 pb-3 space-y-1 max-h-48 overflow-y-auto">
+            {links.internal.map((link, idx) => (
+              <a
+                key={idx}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  "flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-black/20 transition-colors group",
+                  link.isDuplicate && "bg-yellow-500/10"
+                )}
+              >
+                <span className={cn(
+                  "px-1 rounded text-[10px] font-medium",
+                  link.isDoFollow ? "bg-green-500/30 text-green-400" : "bg-red-500/30 text-red-400"
+                )}>
+                  {link.isDoFollow ? 'DO' : 'NO'}
+                </span>
+                <span className="flex-1 truncate text-[#8888a0] group-hover:text-[var(--text-primary)]">
+                  {link.text || link.url}
+                </span>
+                {link.isDuplicate && (
+                  <span className="text-yellow-400 text-[10px]">trùng</span>
+                )}
+                <ExternalLink className="w-3 h-3 text-[#8888a0] opacity-0 group-hover:opacity-100" />
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* External Links */}
+      <div className="bg-secondary/50 rounded-lg overflow-hidden">
+        <button
+          onClick={() => setShowExternal(!showExternal)}
+          className="w-full px-3 py-2 flex items-center justify-between hover:bg-secondary/80 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <ExternalLink className="w-4 h-4 text-orange-400" />
+            <span className="text-sm font-medium text-[var(--text-primary)]">
+              External Links ({links.external.length})
+            </span>
+            <div className="flex gap-1">
+              <span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded text-xs">
+                {externalDoFollow} do
+              </span>
+              <span className="px-1.5 py-0.5 bg-red-500/20 text-red-400 rounded text-xs">
+                {externalNoFollow} no
+              </span>
+              {externalDupes > 0 && (
+                <span className="px-1.5 py-0.5 bg-yellow-500/20 text-yellow-400 rounded text-xs">
+                  {externalDupes} trùng
+                </span>
+              )}
+            </div>
+          </div>
+          {showExternal ? (
+            <ChevronUp className="w-4 h-4 text-[#8888a0]" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-[#8888a0]" />
+          )}
+        </button>
+        {showExternal && links.external.length > 0 && (
+          <div className="px-3 pb-3 space-y-1 max-h-48 overflow-y-auto">
+            {links.external.map((link, idx) => (
+              <a
+                key={idx}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  "flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-black/20 transition-colors group",
+                  link.isDuplicate && "bg-yellow-500/10"
+                )}
+              >
+                <span className={cn(
+                  "px-1 rounded text-[10px] font-medium",
+                  link.isDoFollow ? "bg-green-500/30 text-green-400" : "bg-red-500/30 text-red-400"
+                )}>
+                  {link.isDoFollow ? 'DO' : 'NO'}
+                </span>
+                <span className="flex-1 truncate text-[#8888a0] group-hover:text-[var(--text-primary)]">
+                  {link.text || link.url}
+                </span>
+                {link.isDuplicate && (
+                  <span className="text-yellow-400 text-[10px]">trùng</span>
+                )}
+                <ExternalLink className="w-3 h-3 text-[#8888a0] opacity-0 group-hover:opacity-100" />
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function SEOAuditPage() {
   const [tasks, setTasks] = useState<TaskWithSEO[]>([]);
@@ -174,6 +337,8 @@ export default function SEOAuditPage() {
         technical_score: result.categories?.technical?.score || 0,
         technical_max: result.categories?.technical?.maxScore || 0,
         details: result.details || [],
+        links: result.links || { internal: [], external: [] },
+        keywords: result.keywords || { primary: '', sub: [] },
         checked_at: new Date().toISOString(),
       };
 
@@ -533,6 +698,15 @@ export default function SEOAuditPage() {
                         <span>{selectedTask.pic}</span>
                         <span>•</span>
                         <span>{selectedTask.project?.name}</span>
+                        {selectedTask.publish_date && (
+                          <>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              {formatDate(selectedTask.publish_date)}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                     <a
@@ -549,6 +723,23 @@ export default function SEOAuditPage() {
                   <div className="mt-2 px-2 py-1.5 bg-black/30 rounded text-xs text-[#8888a0] truncate">
                     {selectedTask.link_publish}
                   </div>
+
+                  {/* Keywords from Task */}
+                  {(selectedTask.parent_keyword || selectedTask.keyword_sub) && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {selectedTask.parent_keyword && (
+                        <span className="px-2 py-0.5 bg-accent/20 text-accent rounded text-xs font-medium">
+                          KW: {selectedTask.parent_keyword}
+                        </span>
+                      )}
+                      {selectedTask.keyword_sub && selectedTask.keyword_sub !== selectedTask.parent_keyword && (
+                        <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded text-xs truncate max-w-[200px]">
+                          Sub: {selectedTask.keyword_sub.split(/[\r\n]+|\\n/)[0]}
+                          {selectedTask.keyword_sub.split(/[\r\n]+|\\n/).length > 1 && '...'}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Content */}
@@ -609,6 +800,41 @@ export default function SEOAuditPage() {
                           </div>
                         </div>
                       </div>
+
+                      {/* Keywords Display */}
+                      {(selectedTask.seoResult.keywords?.primary || (selectedTask.seoResult.keywords?.sub && selectedTask.seoResult.keywords.sub.length > 0)) && (
+                        <div className="bg-secondary/50 rounded-lg p-3 space-y-2">
+                          <div className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]">
+                            <Tag className="w-4 h-4 text-accent" />
+                            Keywords
+                          </div>
+                          {selectedTask.seoResult.keywords?.primary && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-[#8888a0]">Chính:</span>
+                              <span className="px-2 py-0.5 bg-accent/20 text-accent rounded text-xs font-medium">
+                                {selectedTask.seoResult.keywords.primary}
+                              </span>
+                            </div>
+                          )}
+                          {selectedTask.seoResult.keywords?.sub && selectedTask.seoResult.keywords.sub.length > 0 && (
+                            <div className="flex flex-wrap items-start gap-2">
+                              <span className="text-xs text-[#8888a0]">Phụ:</span>
+                              <div className="flex flex-wrap gap-1">
+                                {selectedTask.seoResult.keywords.sub.map((kw, idx) => (
+                                  <span key={idx} className="px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded text-xs">
+                                    {kw}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Links Summary */}
+                      {selectedTask.seoResult.links && (
+                        <LinksSection links={selectedTask.seoResult.links} />
+                      )}
 
                       {/* Details */}
                       {selectedTask.seoResult.details && selectedTask.seoResult.details.length > 0 && (

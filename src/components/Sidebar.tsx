@@ -16,6 +16,7 @@ import {
   BookOpen,
   UserCog,
   Shield,
+  TrendingUp,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -34,6 +35,7 @@ const navigation: NavItem[] = [
   { name: 'Dự án', href: '/projects', icon: FolderKanban },
   { name: 'Tasks', href: '/tasks', icon: ListTodo },
   { name: 'SEO Audit', href: '/seo-audit', icon: Search },
+  { name: 'Keyword Ranking', href: '/keyword-ranking', icon: TrendingUp },
   { name: 'Thành viên', href: '/members', icon: Users },
   { name: 'Tính lương', href: '/salary', icon: Wallet, roles: ['admin', 'member'] },
   { name: 'Cài đặt', href: '/settings', icon: Settings, roles: ['admin'] },

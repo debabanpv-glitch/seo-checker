@@ -232,12 +232,53 @@ export async function GET(request: NextRequest) {
       keyword_sub: t.keyword_sub,
       pic: t.pic,
       status_content: t.status_content,
+      status_outline: t.status_outline,
       publish_date: t.publish_date,
       deadline: t.deadline,
       link_publish: t.link_publish,
       content_file: t.content_file,
       project: t.project,
     }));
+
+    // Get overdue tasks from PREVIOUS months (not the selected month)
+    // These are tasks that have deadline < today, not published, from months before selected month
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const overdueFromPreviousMonths = (allTasks || [])
+      .filter((t) => {
+        // Must have content
+        if (!(t.title || t.keyword_sub)) return false;
+        // Must not be published
+        if (isPublished(t.status_content)) return false;
+        // Must have deadline
+        if (!t.deadline) return false;
+        // Deadline must be in the past
+        const deadline = new Date(t.deadline);
+        if (deadline >= today) return false;
+        // Must be from a month BEFORE the selected month
+        // If viewing Dec 2025, show overdue from Nov 2025, Oct 2025, etc.
+        const taskMonth = t.month;
+        const taskYear = t.year;
+        if (taskYear > selectedYear) return false;
+        if (taskYear === selectedYear && taskMonth >= selectedMonth) return false;
+        return true;
+      })
+      .map((t) => ({
+        id: t.id,
+        title: t.title,
+        keyword_sub: t.keyword_sub,
+        pic: t.pic,
+        status_content: t.status_content,
+        status_outline: t.status_outline,
+        deadline: t.deadline,
+        link_publish: t.link_publish,
+        content_file: t.content_file,
+        project: t.project,
+        month: t.month,
+        year: t.year,
+      }))
+      .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
 
     return NextResponse.json({
       stats,
@@ -246,6 +287,7 @@ export async function GET(request: NextRequest) {
       alerts,
       recentTasks,
       allTasks: allTasksWithProject,
+      overdueFromPreviousMonths, // Tasks overdue from previous months
     });
   } catch (error) {
     console.error('Stats API error:', error);

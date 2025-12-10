@@ -12,6 +12,13 @@ interface CheckDetail {
   suggestion?: string;
 }
 
+interface LinkInfo {
+  url: string;
+  text: string;
+  isDoFollow: boolean;
+  isDuplicate?: boolean;
+}
+
 // Helper functions
 function extractText(html: string): string {
   return html
@@ -404,31 +411,79 @@ export async function POST(request: NextRequest) {
       suggestion: !hasViewport ? 'Thêm viewport meta tag' : undefined,
     });
 
-    // Internal links
-    const linkMatches = bodyHtml.match(/<a[^>]*href=["']([^"']*)["'][^>]*>/gi) || [];
-    let internalLinks = 0;
-    let externalLinks = 0;
+    // Internal links - extract detailed info
+    const linkMatches = bodyHtml.match(/<a[^>]*href=["'][^"']*["'][^>]*>[\s\S]*?<\/a>/gi) || [];
+    const internalLinksList: LinkInfo[] = [];
+    const externalLinksList: LinkInfo[] = [];
+    const seenInternalUrls = new Set<string>();
+    const seenExternalUrls = new Set<string>();
 
     linkMatches.forEach(link => {
       const hrefMatch = link.match(/href=["']([^"']*)["']/i);
+      const textContent = extractText(link);
+      const hasNoFollow = /rel=["'][^"']*nofollow[^"']*["']/i.test(link);
+      const isDoFollow = !hasNoFollow;
+
       if (hrefMatch) {
         const href = hrefMatch[1];
         if (href.startsWith('http')) {
           try {
             const linkUrl = new URL(href);
+            const normalizedUrl = linkUrl.href.replace(/\/$/, ''); // Remove trailing slash for comparison
+
             if (linkUrl.hostname === urlObj.hostname) {
-              internalLinks++;
+              const isDuplicate = seenInternalUrls.has(normalizedUrl);
+              seenInternalUrls.add(normalizedUrl);
+              internalLinksList.push({
+                url: href,
+                text: textContent.substring(0, 100) || href,
+                isDoFollow,
+                isDuplicate,
+              });
             } else {
-              externalLinks++;
+              const isDuplicate = seenExternalUrls.has(normalizedUrl);
+              seenExternalUrls.add(normalizedUrl);
+              externalLinksList.push({
+                url: href,
+                text: textContent.substring(0, 100) || href,
+                isDoFollow,
+                isDuplicate,
+              });
             }
           } catch {
-            internalLinks++;
+            // Invalid URL, treat as internal
+            const isDuplicate = seenInternalUrls.has(href);
+            seenInternalUrls.add(href);
+            internalLinksList.push({
+              url: href,
+              text: textContent.substring(0, 100) || href,
+              isDoFollow,
+              isDuplicate,
+            });
           }
-        } else if (href.startsWith('/')) {
-          internalLinks++;
+        } else if (href.startsWith('/') || href.startsWith('#')) {
+          const fullUrl = href.startsWith('#') ? href : urlObj.origin + href;
+          const isDuplicate = seenInternalUrls.has(fullUrl);
+          seenInternalUrls.add(fullUrl);
+          internalLinksList.push({
+            url: fullUrl,
+            text: textContent.substring(0, 100) || href,
+            isDoFollow,
+            isDuplicate,
+          });
         }
       }
     });
+
+    const internalLinks = internalLinksList.length;
+    const externalLinks = externalLinksList.length;
+    const internalDuplicates = internalLinksList.filter(l => l.isDuplicate).length;
+    const externalDuplicates = externalLinksList.filter(l => l.isDuplicate).length;
+
+    const internalDoFollow = internalLinksList.filter(l => l.isDoFollow).length;
+    const internalNoFollow = internalLinksList.filter(l => !l.isDoFollow).length;
+    const externalDoFollow = externalLinksList.filter(l => l.isDoFollow).length;
+    const externalNoFollow = externalLinksList.filter(l => !l.isDoFollow).length;
 
     details.push({
       id: 'internal-links',
@@ -438,7 +493,7 @@ export async function POST(request: NextRequest) {
       status: internalLinks >= 3 ? 'pass' : internalLinks > 0 ? 'warning' : 'fail',
       score: internalLinks >= 3 ? 3 : internalLinks > 0 ? 1 : 0,
       maxScore: 3,
-      value: `${internalLinks} links`,
+      value: `${internalLinks} links (${internalDoFollow} dofollow, ${internalNoFollow} nofollow${internalDuplicates > 0 ? `, ${internalDuplicates} trùng` : ''})`,
       suggestion: internalLinks < 3 ? 'Thêm internal links đến các bài viết liên quan' : undefined,
     });
 
@@ -450,7 +505,7 @@ export async function POST(request: NextRequest) {
       status: externalLinks >= 1 && externalLinks <= 5 ? 'pass' : externalLinks === 0 ? 'warning' : 'warning',
       score: externalLinks >= 1 && externalLinks <= 5 ? 2 : 1,
       maxScore: 2,
-      value: `${externalLinks} links`,
+      value: `${externalLinks} links (${externalDoFollow} dofollow, ${externalNoFollow} nofollow${externalDuplicates > 0 ? `, ${externalDuplicates} trùng` : ''})`,
       suggestion: externalLinks === 0 ? 'Thêm external links đến nguồn uy tín' : externalLinks > 5 ? 'Giảm số external links' : undefined,
     });
 
@@ -507,6 +562,16 @@ export async function POST(request: NextRequest) {
       maxScore: 100,
       categories,
       details,
+      // Additional link details for display
+      links: {
+        internal: internalLinksList,
+        external: externalLinksList,
+      },
+      // Pass back keywords for display
+      keywords: {
+        primary: keyword,
+        sub: subKeywordList,
+      },
     });
   } catch (error) {
     console.error('SEO Check error:', error);

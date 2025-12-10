@@ -66,6 +66,8 @@ export default function SalaryPage() {
   const [selectedPIC, setSelectedPIC] = useState<string | null>(null);
 
   useEffect(() => {
+    // Reset selected PIC when filters change to ensure correct data display
+    setSelectedPIC(null);
     fetchSalary();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMonth, selectedProject]);

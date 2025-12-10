@@ -17,6 +17,8 @@ import {
   User,
   Globe,
   Monitor,
+  TrendingUp,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import { Project } from '@/types';
@@ -70,6 +72,13 @@ export default function SettingsPage() {
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
   const [targetValue, setTargetValue] = useState(20);
+
+  // Keyword ranking sync
+  const [rankingSheetUrl, setRankingSheetUrl] = useState('');
+  const [rankingProjectId, setRankingProjectId] = useState('');
+  const [isSyncingRanking, setIsSyncingRanking] = useState(false);
+  const [isDeletingRanking, setIsDeletingRanking] = useState(false);
+  const [rankingSyncResult, setRankingSyncResult] = useState<{ success: boolean; message: string } | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -195,6 +204,93 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSyncKeywordRanking = async () => {
+    if (!rankingSheetUrl) {
+      setRankingSyncResult({ success: false, message: 'Vui lòng nhập URL Google Sheet' });
+      return;
+    }
+
+    setIsSyncingRanking(true);
+    setRankingSyncResult(null);
+
+    try {
+      const res = await fetch('/api/keyword-rankings/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sheetUrl: rankingSheetUrl,
+          projectId: rankingProjectId || null,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setRankingSyncResult({
+          success: true,
+          message: data.message || `Đồng bộ thành công ${data.stats?.total || 0} từ khóa!`,
+        });
+      } else {
+        setRankingSyncResult({
+          success: false,
+          message: data.error || 'Đồng bộ thất bại',
+        });
+      }
+    } catch {
+      setRankingSyncResult({
+        success: false,
+        message: 'Có lỗi xảy ra khi đồng bộ',
+      });
+    } finally {
+      setIsSyncingRanking(false);
+    }
+  };
+
+  const handleDeleteKeywordRanking = async (deleteAll: boolean = false) => {
+    const projectName = projects.find(p => p.id === rankingProjectId)?.name;
+    const confirmMsg = deleteAll
+      ? 'Bạn có chắc muốn XÓA TẤT CẢ dữ liệu keyword ranking?'
+      : `Bạn có chắc muốn xóa dữ liệu keyword ranking của dự án "${projectName}"?`;
+
+    if (!confirm(confirmMsg)) return;
+
+    setIsDeletingRanking(true);
+    setRankingSyncResult(null);
+
+    try {
+      const params = new URLSearchParams();
+      if (!deleteAll && rankingProjectId) {
+        params.set('projectId', rankingProjectId);
+      }
+      params.set('deleteAll', deleteAll ? 'true' : 'false');
+
+      const res = await fetch(`/api/keyword-rankings?${params.toString()}`, {
+        method: 'DELETE',
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setRankingSyncResult({
+          success: true,
+          message: data.message || 'Đã xóa dữ liệu keyword ranking!',
+        });
+      } else {
+        setRankingSyncResult({
+          success: false,
+          message: data.error || 'Xóa thất bại',
+        });
+      }
+    } catch {
+      setRankingSyncResult({
+        success: false,
+        message: 'Có lỗi xảy ra khi xóa',
+      });
+    } finally {
+      setIsDeletingRanking(false);
+    }
+  };
+
   const getMonthName = (month: number) => {
     return `Tháng ${month}`;
   };
@@ -295,6 +391,135 @@ export default function SettingsPage() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Keyword Ranking Sync Section */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <TrendingUp className="w-5 h-5 text-accent" />
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Đồng bộ Keyword Ranking</h2>
+        </div>
+
+        <p className="text-[#8888a0] text-sm mb-4">
+          Đồng bộ dữ liệu xếp hạng từ khóa từ Google Sheets. Sheet cần có các cột: <code className="bg-secondary px-1 rounded">keyword</code>, <code className="bg-secondary px-1 rounded">position/top</code>, <code className="bg-secondary px-1 rounded">date</code> (tùy chọn), <code className="bg-secondary px-1 rounded">url</code> (tùy chọn).
+        </p>
+
+        <div className="space-y-4">
+          <div className="grid sm:grid-cols-3 gap-4">
+            <div className="sm:col-span-2">
+              <label className="block text-sm text-[#8888a0] mb-2">URL Google Sheet</label>
+              <div className="relative">
+                <FileSpreadsheet className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8888a0]" />
+                <input
+                  type="url"
+                  value={rankingSheetUrl}
+                  onChange={(e) => setRankingSheetUrl(e.target.value)}
+                  placeholder="https://docs.google.com/spreadsheets/d/..."
+                  className="w-full pl-10 pr-4 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] placeholder-[#8888a0]"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm text-[#8888a0] mb-2">Dự án (tùy chọn)</label>
+              <select
+                value={rankingProjectId}
+                onChange={(e) => setRankingProjectId(e.target.value)}
+                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)]"
+              >
+                <option value="">-- Tất cả dự án --</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={handleSyncKeywordRanking}
+              disabled={isSyncingRanking || isDeletingRanking || !rankingSheetUrl}
+              className="flex items-center gap-2 px-6 py-3 bg-accent hover:bg-accent/90 disabled:bg-accent/50 rounded-lg text-white font-medium transition-colors"
+            >
+              <RefreshCw className={`w-4 h-4 ${isSyncingRanking ? 'animate-spin' : ''}`} />
+              {isSyncingRanking ? 'Đang đồng bộ...' : 'Đồng bộ Ranking'}
+            </button>
+
+            {/* Xóa theo dự án */}
+            {rankingProjectId && (
+              <button
+                onClick={() => handleDeleteKeywordRanking(false)}
+                disabled={isSyncingRanking || isDeletingRanking}
+                className="flex items-center gap-2 px-4 py-3 bg-warning/20 hover:bg-warning/30 disabled:opacity-50 rounded-lg text-warning font-medium transition-colors"
+              >
+                <Trash2 className={`w-4 h-4 ${isDeletingRanking ? 'animate-pulse' : ''}`} />
+                Xóa dự án này
+              </button>
+            )}
+
+            {/* Xóa tất cả */}
+            <button
+              onClick={() => handleDeleteKeywordRanking(true)}
+              disabled={isSyncingRanking || isDeletingRanking}
+              className="flex items-center gap-2 px-4 py-3 bg-danger/20 hover:bg-danger/30 disabled:opacity-50 rounded-lg text-danger font-medium transition-colors"
+            >
+              <Trash2 className={`w-4 h-4 ${isDeletingRanking ? 'animate-pulse' : ''}`} />
+              Xóa tất cả
+            </button>
+          </div>
+
+          {rankingSyncResult && (
+            <div
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                rankingSyncResult.success
+                  ? 'bg-success/10 text-success'
+                  : 'bg-danger/10 text-danger'
+              }`}
+            >
+              {rankingSyncResult.success ? (
+                <Check className="w-4 h-4" />
+              ) : (
+                <AlertCircle className="w-4 h-4" />
+              )}
+              <span className="text-sm">{rankingSyncResult.message}</span>
+            </div>
+          )}
+
+          <div className="p-4 bg-secondary/50 rounded-lg text-sm text-[#8888a0]">
+            <p className="font-medium text-[var(--text-primary)] mb-2">Format Sheet mẫu:</p>
+            <div className="overflow-x-auto">
+              <table className="text-xs border border-border rounded">
+                <thead>
+                  <tr className="bg-secondary">
+                    <th className="px-3 py-1 border-r border-border">keyword</th>
+                    <th className="px-3 py-1 border-r border-border">url</th>
+                    <th className="px-3 py-1 border-r border-border">top</th>
+                    <th className="px-3 py-1">date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="px-3 py-1 border-r border-border">mua nhà hà nội</td>
+                    <td className="px-3 py-1 border-r border-border">https://...</td>
+                    <td className="px-3 py-1 border-r border-border">5</td>
+                    <td className="px-3 py-1">2024-12-01</td>
+                  </tr>
+                  <tr className="bg-secondary/30">
+                    <td className="px-3 py-1 border-r border-border">thuê căn hộ</td>
+                    <td className="px-3 py-1 border-r border-border">https://...</td>
+                    <td className="px-3 py-1 border-r border-border">12</td>
+                    <td className="px-3 py-1">2024-12-01</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-2 text-xs">
+              * Sheet cần được public (Chia sẻ → Bất kỳ ai có đường liên kết)
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Sync History */}

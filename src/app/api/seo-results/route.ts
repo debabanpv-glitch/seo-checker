@@ -55,6 +55,8 @@ export async function POST(request: NextRequest) {
       technical_score: result.categories?.technical?.score || 0,
       technical_max: result.categories?.technical?.maxScore || 0,
       details: result.details || [],
+      links: result.links || { internal: [], external: [] },
+      keywords: result.keywords || { primary: '', sub: [] },
       checked_at: new Date().toISOString(),
     };
 

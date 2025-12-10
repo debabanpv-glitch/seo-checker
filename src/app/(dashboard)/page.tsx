@@ -16,6 +16,9 @@ import {
   User,
   ChevronDown,
   ChevronUp,
+  ClipboardList,
+  AlertCircle,
+  CheckCircle,
 } from 'lucide-react';
 import ProgressBar from '@/components/ProgressBar';
 import { PageLoading } from '@/components/LoadingSpinner';
@@ -38,6 +41,7 @@ export default function DashboardPage() {
   const [projectStats, setProjectStats] = useState<ProjectStats[]>([]);
   const [bottleneck, setBottleneck] = useState<BottleneckData | null>(null);
   const [allTasks, setAllTasks] = useState<Task[]>([]);
+  const [overdueFromPreviousMonths, setOverdueFromPreviousMonths] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Workflow expanded state
@@ -50,6 +54,10 @@ export default function DashboardPage() {
   const [expandedProjectStatus, setExpandedProjectStatus] = useState<string | null>(null);
   // Attention box - expanded project
   const [expandedAttentionProject, setExpandedAttentionProject] = useState<string | null>(null);
+  // Planning status - expanded project
+  const [expandedPlanningProject, setExpandedPlanningProject] = useState<string | null>(null);
+  // Previous months overdue - expanded project
+  const [expandedPrevMonthsProject, setExpandedPrevMonthsProject] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDashboardData();
@@ -66,6 +74,7 @@ export default function DashboardPage() {
       setProjectStats(data.projectStats);
       setBottleneck(data.bottleneck);
       setAllTasks((data.allTasks || data.recentTasks || []));
+      setOverdueFromPreviousMonths(data.overdueFromPreviousMonths || []);
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
     } finally {
@@ -203,6 +212,82 @@ export default function DashboardPage() {
   }, [overdueTasks, dueSoonTasks]);
 
   const totalAttention = overdueTasks.length + dueSoonTasks.length;
+
+  // Process overdue tasks from previous months - group by project and add daysLate
+  const prevMonthsOverdueByProject = useMemo(() => {
+    const projectMap: Record<string, {
+      projectName: string;
+      overdue: Array<Task & { daysLate: number; fromMonth: string }>;
+    }> = {};
+
+    overdueFromPreviousMonths.forEach((task) => {
+      const projectId = task.project?.id || 'unknown';
+      const projectName = task.project?.name || 'Không xác định';
+      const daysLate = task.deadline
+        ? Math.ceil((new Date().getTime() - new Date(task.deadline).getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
+      const fromMonth = `T${(task as unknown as { month: number }).month}/${(task as unknown as { year: number }).year}`;
+
+      if (!projectMap[projectId]) {
+        projectMap[projectId] = { projectName, overdue: [] };
+      }
+      projectMap[projectId].overdue.push({ ...task, daysLate, fromMonth });
+    });
+
+    return Object.entries(projectMap)
+      .map(([id, data]) => ({ id, ...data }))
+      .sort((a, b) => b.overdue.length - a.overdue.length);
+  }, [overdueFromPreviousMonths]);
+
+  const totalPrevMonthsOverdue = overdueFromPreviousMonths.length;
+
+  // Calculate planning status per project - define BEFORE useMemo that uses it
+  const getProjectPlanningStatus = (projectId: string, target: number) => {
+    const projectTasks = allTasks.filter(t => t.project?.id === projectId);
+    const totalPlanned = projectTasks.length;
+
+    // Tasks missing deadline
+    const missingDeadline = projectTasks.filter(t => !t.deadline);
+
+    // Tasks missing outline (has topic but no outline status yet, or outline not done)
+    const missingOutline = projectTasks.filter(t => {
+      if (!t.status_outline) return true;
+      const status = t.status_outline.toLowerCase();
+      // Outline is done if status is 3.Done or higher
+      return !status.includes('3. done') && !status.includes('3.done');
+    });
+
+    // Is planning complete? (enough topics to meet KPI)
+    const planComplete = totalPlanned >= target;
+
+    return {
+      totalPlanned,
+      target,
+      missingDeadline: missingDeadline.length,
+      missingDeadlineTasks: missingDeadline,
+      missingOutline: missingOutline.length,
+      missingOutlineTasks: missingOutline,
+      planComplete,
+      planDiff: totalPlanned - target,
+    };
+  };
+
+  // Calculate planning status for all projects
+  const planningStatusByProject = useMemo(() => {
+    return projectStats.map((project) => {
+      const status = getProjectPlanningStatus(project.id, project.target);
+      return {
+        id: project.id,
+        name: project.name,
+        ...status,
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectStats, allTasks]);
+
+  const totalMissingPlan = planningStatusByProject.filter(p => !p.planComplete).length;
+  const totalMissingDeadlines = planningStatusByProject.reduce((sum, p) => sum + p.missingDeadline, 0);
+  const totalMissingOutlines = planningStatusByProject.reduce((sum, p) => sum + p.missingOutline, 0);
 
   // Calculate total target and actual
   const totalTarget = projectStats.reduce((sum, p) => sum + p.target, 0);
@@ -424,124 +509,249 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* Box Cần chú ý - Compact với collapse */}
-      {totalAttention > 0 && (
-        <div className="bg-card border-2 border-danger/40 rounded-xl overflow-hidden">
-          {/* Header */}
-          <div className="bg-danger/10 px-4 py-2 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-danger" />
-              <h3 className="font-semibold text-danger text-sm">Cần chú ý</h3>
-            </div>
-            <div className="flex items-center gap-2 text-xs">
-              <span className="px-2 py-0.5 bg-danger/20 text-danger rounded font-medium">
-                {overdueTasks.length} trễ
-              </span>
-              <span className="px-2 py-0.5 bg-warning/20 text-warning rounded font-medium">
-                {dueSoonTasks.length} sắp trễ
-              </span>
-            </div>
-          </div>
-
-          {/* Content - Collapsible by Project */}
-          <div className="p-2 space-y-1">
-            {attentionByProject.map((project) => {
-              const isExpanded = expandedAttentionProject === project.id;
-
-              return (
-                <div key={project.id} className="border border-border rounded-lg overflow-hidden">
-                  {/* Project Header - Clickable */}
-                  <button
-                    onClick={() => setExpandedAttentionProject(isExpanded ? null : project.id)}
-                    className="w-full bg-secondary/50 px-3 py-2 flex items-center justify-between hover:bg-secondary transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      {isExpanded ? (
-                        <ChevronUp className="w-4 h-4 text-[#8888a0]" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4 text-[#8888a0]" />
-                      )}
-                      <span className="font-medium text-[var(--text-primary)] text-sm">{project.projectName}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      {project.overdue.length > 0 && (
-                        <span className="px-1.5 py-0.5 bg-danger text-white text-xs font-bold rounded">
-                          {project.overdue.length}
-                        </span>
-                      )}
-                      {project.dueSoon.length > 0 && (
-                        <span className="px-1.5 py-0.5 bg-warning text-white text-xs font-bold rounded">
-                          {project.dueSoon.length}
-                        </span>
-                      )}
-                    </div>
-                  </button>
-
-                  {/* Tasks - Expandable, hiển thị theo hàng ngang */}
-                  {isExpanded && (
-                    <div className="p-2 bg-secondary/20">
-                      <div className="flex flex-wrap gap-1.5">
-                        {/* Overdue Tasks */}
-                        {project.overdue.map((task) => (
-                          <div
-                            key={task.id}
-                            className="inline-flex items-center gap-1.5 px-2 py-1 bg-danger/10 border border-danger/30 rounded text-xs"
-                            title={`${task.title || task.keyword_sub} - ${task.pic} - DL: ${formatDate(task.deadline!)}`}
-                          >
-                            <span className="text-[var(--text-primary)] max-w-[120px] truncate">
-                              {task.title || task.keyword_sub || 'N/A'}
-                            </span>
-                            <span className="text-accent font-medium">{task.pic || 'N/A'}</span>
-                            <span className="px-1 py-0.5 bg-danger text-white text-[10px] font-bold rounded">
-                              -{task.daysLate}d
-                            </span>
-                            {task.content_file && (
-                              <a
-                                href={task.content_file}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-accent hover:text-accent-dark"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <ExternalLink className="w-3 h-3" />
-                              </a>
-                            )}
+      {/* Grid cho các box Cần chú ý / Trễ tháng trước / Trạng thái kế hoạch */}
+      {(totalAttention > 0 || totalPrevMonthsOverdue > 0 || totalMissingPlan > 0 || totalMissingDeadlines > 0 || totalMissingOutlines > 0) && (
+        <div className="grid lg:grid-cols-2 gap-4">
+          {/* Box Cần chú ý - Compact với collapse */}
+          {totalAttention > 0 && (
+            <div className="bg-card border-2 border-danger/40 rounded-xl overflow-hidden">
+              {/* Header */}
+              <div className="bg-danger/10 px-4 py-2 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-danger" />
+                  <h3 className="font-semibold text-danger text-sm">Cần chú ý</h3>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="px-2 py-0.5 bg-danger/20 text-danger rounded font-medium">
+                    {overdueTasks.length} trễ
+                  </span>
+                  <span className="px-2 py-0.5 bg-warning/20 text-warning rounded font-medium">
+                    {dueSoonTasks.length} sắp trễ
+                  </span>
+                </div>
+              </div>
+              {/* Content - Collapsible by Project */}
+              <div className="p-2 space-y-1 max-h-[300px] overflow-y-auto">
+                {attentionByProject.map((project) => {
+                  const isExpanded = expandedAttentionProject === project.id;
+                  return (
+                    <div key={project.id} className="border border-border rounded-lg overflow-hidden">
+                      <button
+                        onClick={() => setExpandedAttentionProject(isExpanded ? null : project.id)}
+                        className="w-full bg-secondary/50 px-3 py-2 flex items-center justify-between hover:bg-secondary transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          {isExpanded ? <ChevronUp className="w-4 h-4 text-[#8888a0]" /> : <ChevronDown className="w-4 h-4 text-[#8888a0]" />}
+                          <span className="font-medium text-[var(--text-primary)] text-sm">{project.projectName}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          {project.overdue.length > 0 && (
+                            <span className="px-1.5 py-0.5 bg-danger text-white text-xs font-bold rounded">{project.overdue.length}</span>
+                          )}
+                          {project.dueSoon.length > 0 && (
+                            <span className="px-1.5 py-0.5 bg-warning text-white text-xs font-bold rounded">{project.dueSoon.length}</span>
+                          )}
+                        </div>
+                      </button>
+                      {isExpanded && (
+                        <div className="p-2 bg-secondary/20">
+                          <div className="flex flex-wrap gap-1.5">
+                            {project.overdue.map((task) => (
+                              <div key={task.id} className="inline-flex items-center gap-1.5 px-2 py-1 bg-danger/10 border border-danger/30 rounded text-xs" title={`${task.title || task.keyword_sub} - ${task.pic} - DL: ${formatDate(task.deadline!)}`}>
+                                <span className="text-[var(--text-primary)] max-w-[100px] truncate">{task.title || task.keyword_sub || 'N/A'}</span>
+                                <span className="text-accent font-medium">{task.pic || 'N/A'}</span>
+                                <span className="px-1 py-0.5 bg-danger text-white text-[10px] font-bold rounded">-{task.daysLate}d</span>
+                                {task.content_file && (
+                                  <a href={task.content_file} target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent-dark" onClick={(e) => e.stopPropagation()}>
+                                    <ExternalLink className="w-3 h-3" />
+                                  </a>
+                                )}
+                              </div>
+                            ))}
+                            {project.dueSoon.map((task) => (
+                              <div key={task.id} className="inline-flex items-center gap-1.5 px-2 py-1 bg-warning/10 border border-warning/30 rounded text-xs" title={`${task.title || task.keyword_sub} - ${task.pic} - DL: ${formatDate(task.deadline!)}`}>
+                                <span className="text-[var(--text-primary)] max-w-[100px] truncate">{task.title || task.keyword_sub || 'N/A'}</span>
+                                <span className="text-accent font-medium">{task.pic || 'N/A'}</span>
+                                <span className="px-1 py-0.5 bg-warning text-white text-[10px] font-bold rounded">{task.daysLeft === 0 ? 'Nay' : `${task.daysLeft}d`}</span>
+                                {task.content_file && (
+                                  <a href={task.content_file} target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent-dark" onClick={(e) => e.stopPropagation()}>
+                                    <ExternalLink className="w-3 h-3" />
+                                  </a>
+                                )}
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                        {/* Due Soon Tasks */}
-                        {project.dueSoon.map((task) => (
-                          <div
-                            key={task.id}
-                            className="inline-flex items-center gap-1.5 px-2 py-1 bg-warning/10 border border-warning/30 rounded text-xs"
-                            title={`${task.title || task.keyword_sub} - ${task.pic} - DL: ${formatDate(task.deadline!)}`}
-                          >
-                            <span className="text-[var(--text-primary)] max-w-[120px] truncate">
-                              {task.title || task.keyword_sub || 'N/A'}
-                            </span>
-                            <span className="text-accent font-medium">{task.pic || 'N/A'}</span>
-                            <span className="px-1 py-0.5 bg-warning text-white text-[10px] font-bold rounded">
-                              {task.daysLeft === 0 ? 'Nay' : `${task.daysLeft}d`}
-                            </span>
-                            {task.content_file && (
-                              <a
-                                href={task.content_file}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-accent hover:text-accent-dark"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <ExternalLink className="w-3 h-3" />
-                              </a>
-                            )}
-                          </div>
-                        ))}
-                      </div>
+                        </div>
+                      )}
                     </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Box Trễ từ tháng trước - Previous Months Overdue */}
+          {totalPrevMonthsOverdue > 0 && (
+            <div className="bg-card border-2 border-purple-500/40 rounded-xl overflow-hidden">
+              <div className="bg-purple-500/10 px-4 py-2 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-purple-500" />
+                  <h3 className="font-semibold text-purple-500 text-sm">Trễ từ tháng trước</h3>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="px-2 py-0.5 bg-purple-500/20 text-purple-500 rounded font-medium">
+                    {totalPrevMonthsOverdue} bài
+                  </span>
+                </div>
+              </div>
+              <div className="p-2 space-y-1 max-h-[300px] overflow-y-auto">
+                {prevMonthsOverdueByProject.map((project) => {
+                  const isExpanded = expandedPrevMonthsProject === project.id;
+                  return (
+                    <div key={project.id} className="border border-border rounded-lg overflow-hidden">
+                      <button
+                        onClick={() => setExpandedPrevMonthsProject(isExpanded ? null : project.id)}
+                        className="w-full bg-secondary/50 px-3 py-2 flex items-center justify-between hover:bg-secondary transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          {isExpanded ? <ChevronUp className="w-4 h-4 text-[#8888a0]" /> : <ChevronDown className="w-4 h-4 text-[#8888a0]" />}
+                          <span className="font-medium text-[var(--text-primary)] text-sm">{project.projectName}</span>
+                        </div>
+                        <span className="px-1.5 py-0.5 bg-purple-500 text-white text-xs font-bold rounded">{project.overdue.length}</span>
+                      </button>
+                      {isExpanded && (
+                        <div className="p-2 bg-secondary/20">
+                          <div className="flex flex-wrap gap-1.5">
+                            {project.overdue.map((task) => (
+                              <div key={task.id} className="inline-flex items-center gap-1.5 px-2 py-1 bg-purple-500/10 border border-purple-500/30 rounded text-xs" title={`${task.title || task.keyword_sub} - ${task.pic} - DL: ${formatDate(task.deadline!)}`}>
+                                <span className="text-[var(--text-primary)] max-w-[80px] truncate">{task.title || task.keyword_sub || 'N/A'}</span>
+                                <span className="text-accent font-medium">{task.pic || 'N/A'}</span>
+                                <span className="px-1 py-0.5 bg-purple-500 text-white text-[10px] font-bold rounded">-{task.daysLate}d</span>
+                                <span className="px-1 py-0.5 bg-[#8888a0]/20 text-[#8888a0] text-[10px] rounded">{task.fromMonth}</span>
+                                {task.content_file && (
+                                  <a href={task.content_file} target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent-dark" onClick={(e) => e.stopPropagation()}>
+                                    <ExternalLink className="w-3 h-3" />
+                                  </a>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Box Trạng thái kế hoạch - Planning Status */}
+          {(totalMissingPlan > 0 || totalMissingDeadlines > 0 || totalMissingOutlines > 0) && (
+            <div className="bg-card border-2 border-accent/40 rounded-xl overflow-hidden">
+              <div className="bg-accent/10 px-4 py-2 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ClipboardList className="w-4 h-4 text-accent" />
+                  <h3 className="font-semibold text-accent text-sm">Trạng thái kế hoạch</h3>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  {totalMissingPlan > 0 && (
+                    <span className="px-2 py-0.5 bg-danger/20 text-danger rounded font-medium">{totalMissingPlan} thiếu topic</span>
+                  )}
+                  {totalMissingDeadlines > 0 && (
+                    <span className="px-2 py-0.5 bg-warning/20 text-warning rounded font-medium">{totalMissingDeadlines} thiếu DL</span>
+                  )}
+                  {totalMissingOutlines > 0 && (
+                    <span className="px-2 py-0.5 bg-orange-500/20 text-orange-500 rounded font-medium">{totalMissingOutlines} thiếu outline</span>
                   )}
                 </div>
-              );
-            })}
-          </div>
+              </div>
+              <div className="p-2 space-y-1 max-h-[300px] overflow-y-auto">
+                {planningStatusByProject
+                  .filter(p => !p.planComplete || p.missingDeadline > 0 || p.missingOutline > 0)
+                  .map((project) => {
+                    const isExpanded = expandedPlanningProject === project.id;
+                    return (
+                      <div key={project.id} className="border border-border rounded-lg overflow-hidden">
+                        <button
+                          onClick={() => setExpandedPlanningProject(isExpanded ? null : project.id)}
+                          className="w-full bg-secondary/50 px-3 py-2 flex items-center justify-between hover:bg-secondary transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            {isExpanded ? <ChevronUp className="w-4 h-4 text-[#8888a0]" /> : <ChevronDown className="w-4 h-4 text-[#8888a0]" />}
+                            <span className="font-medium text-[var(--text-primary)] text-sm">{project.name}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            {project.planComplete ? (
+                              <span className="px-1.5 py-0.5 bg-success/20 text-success text-xs font-medium rounded flex items-center gap-1">
+                                <CheckCircle className="w-3 h-3" />
+                                {project.totalPlanned}/{project.target}
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 bg-danger text-white text-xs font-bold rounded">
+                                {project.planDiff} topic
+                              </span>
+                            )}
+                            {project.missingDeadline > 0 && (
+                              <span className="px-1.5 py-0.5 bg-warning text-white text-xs font-bold rounded">{project.missingDeadline} DL</span>
+                            )}
+                            {project.missingOutline > 0 && (
+                              <span className="px-1.5 py-0.5 bg-orange-500 text-white text-xs font-bold rounded">{project.missingOutline} OL</span>
+                            )}
+                          </div>
+                        </button>
+                        {isExpanded && (
+                          <div className="p-2 bg-secondary/20 space-y-2">
+                            {!project.planComplete && (
+                              <div className="px-2 py-1.5 bg-danger/10 border border-danger/30 rounded text-xs">
+                                <span className="text-danger font-medium">
+                                  <AlertCircle className="w-3 h-3 inline mr-1" />
+                                  Cần thêm {Math.abs(project.planDiff)} topic để đủ KPI ({project.totalPlanned}/{project.target})
+                                </span>
+                              </div>
+                            )}
+                            {project.missingDeadline > 0 && (
+                              <div className="space-y-1">
+                                <p className="text-xs text-warning font-medium px-1">Thiếu deadline ({project.missingDeadline}):</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {project.missingDeadlineTasks.slice(0, 10).map((task) => (
+                                    <div key={task.id} className="inline-flex items-center gap-1.5 px-2 py-1 bg-warning/10 border border-warning/30 rounded text-xs" title={task.title || task.keyword_sub || ''}>
+                                      <span className="text-[var(--text-primary)] max-w-[120px] truncate">{task.title || task.keyword_sub || 'N/A'}</span>
+                                      <span className="text-accent font-medium">{task.pic || 'N/A'}</span>
+                                    </div>
+                                  ))}
+                                  {project.missingDeadline > 10 && (
+                                    <span className="text-xs text-[#8888a0]">+{project.missingDeadline - 10} nữa...</span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                            {project.missingOutline > 0 && (
+                              <div className="space-y-1">
+                                <p className="text-xs text-orange-500 font-medium px-1">Thiếu outline ({project.missingOutline}):</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {project.missingOutlineTasks.slice(0, 10).map((task) => (
+                                    <div key={task.id} className="inline-flex items-center gap-1.5 px-2 py-1 bg-orange-500/10 border border-orange-500/30 rounded text-xs" title={task.title || task.keyword_sub || ''}>
+                                      <span className="text-[var(--text-primary)] max-w-[120px] truncate">{task.title || task.keyword_sub || 'N/A'}</span>
+                                      <span className="text-accent font-medium">{task.pic || 'N/A'}</span>
+                                      {task.status_outline && (
+                                        <span className="px-1 py-0.5 bg-[#8888a0]/20 text-[#8888a0] text-[10px] rounded">{task.status_outline.split('.')[0]}</span>
+                                      )}
+                                    </div>
+                                  ))}
+                                  {project.missingOutline > 10 && (
+                                    <span className="text-xs text-[#8888a0]">+{project.missingOutline - 10} nữa...</span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
