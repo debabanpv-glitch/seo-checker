@@ -6,7 +6,6 @@ import {
   TrendingDown,
   Search,
   Filter,
-  Calendar,
   ArrowUp,
   ArrowDown,
   Minus,
@@ -47,6 +46,7 @@ export default function KeywordRankingPage() {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProject]);
 
   const fetchData = async () => {
@@ -85,7 +85,7 @@ export default function KeywordRankingPage() {
     // Calculate trends
     const trends: KeywordTrend[] = [];
 
-    keywordMap.forEach((records, keyword) => {
+    keywordMap.forEach((records) => {
       // Sort by date descending
       const sorted = records.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -348,7 +348,7 @@ export default function KeywordRankingPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
-                        {trend.history.map((h, i) => (
+                        {trend.history.map((h) => (
                           <div
                             key={h.date}
                             className="flex flex-col items-center"
