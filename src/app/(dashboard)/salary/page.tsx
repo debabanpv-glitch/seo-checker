@@ -14,6 +14,8 @@ import {
   Building2,
   CreditCard,
   FolderOpen,
+  BadgeCheck,
+  Clock,
 } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
@@ -39,6 +41,17 @@ interface TaskDetail {
   link: string | null;
 }
 
+interface SalaryPayment {
+  id: string;
+  member_name: string;
+  month: number;
+  year: number;
+  amount: number;
+  paid_at: string;
+  paid_by: string | null;
+  note: string | null;
+}
+
 interface SalaryDataWithTasks {
   name: string;
   publishedCount: number;
@@ -52,6 +65,8 @@ interface SalaryDataWithTasks {
   tasks: TaskDetail[];
   memberInfo?: MemberInfo;
   projectsSummary?: { name: string; count: number }[];
+  isPaid?: boolean;
+  paymentInfo?: SalaryPayment;
 }
 
 export default function SalaryPage() {
@@ -64,6 +79,8 @@ export default function SalaryPage() {
   });
   const [selectedProject, setSelectedProject] = useState('');
   const [selectedPIC, setSelectedPIC] = useState<string | null>(null);
+  const [payments, setPayments] = useState<SalaryPayment[]>([]);
+  const [isMarkingPaid, setIsMarkingPaid] = useState(false);
 
   useEffect(() => {
     // Reset selected PIC when filters change to ensure correct data display
@@ -77,14 +94,19 @@ export default function SalaryPage() {
     try {
       const [month, year] = selectedMonth.split('-');
       const projectParam = selectedProject ? `&project=${selectedProject}` : '';
-      const [salaryRes, membersRes] = await Promise.all([
+      const [salaryRes, membersRes, paymentsRes] = await Promise.all([
         fetch(`/api/salary?month=${month}&year=${year}${projectParam}`),
         fetch('/api/members'),
+        fetch(`/api/salary-payments?month=${month}&year=${year}`),
       ]);
       const salaryResult = await salaryRes.json();
       const membersResult = await membersRes.json();
+      const paymentsResult = await paymentsRes.json();
 
-      // Merge member info and projects summary into salary data
+      const paymentsData: SalaryPayment[] = paymentsResult.payments || [];
+      setPayments(paymentsData);
+
+      // Merge member info, projects summary, and payment status into salary data
       const dataWithMemberInfo = (salaryResult.salaryData || []).map((s: SalaryDataWithTasks) => {
         const memberInfo = (membersResult.memberInfos || []).find(
           (m: MemberInfo) => m.name === s.name || m.nickname === s.name
@@ -100,7 +122,11 @@ export default function SalaryPage() {
           .map(([name, count]) => ({ name, count }))
           .sort((a, b) => b.count - a.count);
 
-        return { ...s, memberInfo, projectsSummary };
+        // Check payment status
+        const paymentInfo = paymentsData.find((p) => p.member_name === s.name);
+        const isPaid = !!paymentInfo;
+
+        return { ...s, memberInfo, projectsSummary, isPaid, paymentInfo };
       });
 
       setSalaryData(dataWithMemberInfo);
@@ -114,6 +140,88 @@ export default function SalaryPage() {
       console.error('Failed to fetch salary:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Mark a member as paid
+  const handleMarkPaid = async (memberName: string, amount: number) => {
+    const [month, year] = selectedMonth.split('-');
+    setIsMarkingPaid(true);
+    try {
+      const res = await fetch('/api/salary-payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          member_name: memberName,
+          month: parseInt(month),
+          year: parseInt(year),
+          amount,
+        }),
+      });
+
+      if (res.ok) {
+        // Refresh data
+        fetchSalary();
+      }
+    } catch (error) {
+      console.error('Failed to mark as paid:', error);
+    } finally {
+      setIsMarkingPaid(false);
+    }
+  };
+
+  // Remove payment record (mark as unpaid)
+  const handleMarkUnpaid = async (memberName: string) => {
+    const [month, year] = selectedMonth.split('-');
+    if (!confirm(`Bạn có chắc muốn đánh dấu "${memberName}" chưa thanh toán?`)) return;
+
+    setIsMarkingPaid(true);
+    try {
+      const res = await fetch(
+        `/api/salary-payments?member_name=${encodeURIComponent(memberName)}&month=${month}&year=${year}`,
+        { method: 'DELETE' }
+      );
+
+      if (res.ok) {
+        fetchSalary();
+      }
+    } catch (error) {
+      console.error('Failed to mark as unpaid:', error);
+    } finally {
+      setIsMarkingPaid(false);
+    }
+  };
+
+  // Mark all as paid
+  const handleMarkAllPaid = async () => {
+    const unpaidMembers = salaryData.filter((s) => !s.isPaid);
+    if (unpaidMembers.length === 0) return;
+
+    if (!confirm(`Đánh dấu đã thanh toán cho ${unpaidMembers.length} thành viên?`)) return;
+
+    setIsMarkingPaid(true);
+    const [month, year] = selectedMonth.split('-');
+
+    try {
+      await Promise.all(
+        unpaidMembers.map((member) =>
+          fetch('/api/salary-payments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              member_name: member.name,
+              month: parseInt(month),
+              year: parseInt(year),
+              amount: member.total,
+            }),
+          })
+        )
+      );
+      fetchSalary();
+    } catch (error) {
+      console.error('Failed to mark all as paid:', error);
+    } finally {
+      setIsMarkingPaid(false);
     }
   };
 
@@ -226,7 +334,7 @@ export default function SalaryPage() {
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-5 gap-3 mb-4">
         <div className="bg-card border border-border rounded-lg p-3">
           <div className="text-2xl font-bold text-[var(--text-primary)]">{salaryData.length}</div>
           <div className="text-xs text-[#8888a0]">Thành viên</div>
@@ -246,6 +354,13 @@ export default function SalaryPage() {
           <div className="text-xl font-bold text-accent">{formatCurrency(totals.total)}</div>
           <div className="text-xs text-[#8888a0]">Tổng lương</div>
         </div>
+        <div className="bg-card border border-border rounded-lg p-3">
+          <div className="text-2xl font-bold text-emerald-400">
+            {salaryData.filter((s) => s.isPaid).length}
+            <span className="text-sm text-[#8888a0] font-normal">/{salaryData.length}</span>
+          </div>
+          <div className="text-xs text-[#8888a0]">Đã thanh toán</div>
+        </div>
       </div>
 
       {salaryData.length === 0 ? (
@@ -258,8 +373,17 @@ export default function SalaryPage() {
         <div className="flex-1 flex gap-4 min-h-0">
           {/* Left: Salary Table */}
           <div className="w-96 flex-shrink-0 bg-card border border-border rounded-lg overflow-hidden flex flex-col">
-            <div className="px-4 py-3 border-b border-border bg-secondary/30">
+            <div className="px-4 py-3 border-b border-border bg-secondary/30 flex items-center justify-between">
               <h2 className="text-[var(--text-primary)] font-medium">Bảng lương chi tiết</h2>
+              {salaryData.some((s) => !s.isPaid) && (
+                <button
+                  onClick={handleMarkAllPaid}
+                  disabled={isMarkingPaid}
+                  className="text-xs px-2 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded transition-colors disabled:opacity-50"
+                >
+                  Thanh toán tất cả
+                </button>
+              )}
             </div>
             <div className="flex-1 overflow-y-auto">
               {salaryData.map((item) => (
@@ -271,10 +395,17 @@ export default function SalaryPage() {
                     selectedPIC === item.name && "bg-white/10"
                   )}
                 >
-                  <div className="w-9 h-9 bg-accent/20 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-accent font-bold text-sm">
-                      {item.name?.charAt(0).toUpperCase() || '?'}
-                    </span>
+                  <div className={cn(
+                    "w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0",
+                    item.isPaid ? "bg-emerald-500/20" : "bg-accent/20"
+                  )}>
+                    {item.isPaid ? (
+                      <BadgeCheck className="w-5 h-5 text-emerald-400" />
+                    ) : (
+                      <span className="text-accent font-bold text-sm">
+                        {item.name?.charAt(0).toUpperCase() || '?'}
+                      </span>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -284,13 +415,23 @@ export default function SalaryPage() {
                       ) : (
                         <XCircle className="w-3.5 h-3.5 text-danger flex-shrink-0" />
                       )}
+                      {item.isPaid && (
+                        <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] rounded flex-shrink-0">
+                          Đã TT
+                        </span>
+                      )}
                     </div>
                     <div className="text-xs text-[#8888a0]">
                       {item.publishedCount} bài • {item.note}
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-[var(--text-primary)] font-bold">{formatCurrency(item.total)}</div>
+                    <div className={cn(
+                      "font-bold",
+                      item.isPaid ? "text-emerald-400" : "text-[var(--text-primary)]"
+                    )}>
+                      {formatCurrency(item.total)}
+                    </div>
                   </div>
                 </button>
               ))}
@@ -351,10 +492,48 @@ export default function SalaryPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-accent">{formatCurrency(selectedData.total)}</div>
+                      <div className={cn(
+                        "text-2xl font-bold",
+                        selectedData.isPaid ? "text-emerald-400" : "text-accent"
+                      )}>
+                        {formatCurrency(selectedData.total)}
+                      </div>
                       <div className="text-xs text-[#8888a0] mt-1">Tổng lương</div>
+                      {/* Payment button */}
+                      {selectedData.isPaid ? (
+                        <button
+                          onClick={() => handleMarkUnpaid(selectedData.name)}
+                          disabled={isMarkingPaid}
+                          className="mt-2 flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/20 hover:bg-red-500/20 text-emerald-400 hover:text-red-400 rounded text-xs transition-colors disabled:opacity-50"
+                        >
+                          <BadgeCheck className="w-3.5 h-3.5" />
+                          Đã thanh toán
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleMarkPaid(selectedData.name, selectedData.total)}
+                          disabled={isMarkingPaid}
+                          className="mt-2 flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent/80 text-white rounded text-xs transition-colors disabled:opacity-50"
+                        >
+                          <Clock className="w-3.5 h-3.5" />
+                          Đánh dấu đã TT
+                        </button>
+                      )}
                     </div>
                   </div>
+
+                  {/* Payment info if paid */}
+                  {selectedData.isPaid && selectedData.paymentInfo && (
+                    <div className="mt-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+                      <div className="flex items-center gap-2 text-emerald-400 text-sm">
+                        <BadgeCheck className="w-4 h-4" />
+                        <span className="font-medium">Đã thanh toán</span>
+                        <span className="text-emerald-400/70">
+                          {formatDate(selectedData.paymentInfo.paid_at)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Salary Breakdown */}
                   <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-border">
