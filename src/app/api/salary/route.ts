@@ -16,12 +16,17 @@ export async function GET(request: NextRequest) {
     const year = parseInt(searchParams.get('year') || String(new Date().getFullYear()));
     const projectId = searchParams.get('project') || ''; // Filter by project
 
+    // Calculate date range for the selected month
+    const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+    const endDate = new Date(year, month, 0).toISOString().split('T')[0]; // Last day of month
+
     // Fetch all tasks for the month with project info
+    // Filter by publish_date instead of month/year fields for accuracy
     let query = supabase
       .from('tasks')
       .select('*, project:projects(*)')
-      .eq('month', month)
-      .eq('year', year);
+      .gte('publish_date', startDate)
+      .lte('publish_date', endDate);
 
     // Apply project filter if specified
     if (projectId) {
