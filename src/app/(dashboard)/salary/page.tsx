@@ -79,7 +79,6 @@ export default function SalaryPage() {
   });
   const [selectedProject, setSelectedProject] = useState('');
   const [selectedPIC, setSelectedPIC] = useState<string | null>(null);
-  const [payments, setPayments] = useState<SalaryPayment[]>([]);
   const [isMarkingPaid, setIsMarkingPaid] = useState(false);
 
   useEffect(() => {
@@ -104,7 +103,6 @@ export default function SalaryPage() {
       const paymentsResult = await paymentsRes.json();
 
       const paymentsData: SalaryPayment[] = paymentsResult.payments || [];
-      setPayments(paymentsData);
 
       // Merge member info, projects summary, and payment status into salary data
       const dataWithMemberInfo = (salaryResult.salaryData || []).map((s: SalaryDataWithTasks) => {
