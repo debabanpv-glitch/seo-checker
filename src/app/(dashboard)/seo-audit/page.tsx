@@ -240,6 +240,7 @@ export default function SEOAuditPage() {
 
   useEffect(() => {
     fetchTasks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProject]);
 
   const fetchTasks = async () => {
