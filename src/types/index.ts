@@ -5,6 +5,7 @@ export interface Project {
   sheet_id: string;
   sheet_name: string;
   monthly_target: number;
+  ranking_sheet_url?: string;
   created_at: string;
 }
 

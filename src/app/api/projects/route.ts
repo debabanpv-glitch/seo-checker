@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, sheet_id, sheet_name, monthly_target } = body;
+    const { name, sheet_id, sheet_name, monthly_target, ranking_sheet_url } = body;
 
     if (!name || !sheet_id) {
       return NextResponse.json(
@@ -102,6 +102,7 @@ export async function POST(request: NextRequest) {
         sheet_id,
         sheet_name: sheet_name || 'Content',
         monthly_target: monthly_target || 20,
+        ranking_sheet_url: ranking_sheet_url || null,
       })
       .select()
       .single();
@@ -121,7 +122,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, name, sheet_id, sheet_name, monthly_target } = body;
+    const { id, name, sheet_id, sheet_name, monthly_target, ranking_sheet_url } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Project ID is required' }, { status: 400 });
@@ -134,6 +135,7 @@ export async function PUT(request: NextRequest) {
         sheet_id,
         sheet_name,
         monthly_target,
+        ranking_sheet_url,
       })
       .eq('id', id)
       .select()

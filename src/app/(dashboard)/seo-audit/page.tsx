@@ -232,31 +232,55 @@ export default function SEOAuditPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getMonth() + 1}-${now.getFullYear()}`;
+  });
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [selectedTask, setSelectedTask] = useState<TaskWithSEO | null>(null);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isCheckingAll, setIsCheckingAll] = useState(false);
   const [checkAllProgress, setCheckAllProgress] = useState({ current: 0, total: 0 });
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+
+  // Generate month options (last 12 months)
+  const monthOptions = [];
+  const now = new Date();
+  for (let i = 0; i < 12; i++) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    monthOptions.push({
+      value: `${date.getMonth() + 1}-${date.getFullYear()}`,
+      label: `Tháng ${date.getMonth() + 1}/${date.getFullYear()}`,
+    });
+  }
 
   useEffect(() => {
     fetchTasks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProject]);
+  }, [selectedProject, selectedMonth]);
 
   const fetchTasks = async () => {
     setIsLoading(true);
     try {
-      // Fetch all published tasks (không giới hạn tháng)
+      // Fetch published tasks filtered by month
+      const [month, year] = selectedMonth.split('-');
       const projectParam = selectedProject ? `&project=${selectedProject}` : '';
-      const res = await fetch(`/api/tasks?published=true${projectParam}`);
+      const res = await fetch(`/api/tasks?published=true&month=${month}&year=${year}${projectParam}`);
       const data = await res.json();
 
       const publishedTasks: TaskWithSEO[] = (data.tasks || []).filter(
         (t: TaskWithSEO) => t.link_publish && (t.title || t.keyword_sub)
       );
 
-      // Fetch SEO results for these tasks
-      const seoRes = await fetch('/api/seo-results');
+      // Fetch SEO results only for URLs of current tasks (optimized - minimal fields for listing)
+      const urls = publishedTasks.map((t) => t.link_publish).filter(Boolean);
+      // Use POST to avoid URL length limits
+      const seoRes = await fetch('/api/seo-results/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ urls, minimal: true }),
+      });
       const seoData = await seoRes.json();
       const seoResults: SEOResultDB[] = seoData.results || [];
 
@@ -264,6 +288,13 @@ export default function SEOAuditPage() {
       const tasksWithSEO = publishedTasks.map((task) => {
         const seoResult = seoResults.find((r) => r.url === task.link_publish);
         return { ...task, seoResult };
+      });
+
+      // Sort by publish_date descending (newest first)
+      tasksWithSEO.sort((a, b) => {
+        if (!a.publish_date) return 1;
+        if (!b.publish_date) return -1;
+        return new Date(b.publish_date).getTime() - new Date(a.publish_date).getTime();
       });
 
       setTasks(tasksWithSEO);
@@ -276,6 +307,37 @@ export default function SEOAuditPage() {
       console.error('Failed to fetch tasks:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Fetch full SEO details for a specific task (lazy loading)
+  const fetchFullSEODetails = async (task: TaskWithSEO) => {
+    if (!task.seoResult || task.seoResult.details) {
+      // Already have full details or no SEO result
+      setSelectedTask(task);
+      return;
+    }
+
+    setIsLoadingDetails(true);
+    setSelectedTask(task);
+
+    try {
+      const res = await fetch(`/api/seo-results?url=${encodeURIComponent(task.link_publish)}`);
+      const data = await res.json();
+      const fullResult = data.results?.[0];
+
+      if (fullResult) {
+        const updatedTask = { ...task, seoResult: fullResult };
+        setSelectedTask(updatedTask);
+        // Also update in tasks list
+        setTasks((prev) =>
+          prev.map((t) => (t.id === task.id ? updatedTask : t))
+        );
+      }
+    } catch (error) {
+      console.error('Failed to fetch SEO details:', error);
+    } finally {
+      setIsLoadingDetails(false);
     }
   };
 
@@ -368,31 +430,57 @@ export default function SEOAuditPage() {
     }
   };
 
-  // Check all unchecked tasks (filtered by current view)
-  const checkAllTasks = async () => {
-    // Get unchecked tasks from current filtered view
-    const uncheckedTasks = filteredTasks.filter((t) => !t.seoResult && !t.seoLoading);
+  // Check selected tasks or all unchecked tasks
+  const checkSelectedTasks = async () => {
+    // If tasks are selected, check those; otherwise check all unchecked
+    const tasksToCheck = selectedTaskIds.size > 0
+      ? filteredTasks.filter((t) => selectedTaskIds.has(t.id) && !t.seoLoading)
+      : filteredTasks.filter((t) => !t.seoResult && !t.seoLoading);
 
-    if (uncheckedTasks.length === 0) return;
+    if (tasksToCheck.length === 0) return;
 
     setIsCheckingAll(true);
-    setCheckAllProgress({ current: 0, total: uncheckedTasks.length });
+    setCheckAllProgress({ current: 0, total: tasksToCheck.length });
 
     // Process tasks sequentially to avoid overwhelming the server
-    for (let i = 0; i < uncheckedTasks.length; i++) {
-      const task = uncheckedTasks[i];
-      setCheckAllProgress({ current: i + 1, total: uncheckedTasks.length });
+    for (let i = 0; i < tasksToCheck.length; i++) {
+      const task = tasksToCheck[i];
+      setCheckAllProgress({ current: i + 1, total: tasksToCheck.length });
 
       await checkSEO(task);
 
       // Small delay between requests
-      if (i < uncheckedTasks.length - 1) {
+      if (i < tasksToCheck.length - 1) {
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
     }
 
     setIsCheckingAll(false);
     setCheckAllProgress({ current: 0, total: 0 });
+    setSelectedTaskIds(new Set()); // Clear selection after checking
+  };
+
+  // Toggle task selection
+  const toggleTaskSelection = (taskId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedTaskIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(taskId)) {
+        newSet.delete(taskId);
+      } else {
+        newSet.add(taskId);
+      }
+      return newSet;
+    });
+  };
+
+  // Select/deselect all visible tasks
+  const toggleSelectAll = () => {
+    if (selectedTaskIds.size === filteredTasks.length) {
+      setSelectedTaskIds(new Set());
+    } else {
+      setSelectedTaskIds(new Set(filteredTasks.map((t) => t.id)));
+    }
   };
 
   // Filter tasks
@@ -446,6 +534,22 @@ export default function SEOAuditPage() {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <h1 className="text-xl font-bold text-[var(--text-primary)]">SEO Audit</h1>
 
+        {/* Month Filter */}
+        <div className="flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-[#8888a0]" />
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="px-3 py-2 bg-card border border-border rounded-lg text-[var(--text-primary)] text-sm"
+          >
+            {monthOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {/* Search */}
         <div className="flex items-center gap-2 flex-1 max-w-md">
           <div className="relative flex-1">
@@ -460,15 +564,15 @@ export default function SEOAuditPage() {
           </div>
         </div>
 
-        {/* Check All Button */}
+        {/* Check Selected/All Button */}
         <button
-          onClick={checkAllTasks}
-          disabled={isCheckingAll || filteredTasks.filter((t) => !t.seoResult).length === 0}
+          onClick={checkSelectedTasks}
+          disabled={isCheckingAll || (selectedTaskIds.size === 0 && filteredTasks.filter((t) => !t.seoResult).length === 0)}
           className={cn(
             "px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors",
             isCheckingAll
               ? "bg-accent/50 text-white cursor-wait"
-              : filteredTasks.filter((t) => !t.seoResult).length === 0
+              : (selectedTaskIds.size === 0 && filteredTasks.filter((t) => !t.seoResult).length === 0)
               ? "bg-secondary text-[#8888a0] cursor-not-allowed"
               : "bg-accent text-white hover:bg-accent/90"
           )}
@@ -478,11 +582,21 @@ export default function SEOAuditPage() {
               <Loader2 className="w-4 h-4 animate-spin" />
               <span>Đang check {checkAllProgress.current}/{checkAllProgress.total}</span>
             </>
+          ) : selectedTaskIds.size > 0 ? (
+            <>
+              <RefreshCw className="w-4 h-4" />
+              <span>
+                Check đã chọn
+                <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded text-xs">
+                  {selectedTaskIds.size}
+                </span>
+              </span>
+            </>
           ) : (
             <>
               <RefreshCw className="w-4 h-4" />
               <span>
-                Check All {selectedProject ? `(${projects.find((p) => p.id === selectedProject)?.name})` : ''}
+                Check chưa có điểm
                 {filteredTasks.filter((t) => !t.seoResult).length > 0 && (
                   <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded text-xs">
                     {filteredTasks.filter((t) => !t.seoResult).length}
@@ -492,6 +606,16 @@ export default function SEOAuditPage() {
             </>
           )}
         </button>
+
+        {/* Clear selection */}
+        {selectedTaskIds.size > 0 && !isCheckingAll && (
+          <button
+            onClick={() => setSelectedTaskIds(new Set())}
+            className="px-3 py-2 text-sm text-[#8888a0] hover:text-[var(--text-primary)] transition-colors"
+          >
+            Bỏ chọn
+          </button>
+        )}
       </div>
 
       {/* Project Tabs */}
@@ -588,9 +712,30 @@ export default function SEOAuditPage() {
           {/* Left: Task List */}
           <div className="w-1/2 bg-card border border-border rounded-lg overflow-hidden flex flex-col">
             <div className="px-4 py-3 border-b border-border bg-secondary/30 flex items-center justify-between">
-              <span className="text-sm font-medium text-[var(--text-primary)]">
-                Danh sách bài viết ({filteredTasks.length})
-              </span>
+              <div className="flex items-center gap-3">
+                {/* Select All Checkbox */}
+                <button
+                  onClick={toggleSelectAll}
+                  className={cn(
+                    "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors",
+                    selectedTaskIds.size === filteredTasks.length && filteredTasks.length > 0
+                      ? "bg-accent border-accent"
+                      : selectedTaskIds.size > 0
+                      ? "bg-accent/50 border-accent"
+                      : "border-[#8888a0] hover:border-accent"
+                  )}
+                >
+                  {selectedTaskIds.size > 0 && (
+                    <Check className="w-3 h-3 text-white" />
+                  )}
+                </button>
+                <span className="text-sm font-medium text-[var(--text-primary)]">
+                  Danh sách bài viết ({filteredTasks.length})
+                  {selectedTaskIds.size > 0 && (
+                    <span className="ml-2 text-accent">• {selectedTaskIds.size} đã chọn</span>
+                  )}
+                </span>
+              </div>
               <div className="flex items-center gap-2">
                 <Filter className="w-4 h-4 text-[#8888a0]" />
                 <select
@@ -611,16 +756,30 @@ export default function SEOAuditPage() {
                 const hasResult = !!task.seoResult;
                 const score = task.seoResult?.score || 0;
                 const isSelected = selectedTask?.id === task.id;
+                const isChecked = selectedTaskIds.has(task.id);
 
                 return (
                   <div
                     key={task.id}
                     className={cn(
                       "flex items-center gap-3 px-4 py-3 border-b border-border cursor-pointer transition-colors",
-                      isSelected ? "bg-accent/10" : "hover:bg-white/5"
+                      isSelected ? "bg-accent/10" : isChecked ? "bg-accent/5" : "hover:bg-white/5"
                     )}
-                    onClick={() => setSelectedTask(task)}
+                    onClick={() => fetchFullSEODetails(task)}
                   >
+                    {/* Checkbox */}
+                    <button
+                      onClick={(e) => toggleTaskSelection(task.id, e)}
+                      className={cn(
+                        "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors flex-shrink-0",
+                        isChecked
+                          ? "bg-accent border-accent"
+                          : "border-[#8888a0] hover:border-accent"
+                      )}
+                    >
+                      {isChecked && <Check className="w-3 h-3 text-white" />}
+                    </button>
+
                     {/* Status Icon */}
                     <div className="flex-shrink-0">
                       {task.seoLoading ? (
@@ -649,12 +808,12 @@ export default function SEOAuditPage() {
                         <span className="text-accent">{task.pic}</span>
                         <span>•</span>
                         <span>{task.project?.name}</span>
-                        {task.seoResult && (
+                        {task.publish_date && (
                           <>
                             <span>•</span>
                             <span className="flex items-center gap-1">
                               <Calendar className="w-3 h-3" />
-                              {formatDate(task.seoResult.checked_at)}
+                              {formatDate(task.publish_date)}
                             </span>
                           </>
                         )}
@@ -750,6 +909,13 @@ export default function SEOAuditPage() {
                       <div className="text-center">
                         <Loader2 className="w-8 h-8 animate-spin text-accent mx-auto mb-3" />
                         <p className="text-sm text-[#8888a0]">Đang kiểm tra SEO...</p>
+                      </div>
+                    </div>
+                  ) : isLoadingDetails ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-center">
+                        <Loader2 className="w-8 h-8 animate-spin text-accent mx-auto mb-3" />
+                        <p className="text-sm text-[#8888a0]">Đang tải chi tiết...</p>
                       </div>
                     </div>
                   ) : selectedTask.seoResult ? (

@@ -509,6 +509,58 @@ export default function DashboardPage() {
         </button>
       </div>
 
+      {/* Overdue Details - Expandable when clicking on "Trễ deadline" */}
+      {showOverdueDetails && overdueTasks.length > 0 && (
+        <div className="bg-card border-2 border-danger/40 rounded-xl overflow-hidden">
+          <div className="bg-danger/10 px-4 py-2 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-danger" />
+              <h3 className="font-semibold text-danger text-sm">Chi tiết bài trễ deadline ({overdueTasks.length})</h3>
+            </div>
+            <button
+              onClick={() => setShowOverdueDetails(false)}
+              className="text-danger hover:text-danger/80 text-xs"
+            >
+              Đóng
+            </button>
+          </div>
+          <div className="p-3 space-y-2 max-h-[300px] overflow-y-auto">
+            {overdueTasks.map((task) => (
+              <div
+                key={task.id}
+                className="flex items-center gap-3 p-2 bg-danger/5 border border-danger/20 rounded-lg"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-[var(--text-primary)] text-sm font-medium truncate">
+                    {task.title || task.keyword_sub || 'Không có tiêu đề'}
+                  </p>
+                  <div className="flex items-center gap-2 text-xs text-[#8888a0]">
+                    <span className="text-accent">{task.pic || 'N/A'}</span>
+                    <span>•</span>
+                    <span>{task.project?.name || 'N/A'}</span>
+                    <span>•</span>
+                    <span className="text-danger">DL: {task.deadline ? formatDate(task.deadline) : 'N/A'}</span>
+                  </div>
+                </div>
+                <span className="px-2 py-1 bg-danger text-white text-xs font-bold rounded">
+                  -{task.daysLate} ngày
+                </span>
+                {task.content_file && (
+                  <a
+                    href={task.content_file}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-1 text-accent hover:bg-accent/20 rounded"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Grid cho các box Cần chú ý / Trễ tháng trước / Trạng thái kế hoạch */}
       {(totalAttention > 0 || totalPrevMonthsOverdue > 0 || totalMissingPlan > 0 || totalMissingDeadlines > 0 || totalMissingOutlines > 0) && (
         <div className="grid lg:grid-cols-2 gap-4">

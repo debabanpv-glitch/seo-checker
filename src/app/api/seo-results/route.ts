@@ -7,10 +7,17 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const taskId = searchParams.get('taskId');
     const url = searchParams.get('url');
+    const urlsParam = searchParams.get('urls'); // JSON array of URLs
+    const minimal = searchParams.get('minimal') === 'true'; // Only fetch essential fields
+
+    // Select only essential fields for listing if minimal mode
+    const selectFields = minimal
+      ? 'id,url,score,max_score,content_score,content_max,images_score,images_max,technical_score,technical_max,checked_at'
+      : '*';
 
     let query = supabase
       .from('seo_results')
-      .select('*')
+      .select(selectFields)
       .order('checked_at', { ascending: false });
 
     if (taskId) {
@@ -19,6 +26,18 @@ export async function GET(request: NextRequest) {
 
     if (url) {
       query = query.eq('url', url);
+    }
+
+    // Filter by multiple URLs (optimized for SEO audit page)
+    if (urlsParam) {
+      try {
+        const urls = JSON.parse(urlsParam);
+        if (Array.isArray(urls) && urls.length > 0) {
+          query = query.in('url', urls);
+        }
+      } catch {
+        // Invalid JSON, ignore
+      }
     }
 
     const { data, error } = await query;

@@ -36,7 +36,13 @@ export async function GET(request: NextRequest) {
       query = query.or(`status_content.ilike.%${status}%,status_outline.ilike.%${status}%`);
     }
 
-    if (month && year) {
+    // Filter by publish_date if month and year are provided (for published tasks)
+    if (month && year && published === 'true') {
+      const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+      const endDate = new Date(parseInt(year), parseInt(month), 0).toISOString().split('T')[0];
+      query = query.gte('publish_date', startDate).lte('publish_date', endDate);
+    } else if (month && year) {
+      // For non-published filter, use month/year columns
       query = query.eq('month', parseInt(month)).eq('year', parseInt(year));
     }
 

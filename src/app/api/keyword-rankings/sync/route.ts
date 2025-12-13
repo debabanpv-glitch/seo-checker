@@ -13,7 +13,8 @@ interface RankingRow {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { sheetUrl, projectId } = body;
+    const { sheetUrl, projectId, columnMapping } = body;
+    // columnMapping is optional: { keyword: 0, url: 1, top: 2, date: 3 } (0-based index)
 
     if (!sheetUrl) {
       return NextResponse.json({ error: 'Sheet URL is required' }, { status: 400 });
@@ -27,8 +28,13 @@ export async function POST(request: NextRequest) {
 
     const sheetId = sheetIdMatch[1];
 
+    // Extract gid (sheet tab ID) from URL if present
+    const gidMatch = sheetUrl.match(/[?&#]gid=(\d+)/);
+    const gid = gidMatch ? gidMatch[1] : '0'; // Default to first sheet (gid=0)
+
     // Fetch data from Google Sheets (public sheet as CSV)
-    const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
+    // Include gid parameter to fetch specific sheet tab
+    const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
     const response = await fetch(csvUrl);
 
     if (!response.ok) {
@@ -45,25 +51,54 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Sheet is empty or has no data rows' }, { status: 400 });
     }
 
-    // First row is headers
-    const headers = rows[0].map((h) => h.toLowerCase().trim());
+    // First row is headers - clean up any BOM or special characters
+    const headers = rows[0].map((h) =>
+      h.toLowerCase()
+        .trim()
+        .replace(/^\uFEFF/, '') // Remove BOM
+        .replace(/[^\w\sàáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵđ]/gi, '') // Remove special chars
+    );
 
-    // Find column indices - support Vietnamese and English headers
-    const keywordIdx = findColumnIndex(headers, ['keyword', 'từ khóa', 'tu khoa', 'kw']);
-    const urlIdx = findColumnIndex(headers, ['url', 'link', 'đường dẫn']);
-    const positionIdx = findColumnIndex(headers, ['position', 'top', 'vị trí', 'rank', 'ranking']);
-    const dateIdx = findColumnIndex(headers, ['date', 'ngày', 'ngay', 'check_date', 'checked']);
+    console.log('Parsed headers:', headers); // Debug log
+    console.log('Raw first row:', rows[0]); // Debug log
+
+    let keywordIdx: number;
+    let urlIdx: number;
+    let positionIdx: number;
+    let dateIdx: number;
+
+    // Use manual column mapping if provided, otherwise auto-detect
+    if (columnMapping && typeof columnMapping.keyword === 'number') {
+      keywordIdx = columnMapping.keyword;
+      urlIdx = typeof columnMapping.url === 'number' ? columnMapping.url : -1;
+      positionIdx = typeof columnMapping.top === 'number' ? columnMapping.top : -1;
+      dateIdx = typeof columnMapping.date === 'number' ? columnMapping.date : -1;
+      console.log('Using manual column mapping:', { keywordIdx, urlIdx, positionIdx, dateIdx });
+    } else {
+      // Auto-detect column indices - support Vietnamese and English headers
+      keywordIdx = findColumnIndex(headers, ['keyword', 'từ khóa', 'tu khoa', 'kw', 'từkhóa', 'tukhoa']);
+      urlIdx = findColumnIndex(headers, ['url', 'link', 'đường dẫn', 'đườngdẫn']);
+      positionIdx = findColumnIndex(headers, ['position', 'top', 'vị trí', 'rank', 'ranking', 'vịtrí']);
+      dateIdx = findColumnIndex(headers, ['date', 'ngày', 'ngay', 'check_date', 'checked', 'checkdate']);
+      console.log('Auto-detected column indices:', { keywordIdx, urlIdx, positionIdx, dateIdx });
+    }
 
     if (keywordIdx === -1) {
       return NextResponse.json(
-        { error: 'Missing "keyword" column. Required columns: keyword, url (optional), position/top, date' },
+        {
+          error: 'Không tìm thấy cột "keyword". Bạn có thể sử dụng chế độ chỉ định cột thủ công.',
+          debug: { headers, firstRow: rows[0], rawCsvPreview: csvText.substring(0, 500) }
+        },
         { status: 400 }
       );
     }
 
     if (positionIdx === -1) {
       return NextResponse.json(
-        { error: 'Missing "position/top" column. Required columns: keyword, url (optional), position/top, date' },
+        {
+          error: 'Không tìm thấy cột "top/position". Bạn có thể sử dụng chế độ chỉ định cột thủ công.',
+          debug: { headers, firstRow: rows[0] }
+        },
         { status: 400 }
       );
     }
@@ -233,25 +268,21 @@ function parseDate(dateStr: string): string {
     return dateStr.substring(0, 10);
   }
 
+  // Try YYYY/MM/DD format (common in Asian locales)
+  const ymdSlashMatch = dateStr.match(/^(\d{4})[\/](\d{1,2})[\/](\d{1,2})/);
+  if (ymdSlashMatch) {
+    const year = ymdSlashMatch[1];
+    const month = ymdSlashMatch[2].padStart(2, '0');
+    const day = ymdSlashMatch[3].padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
   // Try DD/MM/YYYY or DD-MM-YYYY
   const dmyMatch = dateStr.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
   if (dmyMatch) {
     const day = dmyMatch[1].padStart(2, '0');
     const month = dmyMatch[2].padStart(2, '0');
     const year = dmyMatch[3];
-    return `${year}-${month}-${day}`;
-  }
-
-  // Try MM/DD/YYYY
-  const mdyMatch = dateStr.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-  if (mdyMatch) {
-    const month = mdyMatch[1].padStart(2, '0');
-    const day = mdyMatch[2].padStart(2, '0');
-    const year = mdyMatch[3];
-    // Assume DD/MM if day > 12
-    if (parseInt(month) > 12) {
-      return `${year}-${day}-${month}`;
-    }
     return `${year}-${month}-${day}`;
   }
 
