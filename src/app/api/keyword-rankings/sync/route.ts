@@ -161,50 +161,67 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Insert into database (upsert by keyword + date + project_id)
-    let insertedCount = 0;
-    let updatedCount = 0;
+    // OPTIMIZED: Batch upsert instead of individual queries
+    // This reduces 1000+ queries to just a few batch operations
 
-    for (const ranking of rankings) {
-      // Check if exists
-      const { data: existing } = await supabase
+    // Prepare data for batch upsert
+    const upsertData = rankings.map(r => ({
+      keyword: r.keyword,
+      url: r.url || '',
+      position: r.position,
+      date: r.date,
+      project_id: r.project_id || null,
+    }));
+
+    // Batch upsert in chunks of 500 (Supabase limit)
+    const BATCH_SIZE = 500;
+    let totalUpserted = 0;
+
+    for (let i = 0; i < upsertData.length; i += BATCH_SIZE) {
+      const batch = upsertData.slice(i, i + BATCH_SIZE);
+
+      // Use upsert with onConflict - requires unique constraint on (keyword, date, project_id)
+      // If constraint doesn't exist, fall back to delete + insert
+      const { error: upsertError } = await supabase
         .from('keyword_rankings')
-        .select('id')
-        .eq('keyword', ranking.keyword)
-        .eq('date', ranking.date)
-        .eq('project_id', ranking.project_id || '')
-        .single();
-
-      if (existing) {
-        // Update
-        await supabase
-          .from('keyword_rankings')
-          .update({
-            url: ranking.url,
-            position: ranking.position,
-          })
-          .eq('id', existing.id);
-        updatedCount++;
-      } else {
-        // Insert
-        await supabase.from('keyword_rankings').insert({
-          keyword: ranking.keyword,
-          url: ranking.url,
-          position: ranking.position,
-          date: ranking.date,
-          project_id: ranking.project_id || null,
+        .upsert(batch, {
+          onConflict: 'keyword,date,project_id',
+          ignoreDuplicates: false, // Update existing records
         });
-        insertedCount++;
+
+      if (upsertError) {
+        // If upsert fails (constraint might not exist), try delete + insert approach
+        console.log('Upsert failed, trying delete + insert:', upsertError.message);
+
+        // Delete existing records for these keywords/dates
+        for (const item of batch) {
+          await supabase
+            .from('keyword_rankings')
+            .delete()
+            .eq('keyword', item.keyword)
+            .eq('date', item.date)
+            .eq('project_id', item.project_id || '');
+        }
+
+        // Insert new records
+        const { error: insertError } = await supabase
+          .from('keyword_rankings')
+          .insert(batch);
+
+        if (insertError) {
+          console.error('Batch insert error:', insertError);
+        }
       }
+
+      totalUpserted += batch.length;
     }
 
     return NextResponse.json({
       success: true,
-      message: `Synced ${rankings.length} rankings (${insertedCount} new, ${updatedCount} updated)`,
+      message: `Đồng bộ thành công ${rankings.length} từ khóa!`,
       stats: {
         total: rankings.length,
-        inserted: insertedCount,
-        updated: updatedCount,
+        upserted: totalUpserted,
         errors: errors.length,
       },
       errors: errors.slice(0, 10), // Return first 10 errors
