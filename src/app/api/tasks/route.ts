@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic';
+
 // Helper to check if task is published
 const isPublished = (statusContent: string | null) => {
   if (!statusContent) return false;
