@@ -35,28 +35,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // DEBUG: Log raw data from Supabase
-    const rawWithPubDate = (allTasks || []).filter((t: { publish_date?: string | null }) => t.publish_date);
-    console.log('[API] Total tasks from Supabase:', allTasks?.length);
-    console.log('[API] Tasks with publish_date (all months):', rawWithPubDate.length);
-
     // Filter tasks for selected month/year
     const taskList = (allTasks || []).filter(
       (t) => t.month === selectedMonth && t.year === selectedYear
     );
 
-    // DEBUG: Log after month filter
-    const taskListWithPubDate = taskList.filter((t: { publish_date?: string | null }) => t.publish_date);
-    console.log('[API] Tasks for', selectedMonth, '/', selectedYear, ':', taskList.length);
-    console.log('[API] With publish_date:', taskListWithPubDate.length);
-
     // Calculate stats - only count tasks with actual content
     const validTasks = taskList.filter((t) => t.title || t.keyword_sub || t.parent_keyword);
-
-    // DEBUG: Log after valid filter
-    const validWithPubDate = validTasks.filter((t: { publish_date?: string | null }) => t.publish_date);
-    console.log('[API] Valid tasks:', validTasks.length);
-    console.log('[API] Valid with publish_date:', validWithPubDate.length);
 
     const stats = {
       total: validTasks.length,
