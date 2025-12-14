@@ -1196,14 +1196,14 @@ export default function DashboardPage() {
         </div>
 
         {/* Recent 3 Days Published */}
-        <div className="bg-card border border-border rounded-xl p-4 md:p-6">
+        <div className="bg-card border border-border rounded-xl p-4 md:p-6 flex flex-col">
           <div className="flex items-center gap-2 mb-3">
             <Clock className="w-4 h-4 text-accent" />
             <h2 className="text-base font-semibold text-[var(--text-primary)]">3 ngày gần đây</h2>
             <span className="ml-auto text-xs text-accent font-medium">{recentThreeDaysTasks.length} bài</span>
           </div>
 
-          <div className="space-y-2 max-h-[350px] overflow-y-auto">
+          <div className="space-y-2 flex-1 overflow-y-auto">
             {recentThreeDaysTasks.length > 0 ? (
               recentThreeDaysTasks.map((task) => (
                 <div
@@ -1236,7 +1236,9 @@ export default function DashboardPage() {
                 </div>
               ))
             ) : (
-              <p className="text-[#8888a0] text-center py-6 text-sm">Không có bài viết trong 3 ngày qua</p>
+              <div className="flex items-center justify-center h-full">
+                <p className="text-[#8888a0] text-sm">Không có bài viết trong 3 ngày qua</p>
+              </div>
             )}
           </div>
         </div>

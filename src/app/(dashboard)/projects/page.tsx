@@ -5,15 +5,16 @@ import {
   FolderKanban,
   TrendingUp,
   TrendingDown,
-  Minus,
   AlertTriangle,
   Clock,
   Target,
-  BarChart3,
+  Users,
   ExternalLink,
-  ChevronDown,
-  ChevronUp,
   Calendar,
+  CheckCircle2,
+  XCircle,
+  ArrowRight,
+  Zap,
 } from 'lucide-react';
 import ProgressBar from '@/components/ProgressBar';
 import { PageLoading } from '@/components/LoadingSpinner';
@@ -32,19 +33,15 @@ interface ProjectReport {
   name: string;
   sheet_id: string;
   sheet_name: string;
-  // Stats
   target: number;
   published: number;
   inProgress: number;
   doneQC: number;
   overdue: number;
-  // Weekly
   weeklyBreakdown: WeeklyData[];
   weeklyTarget: number;
-  // Comparison
   prevPublished: number;
   momChange: number;
-  // Analysis
   weeklyRate: number;
   requiredRate: number;
   daysRemaining: number;
@@ -52,7 +49,6 @@ interface ProjectReport {
   trend: 'up' | 'down' | 'stable';
   health: 'good' | 'warning' | 'danger';
   bottleneck: string | null;
-  // Team
   pics: string[];
   topPerformer: { name: string; count: number } | null;
 }
@@ -71,7 +67,6 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<ProjectReport[]>([]);
   const [meta, setMeta] = useState<ReportMeta | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [expandedProject, setExpandedProject] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
 
@@ -102,18 +97,28 @@ export default function ProjectsPage() {
     const totalOverdue = projects.reduce((sum, p) => sum + p.overdue, 0);
     const totalPrevPublished = projects.reduce((sum, p) => sum + p.prevPublished, 0);
     const progress = totalTarget > 0 ? Math.round((totalPublished / totalTarget) * 100) : 0;
+    const remaining = totalTarget - totalPublished;
+
+    // Calculate overall projected
+    const totalProjected = projects.reduce((sum, p) => sum + p.projectedTotal, 0);
+    const willMeetKPI = totalProjected >= totalTarget;
 
     // Calculate overall MoM change
     const totalMomChange = totalPrevPublished > 0
       ? Math.round(((totalPublished - totalPrevPublished) / totalPrevPublished) * 100)
       : totalPublished > 0 ? 100 : 0;
 
-    // Count health statuses
-    const healthCounts = {
-      good: projects.filter(p => p.health === 'good').length,
-      warning: projects.filter(p => p.health === 'warning').length,
-      danger: projects.filter(p => p.health === 'danger').length,
-    };
+    // Projects at risk (won't meet KPI)
+    const atRiskProjects = projects.filter(p => p.projectedTotal < p.target);
+
+    // Best performers
+    const allPerformers: { name: string; count: number; project: string }[] = [];
+    projects.forEach(p => {
+      if (p.topPerformer) {
+        allPerformers.push({ ...p.topPerformer, project: p.name });
+      }
+    });
+    allPerformers.sort((a, b) => b.count - a.count);
 
     return {
       totalTarget,
@@ -123,21 +128,30 @@ export default function ProjectsPage() {
       totalPrevPublished,
       totalMomChange,
       progress,
-      healthCounts,
+      remaining,
+      totalProjected,
+      willMeetKPI,
+      atRiskProjects,
+      topPerformers: allPerformers.slice(0, 5),
     };
   }, [projects]);
+
+  // Calculate average days remaining
+  const avgDaysRemaining = projects.length > 0
+    ? Math.round(projects.reduce((sum, p) => sum + p.daysRemaining, 0) / projects.length)
+    : 0;
 
   if (isLoading) {
     return <PageLoading />;
   }
 
   return (
-    <div className="space-y-4 md:space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-[var(--text-primary)]">Báo cáo Dự án</h1>
-          <p className="text-[#8888a0] text-xs md:text-sm">Phân tích hiệu suất và tiến độ</p>
+          <h1 className="text-xl md:text-2xl font-bold text-[var(--text-primary)]">Phân tích Dự án</h1>
+          <p className="text-[#8888a0] text-xs md:text-sm">Insights để đưa ra quyết định</p>
         </div>
 
         {/* Month/Year Picker */}
@@ -164,100 +178,305 @@ export default function ProjectsPage() {
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-[#8888a0] text-xs mb-2">Tổng publish</p>
-          <div className="flex items-baseline gap-1">
-            <span className={cn(
-              "text-2xl font-bold",
-              summary.progress >= 80 ? "text-success" : summary.progress >= 50 ? "text-warning" : "text-danger"
-            )}>
-              {summary.totalPublished}
-            </span>
-            <span className="text-[#8888a0] text-sm">/{summary.totalTarget} bài</span>
-          </div>
-          <div className="mt-2">
-            <ProgressBar value={summary.progress} max={100} showLabel={false} size="sm" />
-          </div>
-          {/* MoM Comparison */}
-          {meta && (
-            <div className="mt-2 flex items-center gap-1 text-xs">
-              <span className="text-[#8888a0]">vs T{meta.prevMonth}:</span>
-              <span className={cn(
-                "font-medium",
-                summary.totalMomChange > 0 ? "text-success" : summary.totalMomChange < 0 ? "text-danger" : "text-[#8888a0]"
-              )}>
-                {summary.totalMomChange > 0 ? '+' : ''}{summary.totalMomChange}%
-              </span>
-              {summary.totalMomChange !== 0 && (
-                summary.totalMomChange > 0
-                  ? <TrendingUp className="w-3 h-3 text-success" />
-                  : <TrendingDown className="w-3 h-3 text-danger" />
-              )}
-            </div>
-          )}
-        </div>
-
-        <SummaryCard
-          label="Đang thực hiện"
-          value={summary.totalInProgress}
-          subValue="bài"
-          icon={Clock}
-          color="warning"
-        />
-        <SummaryCard
-          label="Trễ deadline"
-          value={summary.totalOverdue}
-          subValue="bài"
-          icon={AlertTriangle}
-          color={summary.totalOverdue > 0 ? 'danger' : 'success'}
-        />
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-[#8888a0] text-xs mb-2">Sức khỏe dự án</p>
-          <div className="flex items-center gap-3">
-            {summary.healthCounts.good > 0 && (
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-success" />
-                <span className="text-success font-bold">{summary.healthCounts.good}</span>
-              </div>
-            )}
-            {summary.healthCounts.warning > 0 && (
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-warning" />
-                <span className="text-warning font-bold">{summary.healthCounts.warning}</span>
-              </div>
-            )}
-            {summary.healthCounts.danger > 0 && (
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-danger" />
-                <span className="text-danger font-bold">{summary.healthCounts.danger}</span>
-              </div>
-            )}
-          </div>
-          <p className="text-xs text-[#8888a0] mt-2">
-            {summary.healthCounts.danger > 0
-              ? `${summary.healthCounts.danger} dự án cần chú ý`
-              : summary.healthCounts.warning > 0
-              ? `${summary.healthCounts.warning} dự án cần theo dõi`
-              : 'Tất cả dự án đang tốt'}
-          </p>
-        </div>
-      </div>
-
-      {/* Projects List */}
       {projects.length > 0 ? (
-        <div className="space-y-3">
-          {projects.map((project) => (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              meta={meta}
-              isExpanded={expandedProject === project.id}
-              onToggle={() => setExpandedProject(expandedProject === project.id ? null : project.id)}
+        <>
+          {/* Key Insight Banner */}
+          <div className={cn(
+            "rounded-xl p-4 border-2",
+            summary.willMeetKPI
+              ? "bg-success/10 border-success/30"
+              : "bg-danger/10 border-danger/30"
+          )}>
+            <div className="flex items-start gap-3">
+              {summary.willMeetKPI ? (
+                <CheckCircle2 className="w-6 h-6 text-success flex-shrink-0" />
+              ) : (
+                <XCircle className="w-6 h-6 text-danger flex-shrink-0" />
+              )}
+              <div className="flex-1">
+                <p className={cn(
+                  "font-semibold text-lg",
+                  summary.willMeetKPI ? "text-success" : "text-danger"
+                )}>
+                  {summary.willMeetKPI
+                    ? `Dự kiến đạt KPI tháng ${selectedMonth}`
+                    : `Cần tăng tốc để đạt KPI tháng ${selectedMonth}`}
+                </p>
+                <p className="text-[#8888a0] text-sm mt-1">
+                  {summary.willMeetKPI
+                    ? `Dự báo: ${summary.totalProjected}/${summary.totalTarget} bài (${Math.round((summary.totalProjected / summary.totalTarget) * 100)}%)`
+                    : `Dự báo: ${summary.totalProjected}/${summary.totalTarget} bài - Thiếu ${summary.totalTarget - summary.totalProjected} bài`}
+                </p>
+                {!summary.willMeetKPI && summary.atRiskProjects.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {summary.atRiskProjects.map(p => (
+                      <span key={p.id} className="px-2 py-1 bg-danger/20 text-danger rounded text-xs font-medium">
+                        {p.name}: thiếu {p.target - p.projectedTotal} bài
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="text-right hidden sm:block">
+                <p className="text-3xl font-bold text-[var(--text-primary)]">{summary.progress}%</p>
+                <p className="text-xs text-[#8888a0]">Hoàn thành</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Stats Row */}
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <QuickStat
+              label="Đã Publish"
+              value={summary.totalPublished}
+              subValue={`/${summary.totalTarget}`}
+              trend={summary.totalMomChange}
+              color="success"
             />
-          ))}
-        </div>
+            <QuickStat
+              label="Còn lại"
+              value={summary.remaining}
+              subValue="bài"
+              color={summary.remaining > 20 ? 'danger' : summary.remaining > 10 ? 'warning' : 'success'}
+            />
+            <QuickStat
+              label="Đang làm"
+              value={summary.totalInProgress}
+              subValue="bài"
+              color="warning"
+            />
+            <QuickStat
+              label="Trễ deadline"
+              value={summary.totalOverdue}
+              subValue="bài"
+              color={summary.totalOverdue > 0 ? 'danger' : 'success'}
+            />
+            <QuickStat
+              label="Còn"
+              value={avgDaysRemaining}
+              subValue="ngày"
+              color={avgDaysRemaining < 7 ? 'danger' : avgDaysRemaining < 14 ? 'warning' : 'accent'}
+            />
+          </div>
+
+          {/* Main Content Grid */}
+          <div className="grid lg:grid-cols-3 gap-4">
+            {/* Project Performance Table */}
+            <div className="lg:col-span-2 bg-card border border-border rounded-xl overflow-hidden">
+              <div className="p-4 border-b border-border flex items-center justify-between">
+                <h2 className="font-semibold text-[var(--text-primary)]">Hiệu suất theo Dự án</h2>
+                <span className="text-xs text-[#8888a0]">{projects.length} dự án</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-secondary/50">
+                    <tr className="text-left text-xs text-[#8888a0]">
+                      <th className="px-4 py-3 font-medium">Dự án</th>
+                      <th className="px-4 py-3 font-medium text-center">Publish</th>
+                      <th className="px-4 py-3 font-medium text-center">Tiến độ</th>
+                      <th className="px-4 py-3 font-medium text-center">Tốc độ</th>
+                      <th className="px-4 py-3 font-medium text-center">Dự báo</th>
+                      <th className="px-4 py-3 font-medium text-center">Trạng thái</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {projects.map((project) => {
+                      const progress = project.target > 0 ? Math.round((project.published / project.target) * 100) : 0;
+                      const willMeet = project.projectedTotal >= project.target;
+
+                      return (
+                        <tr key={project.id} className="hover:bg-secondary/30 transition-colors">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <div className={cn(
+                                "w-2 h-2 rounded-full flex-shrink-0",
+                                project.health === 'good' ? 'bg-success' :
+                                project.health === 'warning' ? 'bg-warning' : 'bg-danger'
+                              )} />
+                              <span className="text-[var(--text-primary)] font-medium truncate max-w-[150px]">
+                                {project.name}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="text-success font-bold">{project.published}</span>
+                            <span className="text-[#8888a0]">/{project.target}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2 justify-center">
+                              <div className="w-16">
+                                <ProgressBar value={project.published} max={project.target} showLabel={false} size="sm" />
+                              </div>
+                              <span className={cn(
+                                "text-xs font-medium w-8",
+                                progress >= 80 ? "text-success" : progress >= 50 ? "text-warning" : "text-danger"
+                              )}>
+                                {progress}%
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              {project.trend === 'up' ? (
+                                <TrendingUp className="w-3 h-3 text-success" />
+                              ) : project.trend === 'down' ? (
+                                <TrendingDown className="w-3 h-3 text-danger" />
+                              ) : null}
+                              <span className={cn(
+                                "text-sm",
+                                project.weeklyRate >= project.requiredRate ? "text-success" : "text-[#8888a0]"
+                              )}>
+                                {project.weeklyRate.toFixed(1)}/tuần
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-[#8888a0]">cần {project.requiredRate.toFixed(1)}</p>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={cn(
+                              "font-bold",
+                              willMeet ? "text-success" : "text-danger"
+                            )}>
+                              {project.projectedTotal}
+                            </span>
+                            {!willMeet && (
+                              <p className="text-[10px] text-danger">-{project.target - project.projectedTotal}</p>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {willMeet ? (
+                              <span className="px-2 py-1 bg-success/20 text-success rounded text-xs font-medium">
+                                Đạt KPI
+                              </span>
+                            ) : (
+                              <span className="px-2 py-1 bg-danger/20 text-danger rounded text-xs font-medium">
+                                Nguy hiểm
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Right Sidebar */}
+            <div className="space-y-4">
+              {/* Top Performers */}
+              <div className="bg-card border border-border rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <Users className="w-4 h-4 text-accent" />
+                  <h3 className="font-semibold text-[var(--text-primary)]">Top Contributors</h3>
+                </div>
+                {summary.topPerformers.length > 0 ? (
+                  <div className="space-y-3">
+                    {summary.topPerformers.map((person, idx) => (
+                      <div key={person.name} className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
+                          idx === 0 ? "bg-yellow-500/20 text-yellow-500" :
+                          idx === 1 ? "bg-gray-400/20 text-gray-400" :
+                          idx === 2 ? "bg-orange-500/20 text-orange-500" :
+                          "bg-secondary text-[#8888a0]"
+                        )}>
+                          {idx + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[var(--text-primary)] text-sm font-medium truncate">{person.name}</p>
+                          <p className="text-[10px] text-[#8888a0] truncate">{person.project}</p>
+                        </div>
+                        <span className="text-accent font-bold">{person.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[#8888a0] text-sm text-center py-4">Chưa có dữ liệu</p>
+                )}
+              </div>
+
+              {/* Action Items */}
+              {(summary.totalOverdue > 0 || summary.atRiskProjects.length > 0) && (
+                <div className="bg-danger/10 border border-danger/30 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Zap className="w-4 h-4 text-danger" />
+                    <h3 className="font-semibold text-danger">Cần hành động</h3>
+                  </div>
+                  <div className="space-y-2">
+                    {summary.totalOverdue > 0 && (
+                      <div className="flex items-start gap-2 text-sm">
+                        <ArrowRight className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" />
+                        <p className="text-[var(--text-primary)]">
+                          Xử lý <span className="text-danger font-bold">{summary.totalOverdue}</span> bài trễ deadline
+                        </p>
+                      </div>
+                    )}
+                    {summary.atRiskProjects.length > 0 && (
+                      <div className="flex items-start gap-2 text-sm">
+                        <ArrowRight className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" />
+                        <p className="text-[var(--text-primary)]">
+                          Tăng tốc <span className="text-danger font-bold">{summary.atRiskProjects.length}</span> dự án có nguy cơ không đạt KPI
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Week-by-Week Comparison */}
+              <div className="bg-card border border-border rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <Calendar className="w-4 h-4 text-accent" />
+                  <h3 className="font-semibold text-[var(--text-primary)]">So sánh tuần</h3>
+                </div>
+                {projects.length > 0 && projects[0].weeklyBreakdown && (
+                  <div className="space-y-3">
+                    {/* Get max weeks */}
+                    {projects[0].weeklyBreakdown.map((week) => {
+                      const weekTotal = projects.reduce((sum, p) => {
+                        const w = p.weeklyBreakdown.find(wb => wb.weekNum === week.weekNum);
+                        return sum + (w?.count || 0);
+                      }, 0);
+                      const weekTarget = projects.reduce((sum, p) => {
+                        const w = p.weeklyBreakdown.find(wb => wb.weekNum === week.weekNum);
+                        return sum + (w?.target || 0);
+                      }, 0);
+                      const isAchieved = weekTotal >= weekTarget;
+
+                      return (
+                        <div key={week.weekNum} className="flex items-center gap-3">
+                          <div className={cn(
+                            "w-16 py-1 text-center rounded text-xs font-medium",
+                            week.isCurrent ? "bg-accent text-white" : "bg-secondary text-[#8888a0]"
+                          )}>
+                            Tuần {week.weekNum}
+                          </div>
+                          <div className="flex-1">
+                            <ProgressBar value={weekTotal} max={weekTarget || 1} showLabel={false} size="sm" />
+                          </div>
+                          <span className={cn(
+                            "text-sm font-bold w-12 text-right",
+                            isAchieved ? "text-success" : weekTotal > 0 ? "text-warning" : "text-[#8888a0]"
+                          )}>
+                            {weekTotal}/{weekTarget}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Detailed Project Cards - Collapsible */}
+          <div className="space-y-3">
+            <h2 className="font-semibold text-[var(--text-primary)]">Chi tiết từng dự án</h2>
+            {projects.map((project) => (
+              <DetailedProjectCard key={project.id} project={project} meta={meta} />
+            ))}
+          </div>
+        </>
       ) : (
         <EmptyState
           icon={FolderKanban}
@@ -269,259 +488,263 @@ export default function ProjectsPage() {
   );
 }
 
-// Summary Card Component
-function SummaryCard({
+// Quick Stat Component
+function QuickStat({
   label,
   value,
   subValue,
-  progress,
-  icon: Icon,
+  trend,
   color,
 }: {
   label: string;
   value: number;
   subValue: string;
-  progress?: number;
-  icon?: React.ElementType;
-  color: 'success' | 'warning' | 'danger';
+  trend?: number;
+  color: 'success' | 'warning' | 'danger' | 'accent';
 }) {
   const colorClasses = {
     success: 'text-success',
     warning: 'text-warning',
     danger: 'text-danger',
+    accent: 'text-accent',
   };
 
   return (
-    <div className="bg-card border border-border rounded-xl p-4">
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-[#8888a0] text-xs">{label}</p>
-        {Icon && <Icon className={cn("w-4 h-4", colorClasses[color])} />}
-      </div>
+    <div className="bg-card border border-border rounded-xl p-3">
+      <p className="text-[#8888a0] text-xs mb-1">{label}</p>
       <div className="flex items-baseline gap-1">
         <span className={cn("text-2xl font-bold", colorClasses[color])}>{value}</span>
         <span className="text-[#8888a0] text-sm">{subValue}</span>
       </div>
-      {progress !== undefined && (
-        <div className="mt-2">
-          <ProgressBar value={progress} max={100} showLabel={false} size="sm" />
+      {trend !== undefined && trend !== 0 && (
+        <div className="flex items-center gap-1 mt-1">
+          {trend > 0 ? (
+            <TrendingUp className="w-3 h-3 text-success" />
+          ) : (
+            <TrendingDown className="w-3 h-3 text-danger" />
+          )}
+          <span className={cn(
+            "text-xs font-medium",
+            trend > 0 ? "text-success" : "text-danger"
+          )}>
+            {trend > 0 ? '+' : ''}{trend}%
+          </span>
         </div>
       )}
     </div>
   );
 }
 
-// Project Card Component
-function ProjectCard({
+// Detailed Project Card
+function DetailedProjectCard({
   project,
   meta,
-  isExpanded,
-  onToggle,
 }: {
   project: ProjectReport;
   meta: ReportMeta | null;
-  isExpanded: boolean;
-  onToggle: () => void;
 }) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const progress = project.target > 0 ? Math.round((project.published / project.target) * 100) : 0;
-
-  const healthColors = {
-    good: 'border-success/30 bg-success/5',
-    warning: 'border-warning/30 bg-warning/5',
-    danger: 'border-danger/30 bg-danger/5',
-  };
-
-  const healthBadge = {
-    good: { label: 'Tốt', color: 'bg-success/20 text-success' },
-    warning: { label: 'Cần theo dõi', color: 'bg-warning/20 text-warning' },
-    danger: { label: 'Cần chú ý', color: 'bg-danger/20 text-danger' },
-  };
-
-  const TrendIcon = project.trend === 'up' ? TrendingUp : project.trend === 'down' ? TrendingDown : Minus;
-  const trendColor = project.trend === 'up' ? 'text-success' : project.trend === 'down' ? 'text-danger' : 'text-[#8888a0]';
+  const willMeet = project.projectedTotal >= project.target;
 
   return (
-    <div className={cn("bg-card border rounded-xl overflow-hidden transition-all", healthColors[project.health])}>
-      {/* Header Row - Always visible */}
+    <div className={cn(
+      "bg-card border rounded-xl overflow-hidden transition-all",
+      project.health === 'good' ? "border-success/30" :
+      project.health === 'warning' ? "border-warning/30" : "border-danger/30"
+    )}>
       <button
-        onClick={onToggle}
+        onClick={() => setIsExpanded(!isExpanded)}
         className="w-full p-4 flex items-center gap-4 text-left hover:bg-secondary/30 transition-colors"
       >
-        {/* Project Name & Health */}
+        <div className={cn(
+          "w-3 h-3 rounded-full flex-shrink-0",
+          project.health === 'good' ? 'bg-success' :
+          project.health === 'warning' ? 'bg-warning' : 'bg-danger'
+        )} />
+
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="text-[var(--text-primary)] font-semibold truncate">{project.name}</h3>
-            <span className={cn("px-2 py-0.5 rounded text-xs font-medium", healthBadge[project.health].color)}>
-              {healthBadge[project.health].label}
-            </span>
-            {/* MoM Change Badge */}
-            {project.momChange !== 0 && (
-              <span className={cn(
-                "px-1.5 py-0.5 rounded text-xs font-medium flex items-center gap-0.5",
-                project.momChange > 0 ? "bg-success/20 text-success" : "bg-danger/20 text-danger"
-              )}>
-                {project.momChange > 0 ? '+' : ''}{project.momChange}%
-                {project.momChange > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-3 text-sm">
+          <h3 className="text-[var(--text-primary)] font-semibold truncate">{project.name}</h3>
+          <div className="flex items-center gap-3 text-sm mt-1">
             <span className="text-success font-bold">{project.published}</span>
             <span className="text-[#8888a0]">/</span>
             <span className="text-[var(--text-primary)]">{project.target}</span>
-            <span className="text-[#8888a0]">publish</span>
             {project.inProgress > 0 && (
               <>
                 <span className="text-[#8888a0]">•</span>
                 <span className="text-warning">{project.inProgress} đang làm</span>
               </>
             )}
+            {project.overdue > 0 && (
+              <>
+                <span className="text-[#8888a0]">•</span>
+                <span className="text-danger">{project.overdue} trễ</span>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Progress */}
-        <div className="hidden sm:flex items-center gap-3 w-32">
-          <div className="flex-1">
+        <div className="hidden sm:flex items-center gap-4">
+          <div className="w-24">
             <ProgressBar value={project.published} max={project.target} showLabel={false} size="sm" />
           </div>
           <span className={cn(
-            "text-sm font-bold w-10 text-right",
+            "text-sm font-bold w-10",
             progress >= 80 ? "text-success" : progress >= 50 ? "text-warning" : "text-danger"
           )}>
             {progress}%
           </span>
-        </div>
-
-        {/* Trend */}
-        <div className="hidden md:flex items-center gap-1">
-          <TrendIcon className={cn("w-4 h-4", trendColor)} />
-          <span className={cn("text-sm font-medium", trendColor)}>
-            {project.weeklyRate.toFixed(1)}/tuần
+          <span className={cn(
+            "px-2 py-1 rounded text-xs font-medium",
+            willMeet ? "bg-success/20 text-success" : "bg-danger/20 text-danger"
+          )}>
+            {willMeet ? 'Đạt KPI' : `Thiếu ${project.target - project.projectedTotal}`}
           </span>
         </div>
 
-        {/* Expand Icon */}
-        <div className="text-[#8888a0]">
-          {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-        </div>
+        <ExternalLink
+          className="w-4 h-4 text-[#8888a0] hover:text-accent flex-shrink-0"
+          onClick={(e) => {
+            e.stopPropagation();
+            window.open(`https://docs.google.com/spreadsheets/d/${project.sheet_id}`, '_blank');
+          }}
+        />
       </button>
 
-      {/* Expanded Details */}
       {isExpanded && (
         <div className="px-4 pb-4 space-y-4 border-t border-border/50">
-          {/* Weekly Breakdown */}
-          {project.weeklyBreakdown && project.weeklyBreakdown.length > 0 && (
-            <div className="pt-4">
-              <p className="text-xs text-[#8888a0] mb-3">Tiến độ theo tuần</p>
-              <div className="grid grid-cols-5 gap-2">
-                {project.weeklyBreakdown.map((week) => {
-                  const isAchieved = week.count >= week.target;
-                  return (
-                    <div
-                      key={week.weekNum}
-                      className={cn(
-                        "text-center p-2 rounded-lg relative",
-                        week.isCurrent ? "ring-2 ring-accent" : "",
-                        isAchieved
-                          ? "bg-success/20 border border-success/30"
-                          : week.count > 0
-                          ? "bg-warning/20 border border-warning/30"
-                          : "bg-secondary border border-border"
-                      )}
-                    >
-                      {week.isCurrent && (
-                        <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[8px] bg-accent text-white px-1.5 py-0.5 rounded">
-                          Now
-                        </span>
-                      )}
-                      <p className="text-xs text-[#8888a0] mb-1">T{week.weekNum}</p>
-                      <p className={cn(
-                        "text-xl font-bold",
-                        isAchieved ? "text-success" : week.count > 0 ? "text-warning" : "text-[#8888a0]"
-                      )}>
-                        {week.count}
-                      </p>
-                      <p className="text-xs text-[#8888a0]">/{week.target}</p>
-                    </div>
-                  );
-                })}
-              </div>
+          {/* Weekly Progress */}
+          <div className="pt-4">
+            <p className="text-xs text-[#8888a0] mb-3">Tiến độ theo tuần</p>
+            <div className="grid grid-cols-5 gap-2">
+              {project.weeklyBreakdown.map((week) => {
+                const isAchieved = week.count >= week.target;
+                return (
+                  <div
+                    key={week.weekNum}
+                    className={cn(
+                      "text-center p-2 rounded-lg relative",
+                      week.isCurrent ? "ring-2 ring-accent" : "",
+                      isAchieved ? "bg-success/20" : week.count > 0 ? "bg-warning/20" : "bg-secondary"
+                    )}
+                  >
+                    {week.isCurrent && (
+                      <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[8px] bg-accent text-white px-1.5 py-0.5 rounded">
+                        Now
+                      </span>
+                    )}
+                    <p className="text-xs text-[#8888a0]">T{week.weekNum}</p>
+                    <p className={cn(
+                      "text-xl font-bold",
+                      isAchieved ? "text-success" : week.count > 0 ? "text-warning" : "text-[#8888a0]"
+                    )}>
+                      {week.count}
+                    </p>
+                    <p className="text-xs text-[#8888a0]">/{week.target}</p>
+                  </div>
+                );
+              })}
             </div>
-          )}
+          </div>
 
-          {/* Comparison with Previous Month */}
+          {/* Key Metrics */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-secondary/50 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Target className="w-4 h-4 text-[#8888a0]" />
+                <span className="text-xs text-[#8888a0]">Tốc độ cần</span>
+              </div>
+              <p className="text-lg font-bold text-[var(--text-primary)]">{project.requiredRate.toFixed(1)}/tuần</p>
+              <p className="text-xs text-[#8888a0]">còn {project.daysRemaining} ngày</p>
+            </div>
+            <div className="bg-secondary/50 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <TrendingUp className="w-4 h-4 text-[#8888a0]" />
+                <span className="text-xs text-[#8888a0]">Tốc độ thực tế</span>
+              </div>
+              <p className={cn(
+                "text-lg font-bold",
+                project.weeklyRate >= project.requiredRate ? "text-success" : "text-danger"
+              )}>
+                {project.weeklyRate.toFixed(1)}/tuần
+              </p>
+              <p className="text-xs text-[#8888a0]">
+                {project.weeklyRate >= project.requiredRate ? 'Đang đạt' : 'Chưa đạt'}
+              </p>
+            </div>
+            <div className="bg-secondary/50 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Clock className="w-4 h-4 text-[#8888a0]" />
+                <span className="text-xs text-[#8888a0]">Dự báo cuối tháng</span>
+              </div>
+              <p className={cn(
+                "text-lg font-bold",
+                willMeet ? "text-success" : "text-danger"
+              )}>
+                {project.projectedTotal} bài
+              </p>
+              <p className="text-xs text-[#8888a0]">
+                {willMeet ? 'Đạt KPI' : `Thiếu ${project.target - project.projectedTotal}`}
+              </p>
+            </div>
+            <div className="bg-secondary/50 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <AlertTriangle className="w-4 h-4 text-[#8888a0]" />
+                <span className="text-xs text-[#8888a0]">Trễ deadline</span>
+              </div>
+              <p className={cn(
+                "text-lg font-bold",
+                project.overdue > 0 ? "text-danger" : "text-success"
+              )}>
+                {project.overdue}
+              </p>
+              <p className="text-xs text-[#8888a0]">
+                {project.overdue > 0 ? 'Cần xử lý' : 'Không có'}
+              </p>
+            </div>
+          </div>
+
+          {/* MoM Comparison */}
           {meta && (
             <div className="bg-secondary/50 rounded-lg p-3">
-              <p className="text-xs text-[#8888a0] mb-2">So sánh với tháng {meta.prevMonth}/{meta.prevYear}</p>
-              <div className="flex items-center gap-4">
-                <div>
-                  <span className="text-[var(--text-primary)] text-lg font-bold">{project.published}</span>
-                  <span className="text-[#8888a0] text-sm"> bài (T{meta.selectedMonth})</span>
+              <p className="text-xs text-[#8888a0] mb-2">So sánh với tháng trước</p>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div>
+                    <span className="text-lg font-bold text-[var(--text-primary)]">{project.published}</span>
+                    <span className="text-sm text-[#8888a0]"> (T{meta.selectedMonth})</span>
+                  </div>
+                  <span className="text-[#8888a0]">vs</span>
+                  <div>
+                    <span className="text-lg font-bold text-[var(--text-primary)]">{project.prevPublished}</span>
+                    <span className="text-sm text-[#8888a0]"> (T{meta.prevMonth})</span>
+                  </div>
                 </div>
-                <span className="text-[#8888a0]">vs</span>
-                <div>
-                  <span className="text-[var(--text-primary)] text-lg font-bold">{project.prevPublished}</span>
-                  <span className="text-[#8888a0] text-sm"> bài (T{meta.prevMonth})</span>
-                </div>
-                <div className={cn(
-                  "ml-auto px-2 py-1 rounded font-bold text-sm flex items-center gap-1",
+                <span className={cn(
+                  "px-2 py-1 rounded font-bold text-sm flex items-center gap-1",
                   project.momChange > 0 ? "bg-success/20 text-success" :
                   project.momChange < 0 ? "bg-danger/20 text-danger" :
                   "bg-secondary text-[#8888a0]"
                 )}>
                   {project.momChange > 0 ? '+' : ''}{project.momChange}%
-                  {project.momChange > 0 && <TrendingUp className="w-4 h-4" />}
-                  {project.momChange < 0 && <TrendingDown className="w-4 h-4" />}
-                  {project.momChange === 0 && <Minus className="w-4 h-4" />}
-                </div>
+                  {project.momChange > 0 && <TrendingUp className="w-3 h-3" />}
+                  {project.momChange < 0 && <TrendingDown className="w-3 h-3" />}
+                </span>
               </div>
             </div>
           )}
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <StatItem
-              icon={Target}
-              label="Tốc độ cần"
-              value={`${project.requiredRate.toFixed(1)} bài/tuần`}
-              subtext={`còn ${project.daysRemaining} ngày`}
-            />
-            <StatItem
-              icon={BarChart3}
-              label="Tốc độ thực tế"
-              value={`${project.weeklyRate.toFixed(1)} bài/tuần`}
-              subtext={project.weeklyRate >= project.requiredRate ? 'Đang đạt' : 'Chưa đạt'}
-              valueColor={project.weeklyRate >= project.requiredRate ? 'success' : 'danger'}
-            />
-            <StatItem
-              icon={TrendingUp}
-              label="Dự báo cuối tháng"
-              value={`${project.projectedTotal} bài`}
-              subtext={project.projectedTotal >= project.target ? 'Đạt KPI' : `Thiếu ${project.target - project.projectedTotal}`}
-              valueColor={project.projectedTotal >= project.target ? 'success' : 'danger'}
-            />
-            <StatItem
-              icon={AlertTriangle}
-              label="Trễ deadline"
-              value={project.overdue.toString()}
-              subtext={project.overdue > 0 ? 'Cần xử lý' : 'Không có'}
-              valueColor={project.overdue > 0 ? 'danger' : 'success'}
-            />
-          </div>
-
-          {/* Bottleneck & Insights */}
+          {/* Bottleneck & Top Performer */}
           <div className="grid md:grid-cols-2 gap-3">
-            {/* Bottleneck */}
             {project.bottleneck && (
-              <div className="bg-secondary/50 rounded-lg p-3">
-                <p className="text-xs text-[#8888a0] mb-1">Điểm nghẽn</p>
-                <p className="text-warning text-sm font-medium">{project.bottleneck}</p>
+              <div className="bg-warning/10 border border-warning/30 rounded-lg p-3">
+                <p className="text-xs text-warning mb-1">Điểm nghẽn</p>
+                <p className="text-[var(--text-primary)] text-sm font-medium">{project.bottleneck}</p>
               </div>
             )}
-
-            {/* Top Performer */}
             {project.topPerformer && (
-              <div className="bg-secondary/50 rounded-lg p-3">
-                <p className="text-xs text-[#8888a0] mb-1">Người đóng góp nhiều nhất</p>
+              <div className="bg-accent/10 border border-accent/30 rounded-lg p-3">
+                <p className="text-xs text-accent mb-1">Top contributor</p>
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 bg-accent/20 rounded-full flex items-center justify-center">
                     <span className="text-accent text-xs font-bold">
@@ -529,73 +752,13 @@ function ProjectCard({
                     </span>
                   </div>
                   <span className="text-[var(--text-primary)] text-sm">{project.topPerformer.name}</span>
-                  <span className="text-success text-sm font-bold">{project.topPerformer.count} bài</span>
+                  <span className="text-accent font-bold ml-auto">{project.topPerformer.count} bài</span>
                 </div>
               </div>
             )}
           </div>
-
-          {/* Team */}
-          {project.pics.length > 0 && (
-            <div className="bg-secondary/50 rounded-lg p-3">
-              <p className="text-xs text-[#8888a0] mb-2">Team ({project.pics.length} người)</p>
-              <div className="flex flex-wrap gap-2">
-                {project.pics.map((pic) => (
-                  <span key={pic} className="px-2 py-1 bg-card rounded text-[var(--text-primary)] text-xs">
-                    {pic}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Action Link */}
-          <div className="flex justify-end">
-            <a
-              href={`https://docs.google.com/spreadsheets/d/${project.sheet_id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-accent hover:underline text-sm"
-            >
-              <ExternalLink className="w-4 h-4" />
-              Xem Google Sheet
-            </a>
-          </div>
         </div>
       )}
-    </div>
-  );
-}
-
-// Stat Item Component
-function StatItem({
-  icon: Icon,
-  label,
-  value,
-  subtext,
-  valueColor = 'white',
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: string;
-  subtext: string;
-  valueColor?: 'white' | 'success' | 'warning' | 'danger';
-}) {
-  const colorClasses = {
-    white: 'text-[var(--text-primary)]',
-    success: 'text-success',
-    warning: 'text-warning',
-    danger: 'text-danger',
-  };
-
-  return (
-    <div className="bg-secondary/50 rounded-lg p-3">
-      <div className="flex items-center gap-2 mb-1">
-        <Icon className="w-4 h-4 text-[#8888a0]" />
-        <span className="text-xs text-[#8888a0]">{label}</span>
-      </div>
-      <p className={cn("text-lg font-bold", colorClasses[valueColor])}>{value}</p>
-      <p className="text-xs text-[#8888a0]">{subtext}</p>
     </div>
   );
 }
