@@ -30,10 +30,13 @@ export async function GET(request: NextRequest) {
     // Calculate stats - only count tasks with actual content
     const validTasks = taskList.filter((t) => t.title || t.keyword_sub || t.parent_keyword);
 
-    // Helper to check if task is published - support multiple formats
-    const isPublished = (statusContent: string | null) => {
-      if (!statusContent) return false;
-      const status = statusContent.toLowerCase().trim();
+    // Helper to check if task is published - support multiple formats AND publish_date
+    const isPublished = (task: { status_content?: string | null; publish_date?: string | null }) => {
+      // If has publish_date, consider it published
+      if (task.publish_date) return true;
+
+      if (!task.status_content) return false;
+      const status = task.status_content.toLowerCase().trim();
       return status.includes('publish') || status.includes('4.') || status === 'done' || status === 'hoàn thành';
     };
 
@@ -46,14 +49,14 @@ export async function GET(request: NextRequest) {
 
     const stats = {
       total: validTasks.length,
-      published: validTasks.filter((t) => isPublished(t.status_content)).length,
+      published: validTasks.filter((t) => isPublished(t)).length,
       inProgress: validTasks.filter((t) =>
         t.status_content &&
-        !isPublished(t.status_content) &&
+        !isPublished(t) &&
         !isDoneQC(t.status_content)
       ).length,
       overdue: validTasks.filter((t) => {
-        if (!t.deadline || isPublished(t.status_content)) return false;
+        if (!t.deadline || isPublished(t)) return false;
         return new Date(t.deadline) < new Date();
       }).length,
     };
@@ -74,7 +77,7 @@ export async function GET(request: NextRequest) {
       const projectTasks = taskList.filter(
         (t) => t.project_id === project.id && (t.title || t.keyword_sub)
       );
-      const published = projectTasks.filter((t) => isPublished(t.status_content)).length;
+      const published = projectTasks.filter((t) => isPublished(t)).length;
 
       // Lấy target từ monthly_targets, nếu không có thì dùng default từ project
       const monthlyTarget = monthlyTargets?.find((mt) => mt.project_id === project.id);
@@ -93,7 +96,7 @@ export async function GET(request: NextRequest) {
       (t) =>
         (t.title || t.keyword_sub) &&
         t.status_content &&
-        !isPublished(t.status_content)
+        !isPublished(t)
     );
 
     // Get tasks by status for bottleneck display
@@ -252,7 +255,7 @@ export async function GET(request: NextRequest) {
         // Must have content
         if (!(t.title || t.keyword_sub)) return false;
         // Must not be published
-        if (isPublished(t.status_content)) return false;
+        if (isPublished(t)) return false;
         // Must have deadline
         if (!t.deadline) return false;
         // Deadline must be in the past

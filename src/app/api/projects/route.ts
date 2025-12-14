@@ -3,6 +3,24 @@ import { supabase } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
+// Helper to check if task is published - flexible matching
+const isPublished = (statusContent: string | null, publishDate: string | null) => {
+  // If has publish_date, consider it published
+  if (publishDate) return true;
+
+  if (!statusContent) return false;
+  const status = statusContent.toLowerCase().trim();
+  // Match various formats: "4. Publish", "4.Publish", "publish", "4. publish", etc.
+  return status.includes('publish') || status.includes('4.') || status === 'done' || status === 'hoàn thành';
+};
+
+// Helper to check if task is done QC
+const isDoneQC = (statusContent: string | null) => {
+  if (!statusContent) return false;
+  const status = statusContent.toLowerCase().trim();
+  return status.includes('3.') || status.includes('done qc') || status.includes('qc done');
+};
+
 // GET: Fetch all projects with stats
 export async function GET(request: NextRequest) {
   try {
@@ -29,24 +47,34 @@ export async function GET(request: NextRequest) {
     // Fetch task counts for each project
     const projectsWithStats = await Promise.all(
       (projects || []).map(async (project) => {
-        // Get all tasks for this project this month
+        // Get all tasks for this project this month - include publish_date for accurate counting
         const { data: tasks } = await supabase
           .from('tasks')
-          .select('id, status_content, status_outline, deadline, pic')
+          .select('id, status_content, status_outline, deadline, pic, publish_date, link_publish')
           .eq('project_id', project.id)
           .eq('month', month)
           .eq('year', year);
 
         const taskList = tasks || [];
-        const published = taskList.filter((t) => t.status_content === '4. Publish').length;
+
+        // Count published tasks - check both status_content AND publish_date
+        const published = taskList.filter((t) => isPublished(t.status_content, t.publish_date)).length;
+
+        // In progress = has status but not published and not done QC
         const inProgress = taskList.filter((t) =>
           t.status_content &&
-          t.status_content !== '4. Publish' &&
-          t.status_content !== '3. Done QC'
+          !isPublished(t.status_content, t.publish_date) &&
+          !isDoneQC(t.status_content)
         ).length;
-        const doneQC = taskList.filter((t) => t.status_content === '3. Done QC').length;
+
+        // Done QC but not published yet
+        const doneQC = taskList.filter((t) =>
+          isDoneQC(t.status_content) && !isPublished(t.status_content, t.publish_date)
+        ).length;
+
+        // Overdue = has deadline, not published, and deadline passed
         const overdue = taskList.filter((t) => {
-          if (!t.deadline || t.status_content === '4. Publish') return false;
+          if (!t.deadline || isPublished(t.status_content, t.publish_date)) return false;
           return new Date(t.deadline) < new Date();
         }).length;
 
