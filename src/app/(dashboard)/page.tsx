@@ -25,10 +25,13 @@ import { PageLoading } from '@/components/LoadingSpinner';
 import { formatDate } from '@/lib/utils';
 import { Task, ProjectStats, BottleneckData, Stats, BottleneckTask } from '@/types';
 
-// Helper to check if task is published - support multiple formats
-const isPublished = (statusContent: string | null | undefined) => {
-  if (!statusContent) return false;
-  const status = statusContent.toLowerCase().trim();
+// Helper to check if task is published - support multiple formats AND publish_date
+const isPublished = (task: { status_content?: string | null; publish_date?: string | null }) => {
+  // If has publish_date, consider it published
+  if (task.publish_date) return true;
+
+  if (!task.status_content) return false;
+  const status = task.status_content.toLowerCase().trim();
   return status.includes('publish') || status.includes('4.') || status === 'done' || status === 'hoàn thành';
 };
 
@@ -86,10 +89,10 @@ export default function DashboardPage() {
   const filteredStats = useMemo(() => {
     if (!stats) return null;
 
-    const published = allTasks.filter((t) => isPublished(t.status_content)).length;
+    const published = allTasks.filter((t) => isPublished(t)).length;
     const inProgress = allTasks.filter((t) =>
       t.status_content &&
-      !isPublished(t.status_content)
+      !isPublished(t)
     ).length;
 
     return {
@@ -98,7 +101,7 @@ export default function DashboardPage() {
       published,
       inProgress,
       overdue: allTasks.filter((t) => {
-        if (!t.deadline || isPublished(t.status_content)) return false;
+        if (!t.deadline || isPublished(t)) return false;
         return new Date(t.deadline) < new Date();
       }).length,
     };
@@ -108,7 +111,7 @@ export default function DashboardPage() {
   const overdueTasks = useMemo(() => {
     return allTasks
       .filter((t) => {
-        if (!t.deadline || isPublished(t.status_content)) return false;
+        if (!t.deadline || isPublished(t)) return false;
         return new Date(t.deadline) < new Date();
       })
       .map((t) => ({
@@ -126,7 +129,7 @@ export default function DashboardPage() {
 
     return allTasks
       .filter((t) => {
-        if (!t.publish_date || !isPublished(t.status_content)) return false;
+        if (!t.publish_date || !isPublished(t)) return false;
         const pubDate = new Date(t.publish_date);
         return pubDate >= threeDaysAgo;
       })
@@ -135,7 +138,7 @@ export default function DashboardPage() {
 
   // Calculate leaderboard - person + published count for current month
   const leaderboard = useMemo(() => {
-    const publishedTasks = allTasks.filter((t) => isPublished(t.status_content));
+    const publishedTasks = allTasks.filter((t) => isPublished(t));
 
     // Count by PIC
     const picCount: Record<string, number> = {};
@@ -164,7 +167,7 @@ export default function DashboardPage() {
 
     return allTasks
       .filter((t) => {
-        if (!t.deadline || isPublished(t.status_content)) return false;
+        if (!t.deadline || isPublished(t)) return false;
         const deadline = new Date(t.deadline);
         return deadline >= now && deadline <= threeDaysLater;
       })
@@ -332,7 +335,7 @@ export default function DashboardPage() {
 
       // Get published tasks for this project (with publish_date)
       const projectTasks = allTasks.filter(
-        (t) => t.project?.id === project.id && isPublished(t.status_content)
+        (t) => t.project?.id === project.id && isPublished(t)
       );
 
       const weeklyData = weeksInMonth.map((week) => {
@@ -399,9 +402,9 @@ export default function DashboardPage() {
       t.status_content?.includes('2. QC')
     );
     const waitPublishTasks = projectTasks.filter(t =>
-      t.status_content?.includes('3. Done QC') && !isPublished(t.status_content)
+      t.status_content?.includes('3. Done QC') && !isPublished(t)
     );
-    const publishedTasks = projectTasks.filter(t => isPublished(t.status_content));
+    const publishedTasks = projectTasks.filter(t => isPublished(t));
 
     return {
       doingOutline: doingOutlineTasks.length,
