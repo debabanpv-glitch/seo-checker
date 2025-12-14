@@ -363,14 +363,31 @@ function mapCrawlRow(row: Record<string, string | number>, crawlId: string) {
 // Analyze crawl and calculate scores
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function analyzeAndScoreCrawl(supabase: any, crawlId: string) {
-  // Get all pages - increase limit to handle large sites
-  const { data: pages } = await supabase
-    .from('crawl_pages')
-    .select('*')
-    .eq('crawl_id', crawlId)
-    .limit(10000);
+  // Get all pages - fetch in batches to handle very large sites
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allPages: any[] = [];
+  const batchSize = 1000;
+  let offset = 0;
+  let hasMore = true;
 
-  if (!pages || pages.length === 0) return;
+  while (hasMore) {
+    const { data: batch } = await supabase
+      .from('crawl_pages')
+      .select('*')
+      .eq('crawl_id', crawlId)
+      .range(offset, offset + batchSize - 1);
+
+    if (batch && batch.length > 0) {
+      allPages.push(...batch);
+      offset += batchSize;
+      hasMore = batch.length === batchSize;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  const pages = allPages;
+  if (pages.length === 0) return;
 
   // Status code breakdown
   let status2xx = 0, status3xx = 0, status4xx = 0, status5xx = 0;
