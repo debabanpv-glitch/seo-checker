@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60; // Increase timeout to 60 seconds (requires Vercel Pro or higher)
 
 function getSupabaseClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -472,7 +473,10 @@ async function analyzeAndScoreCrawl(supabase: any, crawlId: string) {
   let pagesWithCritical = 0;
   let pagesWithWarning = 0;
 
-  // Analyze each page with built-in rules
+  // Analyze each page and collect updates
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pageUpdates: Array<{ id: string; has_critical_issue: boolean; has_warning: boolean; issues: any[] }> = [];
+
   for (const page of pages) {
     const issues: Array<{ severity: string; name: string; suggestion: string }> = [];
     let hasCritical = false;
@@ -490,14 +494,12 @@ async function analyzeAndScoreCrawl(supabase: any, crawlId: string) {
     else nonIndexableCount++;
 
     // === CRITICAL ISSUES ===
-    // 4xx/5xx errors
     if (statusCode >= 400) {
       issues.push({ severity: 'critical', name: `Lỗi HTTP ${statusCode}`, suggestion: 'Kiểm tra và sửa lỗi server hoặc URL' });
       hasCritical = true;
       criticalCount++;
     }
 
-    // Non-indexable pages (except intentional ones)
     if (page.indexability === 'Non-Indexable' && !page.meta_robots?.includes('noindex')) {
       issues.push({ severity: 'critical', name: 'Không thể index', suggestion: 'Kiểm tra robots.txt, meta robots, canonical' });
       hasCritical = true;
@@ -505,59 +507,46 @@ async function analyzeAndScoreCrawl(supabase: any, crawlId: string) {
     }
 
     // === WARNINGS ===
-    // Missing title
     if (!page.title || page.title.trim() === '') {
       issues.push({ severity: 'warning', name: 'Thiếu Title', suggestion: 'Thêm title tag mô tả nội dung trang' });
       hasWarning = true;
       warningCount++;
-    }
-    // Title too long (> 60 chars)
-    else if (page.title_length && page.title_length > 60) {
+    } else if (page.title_length && page.title_length > 60) {
       issues.push({ severity: 'warning', name: 'Title quá dài', suggestion: `Title ${page.title_length} ký tự, nên dưới 60` });
       hasWarning = true;
       warningCount++;
-    }
-    // Title too short (< 30 chars)
-    else if (page.title_length && page.title_length < 30) {
+    } else if (page.title_length && page.title_length < 30) {
       issues.push({ severity: 'warning', name: 'Title quá ngắn', suggestion: `Title ${page.title_length} ký tự, nên 30-60` });
       hasWarning = true;
       warningCount++;
     }
 
-    // Missing meta description
     if (!page.meta_description || page.meta_description.trim() === '') {
       issues.push({ severity: 'warning', name: 'Thiếu Meta Description', suggestion: 'Thêm meta description hấp dẫn' });
       hasWarning = true;
       warningCount++;
-    }
-    // Meta description too long (> 160)
-    else if (page.meta_description_length && page.meta_description_length > 160) {
+    } else if (page.meta_description_length && page.meta_description_length > 160) {
       issues.push({ severity: 'warning', name: 'Meta Description quá dài', suggestion: `${page.meta_description_length} ký tự, nên dưới 160` });
       hasWarning = true;
       warningCount++;
     }
 
-    // Missing H1
     if (!page.h1_1 || page.h1_1.trim() === '') {
       issues.push({ severity: 'warning', name: 'Thiếu H1', suggestion: 'Thêm thẻ H1 chính cho trang' });
       hasWarning = true;
       warningCount++;
-    }
-    // Multiple H1s
-    else if (page.h1_2 && page.h1_2.trim() !== '') {
+    } else if (page.h1_2 && page.h1_2.trim() !== '') {
       issues.push({ severity: 'warning', name: 'Nhiều H1', suggestion: 'Chỉ nên có 1 thẻ H1 mỗi trang' });
       hasWarning = true;
       warningCount++;
     }
 
-    // Missing canonical
     if (!page.canonical_link || page.canonical_link.trim() === '') {
       issues.push({ severity: 'warning', name: 'Thiếu Canonical', suggestion: 'Thêm canonical tag cho trang' });
       hasWarning = true;
       warningCount++;
     }
 
-    // Low word count (< 300)
     if (page.word_count !== null && page.word_count < 300 && page.content_type?.includes('text/html')) {
       issues.push({ severity: 'warning', name: 'Nội dung mỏng', suggestion: `Chỉ ${page.word_count} từ, nên trên 300` });
       hasWarning = true;
@@ -565,13 +554,11 @@ async function analyzeAndScoreCrawl(supabase: any, crawlId: string) {
     }
 
     // === OPPORTUNITIES ===
-    // Slow response time (> 1s)
     if (page.response_time && page.response_time > 1000) {
       issues.push({ severity: 'opportunity', name: 'Tải chậm', suggestion: `${(page.response_time/1000).toFixed(1)}s, nên dưới 1s` });
       opportunityCount++;
     }
 
-    // Deep crawl depth (> 3)
     if (page.crawl_depth && page.crawl_depth > 3) {
       issues.push({ severity: 'opportunity', name: 'URL quá sâu', suggestion: `Độ sâu ${page.crawl_depth}, nên dưới 4` });
       opportunityCount++;
@@ -581,15 +568,32 @@ async function analyzeAndScoreCrawl(supabase: any, crawlId: string) {
     if (hasCritical) pagesWithCritical++;
     if (hasWarning) pagesWithWarning++;
 
-    // Update page with issues (batch later for performance)
-    await supabase
-      .from('crawl_pages')
-      .update({
+    // Collect update (only if has issues)
+    if (issues.length > 0) {
+      pageUpdates.push({
+        id: page.id,
         has_critical_issue: hasCritical,
         has_warning: hasWarning,
         issues: issues,
-      })
-      .eq('id', page.id);
+      });
+    }
+  }
+
+  // Batch update pages with issues using parallel requests (max 10 concurrent)
+  console.log('[ANALYZE] Updating', pageUpdates.length, 'pages with issues');
+  const updateBatchSize = 50;
+  for (let i = 0; i < pageUpdates.length; i += updateBatchSize) {
+    const batch = pageUpdates.slice(i, i + updateBatchSize);
+    await Promise.all(batch.map(update =>
+      supabase
+        .from('crawl_pages')
+        .update({
+          has_critical_issue: update.has_critical_issue,
+          has_warning: update.has_warning,
+          issues: update.issues,
+        })
+        .eq('id', update.id)
+    ));
   }
 
   // Calculate health score based on percentage of clean pages
