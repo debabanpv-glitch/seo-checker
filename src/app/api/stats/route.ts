@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { isPublished, isDoneQC } from '@/lib/task-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,23 +30,6 @@ export async function GET(request: NextRequest) {
 
     // Calculate stats - only count tasks with actual content
     const validTasks = taskList.filter((t) => t.title || t.keyword_sub || t.parent_keyword);
-
-    // Helper to check if task is published - support multiple formats AND publish_date
-    const isPublished = (task: { status_content?: string | null; publish_date?: string | null }) => {
-      // If has publish_date, consider it published
-      if (task.publish_date) return true;
-
-      if (!task.status_content) return false;
-      const status = task.status_content.toLowerCase().trim();
-      return status.includes('publish') || status.includes('4.') || status === 'done' || status === 'hoàn thành';
-    };
-
-    // Helper to check if task is done QC
-    const isDoneQC = (statusContent: string | null) => {
-      if (!statusContent) return false;
-      const status = statusContent.toLowerCase().trim();
-      return status.includes('done qc') || status.includes('3.') || status.includes('chờ publish');
-    };
 
     const stats = {
       total: validTasks.length,

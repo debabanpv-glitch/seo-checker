@@ -23,17 +23,8 @@ import {
 import ProgressBar from '@/components/ProgressBar';
 import { PageLoading } from '@/components/LoadingSpinner';
 import { formatDate } from '@/lib/utils';
+import { isPublished } from '@/lib/task-helpers';
 import { Task, ProjectStats, BottleneckData, Stats, BottleneckTask } from '@/types';
-
-// Helper to check if task is published - support multiple formats AND publish_date
-const isPublished = (task: { status_content?: string | null; publish_date?: string | null }) => {
-  // If has publish_date, consider it published
-  if (task.publish_date) return true;
-
-  if (!task.status_content) return false;
-  const status = task.status_content.toLowerCase().trim();
-  return status.includes('publish') || status.includes('4.') || status === 'done' || status === 'hoàn thành';
-};
 
 export default function DashboardPage() {
   // Month/Year state
