@@ -23,13 +23,28 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // DEBUG: Log raw data from Supabase
+    const rawWithPubDate = (allTasks || []).filter((t: { publish_date?: string | null }) => t.publish_date);
+    console.log('[API] Total tasks from Supabase:', allTasks?.length);
+    console.log('[API] Tasks with publish_date (all months):', rawWithPubDate.length);
+
     // Filter tasks for selected month/year
     const taskList = (allTasks || []).filter(
       (t) => t.month === selectedMonth && t.year === selectedYear
     );
 
+    // DEBUG: Log after month filter
+    const taskListWithPubDate = taskList.filter((t: { publish_date?: string | null }) => t.publish_date);
+    console.log('[API] Tasks for', selectedMonth, '/', selectedYear, ':', taskList.length);
+    console.log('[API] With publish_date:', taskListWithPubDate.length);
+
     // Calculate stats - only count tasks with actual content
     const validTasks = taskList.filter((t) => t.title || t.keyword_sub || t.parent_keyword);
+
+    // DEBUG: Log after valid filter
+    const validWithPubDate = validTasks.filter((t: { publish_date?: string | null }) => t.publish_date);
+    console.log('[API] Valid tasks:', validTasks.length);
+    console.log('[API] Valid with publish_date:', validWithPubDate.length);
 
     const stats = {
       total: validTasks.length,
@@ -213,18 +228,6 @@ export async function GET(request: NextRequest) {
         return new Date(dateB).getTime() - new Date(dateA).getTime();
       })
       .slice(0, 10);
-
-    // DEBUG: Log publish_date count before mapping
-    const pubDateCount = validTasks.filter((t) => t.publish_date).length;
-    console.log('[API DEBUG] validTasks.length:', validTasks.length);
-    console.log('[API DEBUG] validTasks with publish_date:', pubDateCount);
-
-    // Log sample of tasks with publish_date to verify data
-    const sampleWithPubDate = validTasks
-      .filter((t) => t.publish_date)
-      .slice(0, 3)
-      .map((t) => ({ id: String(t.id).substring(0, 8), publish_date: t.publish_date }));
-    console.log('[API DEBUG] Sample tasks with publish_date:', JSON.stringify(sampleWithPubDate));
 
     // Return all tasks for chart (with project info)
     const allTasksWithProject = validTasks.map((t) => ({
