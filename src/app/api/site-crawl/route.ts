@@ -363,84 +363,33 @@ function mapCrawlRow(row: Record<string, string | number>, crawlId: string) {
 // Analyze crawl and calculate scores
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function analyzeAndScoreCrawl(supabase: any, crawlId: string) {
-  // Get all pages
+  // Get all pages - increase limit to handle large sites
   const { data: pages } = await supabase
     .from('crawl_pages')
     .select('*')
-    .eq('crawl_id', crawlId);
+    .eq('crawl_id', crawlId)
+    .limit(10000);
 
   if (!pages || pages.length === 0) return;
-
-  // Get issue definitions
-  const { data: definitions } = await supabase
-    .from('crawl_issue_definitions')
-    .select('*')
-    .eq('is_active', true);
-
-  if (!definitions) return;
-
-  let totalScore = 100;
-  let criticalCount = 0;
-  let warningCount = 0;
-  let opportunityCount = 0;
 
   // Status code breakdown
   let status2xx = 0, status3xx = 0, status4xx = 0, status5xx = 0;
   let indexableCount = 0, nonIndexableCount = 0;
 
-  // Analyze each page
+  // Issue counts
+  let criticalCount = 0;
+  let warningCount = 0;
+  let opportunityCount = 0;
+
+  // Pages with issues
+  let pagesWithCritical = 0;
+  let pagesWithWarning = 0;
+
+  // Analyze each page with built-in rules
   for (const page of pages) {
-    const issues: Array<{ id: string; severity: string; name: string; suggestion: string }> = [];
+    const issues: Array<{ severity: string; name: string; suggestion: string }> = [];
     let hasCritical = false;
     let hasWarning = false;
-
-    // Check each issue definition
-    for (const def of definitions) {
-      const fieldValue = page[def.check_field];
-      let isIssue = false;
-
-      switch (def.check_type) {
-        case 'empty':
-          isIssue = !fieldValue || fieldValue === '' || fieldValue === null;
-          break;
-        case 'not_empty':
-          isIssue = fieldValue && fieldValue !== '' && fieldValue !== null;
-          break;
-        case 'equals':
-          isIssue = String(fieldValue) === def.check_value;
-          break;
-        case 'greater_than':
-          isIssue = fieldValue !== null && Number(fieldValue) > Number(def.check_value);
-          break;
-        case 'less_than':
-          isIssue = fieldValue !== null && Number(fieldValue) < Number(def.check_value);
-          break;
-        case 'contains':
-          isIssue = fieldValue && String(fieldValue).toLowerCase().includes(def.check_value.toLowerCase());
-          break;
-      }
-
-      if (isIssue) {
-        issues.push({
-          id: def.id,
-          severity: def.severity,
-          name: def.name,
-          suggestion: def.suggestion,
-        });
-
-        totalScore -= def.weight;
-
-        if (def.severity === 'critical') {
-          hasCritical = true;
-          criticalCount++;
-        } else if (def.severity === 'warning') {
-          hasWarning = true;
-          warningCount++;
-        } else {
-          opportunityCount++;
-        }
-      }
-    }
 
     // Count status codes
     const statusCode = page.status_code || 0;
@@ -453,7 +402,99 @@ async function analyzeAndScoreCrawl(supabase: any, crawlId: string) {
     if (page.indexability === 'Indexable') indexableCount++;
     else nonIndexableCount++;
 
-    // Update page with issues
+    // === CRITICAL ISSUES ===
+    // 4xx/5xx errors
+    if (statusCode >= 400) {
+      issues.push({ severity: 'critical', name: `Lỗi HTTP ${statusCode}`, suggestion: 'Kiểm tra và sửa lỗi server hoặc URL' });
+      hasCritical = true;
+      criticalCount++;
+    }
+
+    // Non-indexable pages (except intentional ones)
+    if (page.indexability === 'Non-Indexable' && !page.meta_robots?.includes('noindex')) {
+      issues.push({ severity: 'critical', name: 'Không thể index', suggestion: 'Kiểm tra robots.txt, meta robots, canonical' });
+      hasCritical = true;
+      criticalCount++;
+    }
+
+    // === WARNINGS ===
+    // Missing title
+    if (!page.title || page.title.trim() === '') {
+      issues.push({ severity: 'warning', name: 'Thiếu Title', suggestion: 'Thêm title tag mô tả nội dung trang' });
+      hasWarning = true;
+      warningCount++;
+    }
+    // Title too long (> 60 chars)
+    else if (page.title_length && page.title_length > 60) {
+      issues.push({ severity: 'warning', name: 'Title quá dài', suggestion: `Title ${page.title_length} ký tự, nên dưới 60` });
+      hasWarning = true;
+      warningCount++;
+    }
+    // Title too short (< 30 chars)
+    else if (page.title_length && page.title_length < 30) {
+      issues.push({ severity: 'warning', name: 'Title quá ngắn', suggestion: `Title ${page.title_length} ký tự, nên 30-60` });
+      hasWarning = true;
+      warningCount++;
+    }
+
+    // Missing meta description
+    if (!page.meta_description || page.meta_description.trim() === '') {
+      issues.push({ severity: 'warning', name: 'Thiếu Meta Description', suggestion: 'Thêm meta description hấp dẫn' });
+      hasWarning = true;
+      warningCount++;
+    }
+    // Meta description too long (> 160)
+    else if (page.meta_description_length && page.meta_description_length > 160) {
+      issues.push({ severity: 'warning', name: 'Meta Description quá dài', suggestion: `${page.meta_description_length} ký tự, nên dưới 160` });
+      hasWarning = true;
+      warningCount++;
+    }
+
+    // Missing H1
+    if (!page.h1_1 || page.h1_1.trim() === '') {
+      issues.push({ severity: 'warning', name: 'Thiếu H1', suggestion: 'Thêm thẻ H1 chính cho trang' });
+      hasWarning = true;
+      warningCount++;
+    }
+    // Multiple H1s
+    else if (page.h1_2 && page.h1_2.trim() !== '') {
+      issues.push({ severity: 'warning', name: 'Nhiều H1', suggestion: 'Chỉ nên có 1 thẻ H1 mỗi trang' });
+      hasWarning = true;
+      warningCount++;
+    }
+
+    // Missing canonical
+    if (!page.canonical_link || page.canonical_link.trim() === '') {
+      issues.push({ severity: 'warning', name: 'Thiếu Canonical', suggestion: 'Thêm canonical tag cho trang' });
+      hasWarning = true;
+      warningCount++;
+    }
+
+    // Low word count (< 300)
+    if (page.word_count !== null && page.word_count < 300 && page.content_type?.includes('text/html')) {
+      issues.push({ severity: 'warning', name: 'Nội dung mỏng', suggestion: `Chỉ ${page.word_count} từ, nên trên 300` });
+      hasWarning = true;
+      warningCount++;
+    }
+
+    // === OPPORTUNITIES ===
+    // Slow response time (> 1s)
+    if (page.response_time && page.response_time > 1000) {
+      issues.push({ severity: 'opportunity', name: 'Tải chậm', suggestion: `${(page.response_time/1000).toFixed(1)}s, nên dưới 1s` });
+      opportunityCount++;
+    }
+
+    // Deep crawl depth (> 3)
+    if (page.crawl_depth && page.crawl_depth > 3) {
+      issues.push({ severity: 'opportunity', name: 'URL quá sâu', suggestion: `Độ sâu ${page.crawl_depth}, nên dưới 4` });
+      opportunityCount++;
+    }
+
+    // Track pages with issues
+    if (hasCritical) pagesWithCritical++;
+    if (hasWarning) pagesWithWarning++;
+
+    // Update page with issues (batch later for performance)
     await supabase
       .from('crawl_pages')
       .update({
@@ -464,8 +505,10 @@ async function analyzeAndScoreCrawl(supabase: any, crawlId: string) {
       .eq('id', page.id);
   }
 
-  // Calculate final health score (minimum 0)
-  const healthScore = Math.max(0, Math.min(100, Math.round(totalScore / pages.length * 10)));
+  // Calculate health score based on percentage of clean pages
+  // 100 = all pages clean, 0 = all pages have critical issues
+  const cleanPages = pages.length - pagesWithCritical - pagesWithWarning;
+  const healthScore = Math.round((cleanPages / pages.length) * 100);
 
   // Update crawl summary
   await supabase
@@ -478,7 +521,7 @@ async function analyzeAndScoreCrawl(supabase: any, crawlId: string) {
       status_3xx: status3xx,
       status_4xx: status4xx,
       status_5xx: status5xx,
-      health_score: healthScore,
+      health_score: Math.max(0, Math.min(100, healthScore)),
       critical_issues: criticalCount,
       warnings: warningCount,
       opportunities: opportunityCount,
