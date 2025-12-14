@@ -421,7 +421,7 @@ export default function KeywordRankingPage() {
                     <td className="px-4 py-3">
                       {/* Mini sparkline preview */}
                       <div className="flex items-center gap-1">
-                        <MiniSparkline history={trend.history} getPositionColor={getPositionColor} />
+                        <MiniSparkline history={trend.history} />
                         <ChevronRight className={cn(
                           "w-4 h-4 text-[#8888a0] transition-transform",
                           selectedKeyword?.keyword === trend.keyword && "rotate-90"
@@ -525,7 +525,6 @@ export default function KeywordRankingPage() {
               <div className="relative h-64 bg-secondary/30 rounded-xl p-4">
                 <TimelineChart
                   history={selectedKeyword.history}
-                  getPositionColor={getPositionColor}
                   formatDate={formatDate}
                 />
               </div>
@@ -611,10 +610,8 @@ export default function KeywordRankingPage() {
 // Mini Sparkline Component
 function MiniSparkline({
   history,
-  getPositionColor
 }: {
   history: { date: string; position: number }[];
-  getPositionColor: (pos: number) => string;
 }) {
   if (history.length === 0) return null;
 
@@ -663,11 +660,9 @@ function MiniSparkline({
 // Timeline Chart Component
 function TimelineChart({
   history,
-  getPositionColor,
   formatDate
 }: {
   history: { date: string; position: number }[];
-  getPositionColor: (pos: number) => string;
   formatDate: (date: string) => string;
 }) {
   if (history.length === 0) return <div className="text-center text-[#8888a0]">Không có dữ liệu</div>;
