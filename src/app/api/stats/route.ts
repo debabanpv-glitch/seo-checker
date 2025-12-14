@@ -216,7 +216,15 @@ export async function GET(request: NextRequest) {
 
     // DEBUG: Log publish_date count before mapping
     const pubDateCount = validTasks.filter((t) => t.publish_date).length;
+    console.log('[API DEBUG] validTasks.length:', validTasks.length);
     console.log('[API DEBUG] validTasks with publish_date:', pubDateCount);
+
+    // Log sample of tasks with publish_date to verify data
+    const sampleWithPubDate = validTasks
+      .filter((t) => t.publish_date)
+      .slice(0, 3)
+      .map((t) => ({ id: String(t.id).substring(0, 8), publish_date: t.publish_date }));
+    console.log('[API DEBUG] Sample tasks with publish_date:', JSON.stringify(sampleWithPubDate));
 
     // Return all tasks for chart (with project info)
     const allTasksWithProject = validTasks.map((t) => ({
