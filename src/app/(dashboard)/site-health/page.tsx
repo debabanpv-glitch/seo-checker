@@ -159,9 +159,13 @@ export default function SiteHealthPage() {
     }
   };
 
+  const [syncStatus, setSyncStatus] = useState<string>('');
+
   const handleSyncCrawl = async (projectId: string, sheetUrl: string) => {
     setIsSyncing(true);
+    setSyncStatus('Đang import dữ liệu...');
     try {
+      // Step 1: Import data
       const res = await fetch('/api/site-crawl', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -174,21 +178,43 @@ export default function SiteHealthPage() {
       const result = await res.json();
 
       if (!res.ok) {
-        throw new Error(result.error || 'Sync failed');
+        throw new Error(result.error || 'Import failed');
       }
 
-      // Refresh crawls and show the new one
-      await fetchCrawls();
+      setSyncStatus(`Đã import ${result.imported} URLs. Đang phân tích...`);
+
+      // Step 2: Analyze (separate call to avoid timeout)
       if (result.crawl?.id) {
-        await fetchCrawlDetail(result.crawl.id);
-      }
+        const analyzeRes = await fetch('/api/site-crawl/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ crawl_id: result.crawl.id }),
+        });
 
-      alert(`Đã sync thành công ${result.imported} URLs!`);
+        const analyzeResult = await analyzeRes.json();
+
+        if (!analyzeRes.ok) {
+          console.error('Analyze error:', analyzeResult.error);
+          // Continue anyway, just show warning
+        }
+
+        setSyncStatus('Hoàn tất!');
+
+        // Refresh and show results
+        await fetchCrawls();
+        await fetchCrawlDetail(result.crawl.id);
+
+        const msg = analyzeResult.success
+          ? `Đã sync ${result.imported} URLs!\nHealth Score: ${analyzeResult.healthScore}\nCritical: ${analyzeResult.criticalCount}\nWarnings: ${analyzeResult.warningCount}`
+          : `Đã import ${result.imported} URLs. Phân tích có thể chưa hoàn tất.`;
+        alert(msg);
+      }
     } catch (error) {
       console.error('Sync error:', error);
       alert('Lỗi sync: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setIsSyncing(false);
+      setSyncStatus('');
     }
   };
 
@@ -322,7 +348,7 @@ export default function SiteHealthPage() {
               {isSyncing ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Đang sync...
+                  {syncStatus || 'Đang sync...'}
                 </>
               ) : (
                 <>
@@ -334,6 +360,14 @@ export default function SiteHealthPage() {
           )}
         </div>
       </div>
+
+      {/* Sync Status Banner */}
+      {isSyncing && syncStatus && (
+        <div className="bg-accent/10 border border-accent/30 rounded-lg p-3 flex items-center gap-3">
+          <Loader2 className="w-5 h-5 animate-spin text-accent" />
+          <span className="text-sm text-[var(--text-primary)]">{syncStatus}</span>
+        </div>
+      )}
 
       {/* No project selected */}
       {!selectedProject && (
