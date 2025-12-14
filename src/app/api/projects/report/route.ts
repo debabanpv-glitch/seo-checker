@@ -215,6 +215,138 @@ export async function GET(request: NextRequest) {
         .sort((a, b) => b[1] - a[1])
         .map(([name, count]) => ({ name, count }))[0] || null;
 
+      // ===== NEW DETAILED ANALYTICS =====
+
+      // 1. Per-person breakdown (all tasks, not just published)
+      const picBreakdown: Record<string, {
+        published: number;
+        inProgress: number;
+        doneQC: number;
+        overdue: number;
+        total: number;
+      }> = {};
+
+      projectTasks.forEach((t) => {
+        if (!t.pic) return;
+        if (!picBreakdown[t.pic]) {
+          picBreakdown[t.pic] = { published: 0, inProgress: 0, doneQC: 0, overdue: 0, total: 0 };
+        }
+        picBreakdown[t.pic].total++;
+        if (isPublished(t)) {
+          picBreakdown[t.pic].published++;
+        } else if (isDoneQC(t.status_content)) {
+          picBreakdown[t.pic].doneQC++;
+        } else if (t.status_content) {
+          picBreakdown[t.pic].inProgress++;
+        }
+        if (!isPublished(t) && t.deadline && new Date(t.deadline) < new Date()) {
+          picBreakdown[t.pic].overdue++;
+        }
+      });
+
+      const picDetails = Object.entries(picBreakdown)
+        .map(([name, stats]) => ({ name, ...stats }))
+        .sort((a, b) => b.published - a.published);
+
+      // 2. Pipeline status breakdown (status distribution)
+      const doingOutlineCount = projectTasks.filter((t) =>
+        t.status_outline && t.status_outline.toLowerCase().includes('doing') && !isPublished(t)
+      ).length;
+      const fixingOutlineCount = projectTasks.filter((t) =>
+        t.status_outline && t.status_outline.toLowerCase().includes('fix') && !isPublished(t)
+      ).length;
+      const qcOutlineCount = projectTasks.filter((t) =>
+        t.status_outline && t.status_outline.toLowerCase().includes('qc') && !isPublished(t)
+      ).length;
+      const doingContentCount = projectTasks.filter((t) =>
+        t.status_content && t.status_content.toLowerCase().includes('doing') && !isPublished(t)
+      ).length;
+      const fixingContentCount = projectTasks.filter((t) =>
+        t.status_content && t.status_content.toLowerCase().includes('fix') && !isPublished(t)
+      ).length;
+      const waitPublishCount = projectTasks.filter((t) =>
+        isDoneQC(t.status_content) && !isPublished(t)
+      ).length;
+
+      const pipeline = {
+        doingOutline: doingOutlineCount,
+        qcOutline: qcOutlineCount,
+        fixingOutline: fixingOutlineCount,
+        doingContent: doingContentCount,
+        qcContent: qcContentCount,
+        fixingContent: fixingContentCount,
+        waitPublish: waitPublishCount,
+      };
+
+      // 3. Deadline distribution
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const threeDaysLater = new Date(today);
+      threeDaysLater.setDate(today.getDate() + 3);
+      const sevenDaysLater = new Date(today);
+      sevenDaysLater.setDate(today.getDate() + 7);
+
+      const deadlineDistribution = {
+        overdue: projectTasks.filter((t) => {
+          if (isPublished(t) || !t.deadline) return false;
+          return new Date(t.deadline) < today;
+        }).length,
+        dueSoon: projectTasks.filter((t) => {
+          if (isPublished(t) || !t.deadline) return false;
+          const d = new Date(t.deadline);
+          return d >= today && d <= threeDaysLater;
+        }).length,
+        dueThisWeek: projectTasks.filter((t) => {
+          if (isPublished(t) || !t.deadline) return false;
+          const d = new Date(t.deadline);
+          return d > threeDaysLater && d <= sevenDaysLater;
+        }).length,
+        later: projectTasks.filter((t) => {
+          if (isPublished(t) || !t.deadline) return false;
+          return new Date(t.deadline) > sevenDaysLater;
+        }).length,
+        noDeadline: projectTasks.filter((t) => !isPublished(t) && !t.deadline).length,
+      };
+
+      // 4. Task list for display (tasks not published yet)
+      const activeTasks = projectTasks
+        .filter((t) => !isPublished(t))
+        .map((t) => ({
+          id: t.id,
+          title: t.title || t.keyword_sub || t.parent_keyword,
+          pic: t.pic,
+          status_outline: t.status_outline,
+          status_content: t.status_content,
+          deadline: t.deadline,
+          isOverdue: t.deadline ? new Date(t.deadline) < today : false,
+        }))
+        .sort((a, b) => {
+          // Sort by overdue first, then by deadline
+          if (a.isOverdue && !b.isOverdue) return -1;
+          if (!a.isOverdue && b.isOverdue) return 1;
+          if (a.deadline && b.deadline) {
+            return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+          }
+          return 0;
+        })
+        .slice(0, 15); // Limit to 15 tasks
+
+      // 5. Recent published tasks (last 5)
+      const recentPublished = projectTasks
+        .filter((t) => isPublished(t))
+        .map((t) => ({
+          id: t.id,
+          title: t.title || t.keyword_sub,
+          pic: t.pic,
+          publish_date: t.publish_date,
+          link_publish: t.link_publish,
+        }))
+        .sort((a, b) => {
+          if (!a.publish_date || !b.publish_date) return 0;
+          return new Date(b.publish_date).getTime() - new Date(a.publish_date).getTime();
+        })
+        .slice(0, 5);
+
       return {
         id: project.id,
         name: project.name,
@@ -243,6 +375,12 @@ export async function GET(request: NextRequest) {
         // Team
         pics,
         topPerformer,
+        // NEW: Detailed analytics
+        picDetails,
+        pipeline,
+        deadlineDistribution,
+        activeTasks,
+        recentPublished,
       };
     });
 

@@ -83,6 +83,237 @@ interface CheckDetail {
 
 type FilterStatus = 'all' | 'unchecked' | 'passed' | 'failed';
 
+// Score Bar Component
+function ScoreBar({ label, score, max }: { label: string; score: number; max: number }) {
+  const percent = max > 0 ? (score / max) * 100 : 0;
+  const color = percent >= 70 ? 'bg-green-400' : percent >= 50 ? 'bg-yellow-400' : 'bg-red-400';
+  const textColor = percent >= 70 ? 'text-green-400' : percent >= 50 ? 'text-yellow-400' : 'text-red-400';
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="w-16 text-xs text-[#8888a0]">{label}</div>
+      <div className="flex-1 h-2 bg-[#8888a0]/20 rounded-full overflow-hidden">
+        <div
+          className={cn("h-full rounded-full transition-all duration-500", color)}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+      <div className={cn("text-xs font-medium w-12 text-right", textColor)}>
+        {score}/{max}
+      </div>
+    </div>
+  );
+}
+
+// Group check details by logical categories
+function SEODetailsGrouped({ details }: { details: CheckDetail[] }) {
+  // Group details by semantic categories (not just API category)
+  const groups: Record<string, { title: string; icon: React.ReactNode; items: CheckDetail[] }> = {
+    title: { title: 'Title', icon: <Tag className="w-4 h-4" />, items: [] },
+    meta: { title: 'Meta Description', icon: <Search className="w-4 h-4" />, items: [] },
+    headings: { title: 'Headings (H1-H6)', icon: <ChevronUp className="w-4 h-4" />, items: [] },
+    content: { title: 'Nội dung', icon: <Check className="w-4 h-4" />, items: [] },
+    images: { title: 'Hình ảnh', icon: <ExternalLink className="w-4 h-4" />, items: [] },
+    technical: { title: 'Kỹ thuật', icon: <Link2 className="w-4 h-4" />, items: [] },
+  };
+
+  // Categorize each detail by name/id
+  details.forEach((detail) => {
+    const name = detail.name.toLowerCase();
+    const id = detail.id.toLowerCase();
+
+    if (name.includes('title') || id.includes('title')) {
+      groups.title.items.push(detail);
+    } else if (name.includes('meta') || id.includes('meta')) {
+      groups.meta.items.push(detail);
+    } else if (name.includes('heading') || name.includes('h1') || name.includes('h2') || id.includes('heading')) {
+      groups.headings.items.push(detail);
+    } else if (detail.category === 'images' || name.includes('image') || name.includes('alt')) {
+      groups.images.items.push(detail);
+    } else if (detail.category === 'technical' || name.includes('url') || name.includes('schema') || name.includes('canonical') || name.includes('open graph')) {
+      groups.technical.items.push(detail);
+    } else {
+      groups.content.items.push(detail);
+    }
+  });
+
+  // Calculate score for each group
+  const getGroupScore = (items: CheckDetail[]) => {
+    const total = items.reduce((sum, d) => sum + d.score, 0);
+    const max = items.reduce((sum, d) => sum + d.maxScore, 0);
+    return { total, max, percent: max > 0 ? Math.round((total / max) * 100) : 0 };
+  };
+
+  // Get color based on pass/fail ratio
+  const getGroupStatus = (items: CheckDetail[]) => {
+    const passed = items.filter((d) => d.status === 'pass').length;
+    const total = items.length;
+    if (passed === total) return 'pass';
+    if (passed === 0) return 'fail';
+    return 'warning';
+  };
+
+  return (
+    <div className="space-y-3">
+      {Object.entries(groups).map(([key, group]) => {
+        if (group.items.length === 0) return null;
+
+        const score = getGroupScore(group.items);
+        const status = getGroupStatus(group.items);
+        const passCount = group.items.filter((d) => d.status === 'pass').length;
+        const failCount = group.items.filter((d) => d.status === 'fail').length;
+        const warnCount = group.items.filter((d) => d.status === 'warning').length;
+
+        return (
+          <SEOGroupCard
+            key={key}
+            title={group.title}
+            icon={group.icon}
+            items={group.items}
+            score={score}
+            status={status}
+            passCount={passCount}
+            failCount={failCount}
+            warnCount={warnCount}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+// Individual Group Card with expand/collapse
+function SEOGroupCard({
+  title,
+  icon,
+  items,
+  score,
+  status,
+  passCount,
+  failCount,
+  warnCount,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  items: CheckDetail[];
+  score: { total: number; max: number; percent: number };
+  status: 'pass' | 'fail' | 'warning';
+  passCount: number;
+  failCount: number;
+  warnCount: number;
+}) {
+  const [isExpanded, setIsExpanded] = useState(status !== 'pass'); // Auto expand if not all passed
+
+  const statusColors = {
+    pass: 'border-green-500/50 bg-green-500/5',
+    warning: 'border-yellow-500/50 bg-yellow-500/5',
+    fail: 'border-red-500/50 bg-red-500/5',
+  };
+
+  const headerColors = {
+    pass: 'text-green-400',
+    warning: 'text-yellow-400',
+    fail: 'text-red-400',
+  };
+
+  return (
+    <div className={cn("rounded-xl border overflow-hidden", statusColors[status])}>
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-colors"
+      >
+        <div className={cn("p-1.5 rounded-lg", status === 'pass' ? 'bg-green-500/20 text-green-400' : status === 'warning' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400')}>
+          {icon}
+        </div>
+        <div className="flex-1 text-left">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-[var(--text-primary)]">{title}</span>
+            <div className="flex items-center gap-1">
+              {passCount > 0 && (
+                <span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded text-[10px] font-medium">
+                  {passCount} pass
+                </span>
+              )}
+              {warnCount > 0 && (
+                <span className="px-1.5 py-0.5 bg-yellow-500/20 text-yellow-400 rounded text-[10px] font-medium">
+                  {warnCount} warn
+                </span>
+              )}
+              {failCount > 0 && (
+                <span className="px-1.5 py-0.5 bg-red-500/20 text-red-400 rounded text-[10px] font-medium">
+                  {failCount} fail
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className={cn("text-lg font-bold", headerColors[status])}>
+            {score.total}/{score.max}
+          </div>
+          {isExpanded ? (
+            <ChevronUp className="w-4 h-4 text-[#8888a0]" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-[#8888a0]" />
+          )}
+        </div>
+      </button>
+
+      {isExpanded && (
+        <div className="px-4 pb-3 space-y-2">
+          {items.map((detail, idx) => (
+            <div
+              key={idx}
+              className={cn(
+                "flex items-start gap-3 p-2.5 rounded-lg",
+                detail.status === 'pass'
+                  ? "bg-green-500/10"
+                  : detail.status === 'warning'
+                  ? "bg-yellow-500/10"
+                  : "bg-red-500/10"
+              )}
+            >
+              <div className="mt-0.5">
+                {detail.status === 'pass' ? (
+                  <Check className="w-4 h-4 text-green-400" />
+                ) : detail.status === 'warning' ? (
+                  <AlertTriangle className="w-4 h-4 text-yellow-400" />
+                ) : (
+                  <XCircle className="w-4 h-4 text-red-400" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm text-[var(--text-primary)] font-medium">{detail.name}</div>
+                {detail.value && (
+                  <div className="text-xs text-[#8888a0] mt-1 break-words line-clamp-2">
+                    {detail.value}
+                  </div>
+                )}
+                {detail.suggestion && detail.status !== 'pass' && (
+                  <div className="text-xs text-yellow-400 mt-1.5 flex items-start gap-1">
+                    <span>💡</span>
+                    <span>{detail.suggestion}</span>
+                  </div>
+                )}
+              </div>
+              <div className={cn(
+                "text-xs font-medium px-1.5 py-0.5 rounded",
+                detail.status === 'pass'
+                  ? "bg-green-500/20 text-green-400"
+                  : detail.status === 'warning'
+                  ? "bg-yellow-500/20 text-yellow-400"
+                  : "bg-red-500/20 text-red-400"
+              )}>
+                {detail.score}/{detail.maxScore}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Links Section Component
 function LinksSection({ links }: { links: { internal: LinkInfo[]; external: LinkInfo[] } }) {
   const [showInternal, setShowInternal] = useState(false);
@@ -920,51 +1151,73 @@ export default function SEOAuditPage() {
                     </div>
                   ) : selectedTask.seoResult ? (
                     <div className="space-y-4">
-                      {/* Overall Score */}
-                      <div className="text-center py-4">
-                        <div className={cn(
-                          "text-5xl font-bold",
-                          getScoreColor(selectedTask.seoResult.score)
-                        )}>
-                          {selectedTask.seoResult.score}
-                        </div>
-                        <div className="text-sm text-[#8888a0] mt-1">
-                          / {selectedTask.seoResult.max_score} điểm
-                        </div>
-                        <div className="text-xs text-[#8888a0] mt-2 flex items-center justify-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          Kiểm tra lúc {formatDate(selectedTask.seoResult.checked_at)}
-                        </div>
-                      </div>
+                      {/* Score Overview - Redesigned */}
+                      <div className="bg-gradient-to-br from-secondary to-secondary/50 rounded-2xl p-5">
+                        <div className="flex items-center gap-6">
+                          {/* Main Score Circle */}
+                          <div className="relative">
+                            <svg className="w-24 h-24 transform -rotate-90">
+                              <circle
+                                cx="48"
+                                cy="48"
+                                r="40"
+                                stroke="currentColor"
+                                strokeWidth="8"
+                                fill="none"
+                                className="text-[#8888a0]/20"
+                              />
+                              <circle
+                                cx="48"
+                                cy="48"
+                                r="40"
+                                stroke="currentColor"
+                                strokeWidth="8"
+                                fill="none"
+                                strokeDasharray={`${(selectedTask.seoResult.score / selectedTask.seoResult.max_score) * 251.2} 251.2`}
+                                strokeLinecap="round"
+                                className={cn(
+                                  selectedTask.seoResult.score >= 70 ? "text-green-400" :
+                                  selectedTask.seoResult.score >= 50 ? "text-yellow-400" : "text-red-400"
+                                )}
+                              />
+                            </svg>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div className="text-center">
+                                <div className={cn(
+                                  "text-2xl font-bold",
+                                  getScoreColor(selectedTask.seoResult.score)
+                                )}>
+                                  {selectedTask.seoResult.score}
+                                </div>
+                                <div className="text-[10px] text-[#8888a0]">/{selectedTask.seoResult.max_score}</div>
+                              </div>
+                            </div>
+                          </div>
 
-                      {/* Category Scores */}
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="bg-secondary rounded-lg p-3 text-center">
-                          <div className="text-xs text-[#8888a0] mb-1">Nội dung (C)</div>
-                          <div className={cn(
-                            "text-lg font-bold",
-                            getScoreColor(Math.round((selectedTask.seoResult.content_score / selectedTask.seoResult.content_max) * 100))
-                          )}>
-                            {selectedTask.seoResult.content_score}/{selectedTask.seoResult.content_max}
+                          {/* Category Bars */}
+                          <div className="flex-1 space-y-3">
+                            <ScoreBar
+                              label="Nội dung"
+                              score={selectedTask.seoResult.content_score}
+                              max={selectedTask.seoResult.content_max}
+                            />
+                            <ScoreBar
+                              label="Hình ảnh"
+                              score={selectedTask.seoResult.images_score}
+                              max={selectedTask.seoResult.images_max}
+                            />
+                            <ScoreBar
+                              label="Kỹ thuật"
+                              score={selectedTask.seoResult.technical_score}
+                              max={selectedTask.seoResult.technical_max}
+                            />
                           </div>
                         </div>
-                        <div className="bg-secondary rounded-lg p-3 text-center">
-                          <div className="text-xs text-[#8888a0] mb-1">Hình ảnh (I)</div>
-                          <div className={cn(
-                            "text-lg font-bold",
-                            getScoreColor(Math.round((selectedTask.seoResult.images_score / selectedTask.seoResult.images_max) * 100))
-                          )}>
-                            {selectedTask.seoResult.images_score}/{selectedTask.seoResult.images_max}
-                          </div>
-                        </div>
-                        <div className="bg-secondary rounded-lg p-3 text-center">
-                          <div className="text-xs text-[#8888a0] mb-1">Kỹ thuật (T)</div>
-                          <div className={cn(
-                            "text-lg font-bold",
-                            getScoreColor(Math.round((selectedTask.seoResult.technical_score / selectedTask.seoResult.technical_max) * 100))
-                          )}>
-                            {selectedTask.seoResult.technical_score}/{selectedTask.seoResult.technical_max}
-                          </div>
+
+                        {/* Check time */}
+                        <div className="text-xs text-[#8888a0] mt-4 pt-3 border-t border-[#8888a0]/20 flex items-center justify-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          Kiểm tra lúc {formatDate(selectedTask.seoResult.checked_at)}
                         </div>
                       </div>
 
@@ -1003,50 +1256,9 @@ export default function SEOAuditPage() {
                         <LinksSection links={selectedTask.seoResult.links} />
                       )}
 
-                      {/* Details */}
+                      {/* Details - Grouped by Category */}
                       {selectedTask.seoResult.details && selectedTask.seoResult.details.length > 0 && (
-                        <div className="space-y-2">
-                          <h4 className="text-sm font-medium text-[var(--text-primary)]">Chi tiết kiểm tra</h4>
-                          {selectedTask.seoResult.details.map((detail, idx) => (
-                            <div
-                              key={idx}
-                              className={cn(
-                                "p-3 rounded-lg border",
-                                detail.status === 'pass'
-                                  ? "bg-green-500/10 border-green-500/30"
-                                  : detail.status === 'warning'
-                                  ? "bg-yellow-500/10 border-yellow-500/30"
-                                  : "bg-red-500/10 border-red-500/30"
-                              )}
-                            >
-                              <div className="flex items-start gap-2">
-                                {detail.status === 'pass' ? (
-                                  <Check className="w-4 h-4 text-green-400 mt-0.5" />
-                                ) : detail.status === 'warning' ? (
-                                  <AlertTriangle className="w-4 h-4 text-yellow-400 mt-0.5" />
-                                ) : (
-                                  <XCircle className="w-4 h-4 text-red-400 mt-0.5" />
-                                )}
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-sm text-[var(--text-primary)]">{detail.name}</div>
-                                  {detail.value && (
-                                    <div className="text-xs text-[#8888a0] mt-1 truncate">
-                                      Giá trị: {detail.value}
-                                    </div>
-                                  )}
-                                  {detail.suggestion && (
-                                    <div className="text-xs text-yellow-400 mt-1">
-                                      💡 {detail.suggestion}
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="text-xs text-[#8888a0]">
-                                  {detail.score}/{detail.maxScore}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                        <SEODetailsGrouped details={selectedTask.seoResult.details} />
                       )}
                     </div>
                   ) : (

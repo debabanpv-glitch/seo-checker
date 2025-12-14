@@ -28,6 +28,51 @@ interface WeeklyData {
   isCurrent: boolean;
 }
 
+interface PicDetail {
+  name: string;
+  published: number;
+  inProgress: number;
+  doneQC: number;
+  overdue: number;
+  total: number;
+}
+
+interface Pipeline {
+  doingOutline: number;
+  qcOutline: number;
+  fixingOutline: number;
+  doingContent: number;
+  qcContent: number;
+  fixingContent: number;
+  waitPublish: number;
+}
+
+interface DeadlineDistribution {
+  overdue: number;
+  dueSoon: number;
+  dueThisWeek: number;
+  later: number;
+  noDeadline: number;
+}
+
+interface ActiveTask {
+  id: string;
+  title: string;
+  pic: string;
+  status_outline: string;
+  status_content: string;
+  deadline: string;
+  isOverdue: boolean;
+}
+
+interface RecentPublished {
+  id: string;
+  title: string;
+  pic: string;
+  publish_date: string;
+  link_publish: string;
+}
+
 interface ProjectReport {
   id: string;
   name: string;
@@ -51,6 +96,12 @@ interface ProjectReport {
   bottleneck: string | null;
   pics: string[];
   topPerformer: { name: string; count: number } | null;
+  // NEW detailed analytics
+  picDetails: PicDetail[];
+  pipeline: Pipeline;
+  deadlineDistribution: DeadlineDistribution;
+  activeTasks: ActiveTask[];
+  recentPublished: RecentPublished[];
 }
 
 interface ReportMeta {
@@ -757,8 +808,248 @@ function DetailedProjectCard({
               </div>
             )}
           </div>
+
+          {/* NEW: Pipeline Status - Visual Flow */}
+          <div className="bg-secondary/30 rounded-lg p-4">
+            <p className="text-xs text-[#8888a0] mb-3 font-medium">Pipeline bài viết</p>
+            <div className="flex items-center gap-1 overflow-x-auto pb-2">
+              <PipelineStage label="Viết outline" count={project.pipeline.doingOutline} color="blue" />
+              <PipelineArrow />
+              <PipelineStage label="QC outline" count={project.pipeline.qcOutline} color="yellow" />
+              <PipelineArrow />
+              <PipelineStage label="Fix outline" count={project.pipeline.fixingOutline} color="orange" />
+              <PipelineArrow />
+              <PipelineStage label="Viết content" count={project.pipeline.doingContent} color="blue" />
+              <PipelineArrow />
+              <PipelineStage label="QC content" count={project.pipeline.qcContent} color="yellow" />
+              <PipelineArrow />
+              <PipelineStage label="Fix content" count={project.pipeline.fixingContent} color="orange" />
+              <PipelineArrow />
+              <PipelineStage label="Chờ publish" count={project.pipeline.waitPublish} color="green" />
+            </div>
+          </div>
+
+          {/* NEW: Team Performance Table */}
+          {project.picDetails && project.picDetails.length > 0 && (
+            <div className="bg-secondary/30 rounded-lg p-4">
+              <p className="text-xs text-[#8888a0] mb-3 font-medium">Hiệu suất theo người</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-[#8888a0] text-xs">
+                      <th className="text-left py-2 font-medium">PIC</th>
+                      <th className="text-center py-2 font-medium">Tổng</th>
+                      <th className="text-center py-2 font-medium">Publish</th>
+                      <th className="text-center py-2 font-medium">Đang làm</th>
+                      <th className="text-center py-2 font-medium">Done QC</th>
+                      <th className="text-center py-2 font-medium">Trễ</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/50">
+                    {project.picDetails.map((pic) => (
+                      <tr key={pic.name} className="hover:bg-secondary/50">
+                        <td className="py-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 bg-accent/20 rounded-full flex items-center justify-center flex-shrink-0">
+                              <span className="text-accent text-xs font-bold">
+                                {pic.name.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                            <span className="text-[var(--text-primary)] truncate max-w-[100px]">{pic.name}</span>
+                          </div>
+                        </td>
+                        <td className="text-center py-2 text-[var(--text-primary)] font-medium">{pic.total}</td>
+                        <td className="text-center py-2 text-success font-bold">{pic.published}</td>
+                        <td className="text-center py-2 text-warning">{pic.inProgress}</td>
+                        <td className="text-center py-2 text-accent">{pic.doneQC}</td>
+                        <td className="text-center py-2">
+                          {pic.overdue > 0 ? (
+                            <span className="text-danger font-bold">{pic.overdue}</span>
+                          ) : (
+                            <span className="text-[#8888a0]">0</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* NEW: Deadline Distribution */}
+          <div className="bg-secondary/30 rounded-lg p-4">
+            <p className="text-xs text-[#8888a0] mb-3 font-medium">Phân bổ deadline</p>
+            <div className="grid grid-cols-5 gap-2">
+              <DeadlineBadge
+                label="Quá hạn"
+                count={project.deadlineDistribution.overdue}
+                color="danger"
+              />
+              <DeadlineBadge
+                label="3 ngày tới"
+                count={project.deadlineDistribution.dueSoon}
+                color="warning"
+              />
+              <DeadlineBadge
+                label="7 ngày tới"
+                count={project.deadlineDistribution.dueThisWeek}
+                color="accent"
+              />
+              <DeadlineBadge
+                label="Sau đó"
+                count={project.deadlineDistribution.later}
+                color="success"
+              />
+              <DeadlineBadge
+                label="Không có"
+                count={project.deadlineDistribution.noDeadline}
+                color="gray"
+              />
+            </div>
+          </div>
+
+          {/* NEW: Active Tasks List */}
+          {project.activeTasks && project.activeTasks.length > 0 && (
+            <div className="bg-secondary/30 rounded-lg p-4">
+              <p className="text-xs text-[#8888a0] mb-3 font-medium">
+                Bài đang thực hiện ({project.activeTasks.length})
+              </p>
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                {project.activeTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className={cn(
+                      "flex items-center gap-3 p-2 rounded-lg",
+                      task.isOverdue ? "bg-danger/10 border border-danger/30" : "bg-card"
+                    )}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[var(--text-primary)] text-sm truncate">{task.title}</p>
+                      <div className="flex items-center gap-2 text-xs text-[#8888a0] mt-0.5">
+                        {task.pic && <span>{task.pic}</span>}
+                        {task.status_content && (
+                          <>
+                            <span>•</span>
+                            <span className={cn(
+                              task.status_content.toLowerCase().includes('qc') ? "text-warning" :
+                              task.status_content.toLowerCase().includes('fix') ? "text-orange-500" :
+                              task.status_content.toLowerCase().includes('doing') ? "text-blue-500" : ""
+                            )}>
+                              {task.status_content}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    {task.deadline && (
+                      <div className={cn(
+                        "text-xs px-2 py-1 rounded flex-shrink-0",
+                        task.isOverdue ? "bg-danger/20 text-danger" : "bg-secondary text-[#8888a0]"
+                      )}>
+                        {new Date(task.deadline).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* NEW: Recent Published */}
+          {project.recentPublished && project.recentPublished.length > 0 && (
+            <div className="bg-success/10 border border-success/30 rounded-lg p-4">
+              <p className="text-xs text-success mb-3 font-medium">Bài vừa publish</p>
+              <div className="space-y-2">
+                {project.recentPublished.map((task) => (
+                  <div key={task.id} className="flex items-center gap-3">
+                    <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[var(--text-primary)] text-sm truncate">{task.title}</p>
+                      <p className="text-xs text-[#8888a0]">
+                        {task.pic} • {task.publish_date && new Date(task.publish_date).toLocaleDateString('vi-VN')}
+                      </p>
+                    </div>
+                    {task.link_publish && (
+                      <a
+                        href={task.link_publish}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-accent hover:underline flex-shrink-0"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+// Pipeline Stage Component
+function PipelineStage({
+  label,
+  count,
+  color
+}: {
+  label: string;
+  count: number;
+  color: 'blue' | 'yellow' | 'orange' | 'green' | 'gray';
+}) {
+  const colorClasses = {
+    blue: count > 0 ? 'bg-blue-500/20 text-blue-500 border-blue-500/30' : 'bg-secondary text-[#8888a0] border-border',
+    yellow: count > 0 ? 'bg-yellow-500/20 text-yellow-500 border-yellow-500/30' : 'bg-secondary text-[#8888a0] border-border',
+    orange: count > 0 ? 'bg-orange-500/20 text-orange-500 border-orange-500/30' : 'bg-secondary text-[#8888a0] border-border',
+    green: count > 0 ? 'bg-green-500/20 text-green-500 border-green-500/30' : 'bg-secondary text-[#8888a0] border-border',
+    gray: 'bg-secondary text-[#8888a0] border-border',
+  };
+
+  return (
+    <div className={cn(
+      "flex flex-col items-center px-3 py-2 rounded-lg border min-w-[70px]",
+      colorClasses[color]
+    )}>
+      <span className="text-lg font-bold">{count}</span>
+      <span className="text-[10px] whitespace-nowrap">{label}</span>
+    </div>
+  );
+}
+
+// Pipeline Arrow Component
+function PipelineArrow() {
+  return (
+    <ArrowRight className="w-4 h-4 text-[#8888a0] flex-shrink-0" />
+  );
+}
+
+// Deadline Badge Component
+function DeadlineBadge({
+  label,
+  count,
+  color
+}: {
+  label: string;
+  count: number;
+  color: 'danger' | 'warning' | 'accent' | 'success' | 'gray';
+}) {
+  const colorClasses = {
+    danger: count > 0 ? 'bg-danger/20 text-danger' : 'bg-secondary text-[#8888a0]',
+    warning: count > 0 ? 'bg-warning/20 text-warning' : 'bg-secondary text-[#8888a0]',
+    accent: count > 0 ? 'bg-accent/20 text-accent' : 'bg-secondary text-[#8888a0]',
+    success: count > 0 ? 'bg-success/20 text-success' : 'bg-secondary text-[#8888a0]',
+    gray: 'bg-secondary text-[#8888a0]',
+  };
+
+  return (
+    <div className={cn("text-center p-2 rounded-lg", colorClasses[color])}>
+      <p className="text-lg font-bold">{count}</p>
+      <p className="text-[10px]">{label}</p>
     </div>
   );
 }
