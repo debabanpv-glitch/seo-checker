@@ -112,7 +112,7 @@ export default function SettingsPage() {
   const [showCrawlModal, setShowCrawlModal] = useState(false);
   const [crawlProjectId, setCrawlProjectId] = useState('');
   const [crawlDate, setCrawlDate] = useState(new Date().toISOString().split('T')[0]);
-  const [crawlCsvData, setCrawlCsvData] = useState('');
+  const [crawlSheetUrl, setCrawlSheetUrl] = useState('');
   const [isImportingCrawl, setIsImportingCrawl] = useState(false);
 
   // Keyword ranking sync
@@ -368,37 +368,31 @@ export default function SettingsPage() {
   const openCrawlModal = (projectId: string) => {
     setCrawlProjectId(projectId);
     setCrawlDate(new Date().toISOString().split('T')[0]);
-    setCrawlCsvData('');
+    setCrawlSheetUrl('');
     setShowCrawlModal(true);
   };
 
   const handleImportCrawl = async () => {
-    if (!crawlProjectId || !crawlCsvData.trim()) {
-      setSyncResult({ success: false, message: 'Vui lòng paste dữ liệu CSV' });
+    if (!crawlProjectId || !crawlSheetUrl.trim()) {
+      setSyncResult({ success: false, message: 'Vui lòng nhập Google Sheets URL' });
+      return;
+    }
+
+    // Validate Google Sheets URL
+    if (!crawlSheetUrl.includes('docs.google.com/spreadsheets')) {
+      setSyncResult({ success: false, message: 'URL không hợp lệ. Vui lòng nhập link Google Sheets.' });
       return;
     }
 
     setIsImportingCrawl(true);
     try {
-      // Parse CSV
-      const lines = crawlCsvData.trim().split('\n');
-      const headers = parseCSVLine(lines[0]);
-      const data = lines.slice(1).map((line) => {
-        const values = parseCSVLine(line);
-        const row: Record<string, string> = {};
-        headers.forEach((header, idx) => {
-          row[header] = values[idx] || '';
-        });
-        return row;
-      });
-
       const res = await fetch('/api/site-crawl', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           project_id: crawlProjectId,
           crawl_date: crawlDate,
-          data,
+          sheet_url: crawlSheetUrl,
         }),
       });
 
@@ -1087,6 +1081,17 @@ thuê căn hộ chung cư,https://example.com/thue-can-ho,12,2024/12/01`;
 
             <div className="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-140px)]">
               <div>
+                <label className="block text-sm text-[#8888a0] mb-2">Google Sheets URL</label>
+                <input
+                  type="url"
+                  value={crawlSheetUrl}
+                  onChange={(e) => setCrawlSheetUrl(e.target.value)}
+                  placeholder="https://docs.google.com/spreadsheets/d/..."
+                  className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)]"
+                />
+              </div>
+
+              <div>
                 <label className="block text-sm text-[#8888a0] mb-2">Ngày crawl</label>
                 <input
                   type="date"
@@ -1096,25 +1101,17 @@ thuê căn hộ chung cư,https://example.com/thue-can-ho,12,2024/12/01`;
                 />
               </div>
 
-              <div>
-                <label className="block text-sm text-[#8888a0] mb-2">Dữ liệu CSV (paste từ Screaming Frog)</label>
-                <textarea
-                  value={crawlCsvData}
-                  onChange={(e) => setCrawlCsvData(e.target.value)}
-                  placeholder="Paste dữ liệu CSV tại đây (bao gồm header row)..."
-                  rows={12}
-                  className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm font-mono"
-                />
-              </div>
-
-              <div className="text-xs text-[#8888a0] p-3 bg-secondary/50 rounded-lg">
-                <p className="font-medium mb-1">Hướng dẫn:</p>
+              <div className="text-xs text-[#8888a0] p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <p className="font-medium mb-2 text-blue-400">Hướng dẫn:</p>
                 <ol className="list-decimal list-inside space-y-1">
                   <li>Export từ Screaming Frog (File → Export → Internal → All)</li>
-                  <li>Mở file trong Google Sheet/Excel</li>
-                  <li>Chọn tất cả (Ctrl+A) và copy (Ctrl+C)</li>
-                  <li>Paste vào ô trên</li>
+                  <li>Upload file lên Google Sheets</li>
+                  <li>Đảm bảo Sheet được chia sẻ công khai (Anyone with link can view)</li>
+                  <li>Copy link Google Sheets và paste vào ô trên</li>
                 </ol>
+                <p className="mt-2 text-[#8888a0]">
+                  <span className="text-yellow-400">Lưu ý:</span> Headers cần giữ nguyên tên gốc từ Screaming Frog (Address, Status Code, Title 1, etc.)
+                </p>
               </div>
             </div>
 
@@ -1124,11 +1121,11 @@ thuê căn hộ chung cư,https://example.com/thue-can-ho,12,2024/12/01`;
               </button>
               <button
                 onClick={handleImportCrawl}
-                disabled={isImportingCrawl || !crawlCsvData.trim()}
+                disabled={isImportingCrawl || !crawlSheetUrl.trim()}
                 className="flex items-center gap-2 px-6 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/50 rounded-lg text-white font-medium"
               >
                 <Upload className="w-4 h-4" />
-                {isImportingCrawl ? 'Đang import...' : 'Import'}
+                {isImportingCrawl ? 'Đang import...' : 'Import từ Sheet'}
               </button>
             </div>
           </div>
@@ -1136,32 +1133,4 @@ thuê căn hộ chung cư,https://example.com/thue-can-ho,12,2024/12/01`;
       )}
     </div>
   );
-}
-
-// Parse CSV line (handle quoted values)
-function parseCSVLine(line: string): string[] {
-  const result: string[] = [];
-  let current = '';
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-
-    if (char === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        current += '"';
-        i++;
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if ((char === ',' || char === '\t') && !inQuotes) {
-      result.push(current.trim());
-      current = '';
-    } else {
-      current += char;
-    }
-  }
-
-  result.push(current.trim());
-  return result;
 }

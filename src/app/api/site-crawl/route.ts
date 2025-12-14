@@ -76,15 +76,34 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Import crawl data
+// POST - Import crawl data from Google Sheets URL or direct data
 export async function POST(request: NextRequest) {
   try {
     const supabase = getSupabaseClient();
     const body = await request.json();
-    const { project_id, crawl_date, source_url, data } = body;
+    const { project_id, crawl_date, source_url, data, sheet_url } = body;
 
-    if (!project_id || !data || !Array.isArray(data)) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    if (!project_id) {
+      return NextResponse.json({ error: 'Missing project_id' }, { status: 400 });
+    }
+
+    let crawlData: Record<string, string | number>[] = [];
+
+    // If sheet_url is provided, fetch data from Google Sheets
+    if (sheet_url) {
+      const sheetResult = await fetchGoogleSheetData(sheet_url);
+      if (sheetResult.error) {
+        return NextResponse.json({ error: sheetResult.error }, { status: 400 });
+      }
+      crawlData = sheetResult.data || [];
+    } else if (data && Array.isArray(data)) {
+      crawlData = data;
+    } else {
+      return NextResponse.json({ error: 'Missing sheet_url or data' }, { status: 400 });
+    }
+
+    if (crawlData.length === 0) {
+      return NextResponse.json({ error: 'No data found in sheet' }, { status: 400 });
     }
 
     // Create crawl record
@@ -93,8 +112,8 @@ export async function POST(request: NextRequest) {
       .insert({
         project_id,
         crawl_date: crawl_date || new Date().toISOString().split('T')[0],
-        source_url,
-        total_urls: data.length,
+        source_url: source_url || sheet_url,
+        total_urls: crawlData.length,
       })
       .select()
       .single();
@@ -104,7 +123,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Map and insert pages
-    const pages = data.map((row: Record<string, string | number>) => mapCrawlRow(row, crawl.id));
+    const pages = crawlData.map((row: Record<string, string | number>) => mapCrawlRow(row, crawl.id));
 
     // Insert in batches of 100
     const batchSize = 100;
@@ -166,6 +185,98 @@ export async function DELETE(request: NextRequest) {
     console.error('Delete error:', error);
     return NextResponse.json({ error: 'Delete failed' }, { status: 500 });
   }
+}
+
+// Fetch data from Google Sheets URL
+async function fetchGoogleSheetData(sheetUrl: string): Promise<{ data?: Record<string, string | number>[]; error?: string }> {
+  try {
+    // Extract sheet ID from URL
+    const sheetIdMatch = sheetUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    if (!sheetIdMatch) {
+      return { error: 'Invalid Google Sheets URL' };
+    }
+
+    const sheetId = sheetIdMatch[1];
+
+    // Extract gid (sheet tab ID) from URL if present
+    const gidMatch = sheetUrl.match(/[?&#]gid=(\d+)/);
+    const gid = gidMatch ? gidMatch[1] : '0';
+
+    // Fetch data from Google Sheets as CSV
+    const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
+    const response = await fetch(csvUrl);
+
+    if (!response.ok) {
+      return { error: 'Failed to fetch sheet data. Make sure the sheet is public.' };
+    }
+
+    const csvText = await response.text();
+    const rows = parseCSV(csvText);
+
+    if (rows.length < 2) {
+      return { error: 'Sheet is empty or has no data rows' };
+    }
+
+    // First row is headers
+    const headers = rows[0].map((h) =>
+      h.trim().replace(/^\uFEFF/, '') // Remove BOM
+    );
+
+    // Convert rows to objects with header keys
+    const data: Record<string, string | number>[] = [];
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (row.length === 0 || row.every((cell) => !cell.trim())) continue;
+
+      const obj: Record<string, string | number> = {};
+      for (let j = 0; j < headers.length; j++) {
+        const value = row[j]?.trim() || '';
+        // Try to convert to number if possible
+        const num = parseFloat(value);
+        obj[headers[j]] = !isNaN(num) && value !== '' ? num : value;
+      }
+      data.push(obj);
+    }
+
+    return { data };
+  } catch (error) {
+    console.error('Google Sheet fetch error:', error);
+    return { error: 'Failed to fetch Google Sheet data' };
+  }
+}
+
+// Parse CSV helper
+function parseCSV(text: string): string[][] {
+  const lines = text.split('\n');
+  const result: string[][] = [];
+
+  for (const line of lines) {
+    const row: string[] = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        row.push(current);
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    row.push(current);
+    result.push(row);
+  }
+
+  return result;
 }
 
 // Map Screaming Frog CSV row to database schema
