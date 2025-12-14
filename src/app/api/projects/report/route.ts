@@ -4,10 +4,13 @@ import { supabase } from '@/lib/supabase';
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 
-// Helper to check if task is published
-const isPublished = (statusContent: string | null) => {
-  if (!statusContent) return false;
-  const status = statusContent.toLowerCase().trim();
+// Helper to check if task is published - check both status_content AND publish_date
+const isPublished = (task: { status_content?: string | null; publish_date?: string | null }) => {
+  // If has publish_date, consider it published
+  if (task.publish_date) return true;
+
+  if (!task.status_content) return false;
+  const status = task.status_content.toLowerCase().trim();
   return status.includes('publish') || status.includes('4.') || status === 'done' || status === 'hoàn thành';
 };
 
@@ -128,18 +131,18 @@ export async function GET(request: NextRequest) {
       const target = monthlyTarget?.target || project.monthly_target || 20;
 
       // Count stats - current month
-      const published = projectTasks.filter((t) => isPublished(t.status_content)).length;
-      const doneQC = projectTasks.filter((t) => isDoneQC(t.status_content)).length;
+      const published = projectTasks.filter((t) => isPublished(t)).length;
+      const doneQC = projectTasks.filter((t) => isDoneQC(t.status_content) && !isPublished(t)).length;
       const inProgress = projectTasks.filter((t) =>
-        t.status_content && !isPublished(t.status_content) && !isDoneQC(t.status_content)
+        t.status_content && !isPublished(t) && !isDoneQC(t.status_content)
       ).length;
       const overdue = projectTasks.filter((t) => {
-        if (!t.deadline || isPublished(t.status_content)) return false;
+        if (!t.deadline || isPublished(t)) return false;
         return new Date(t.deadline) < new Date();
       }).length;
 
       // Count stats - previous month
-      const prevPublished = prevProjectTasks.filter((t) => isPublished(t.status_content)).length;
+      const prevPublished = prevProjectTasks.filter((t) => isPublished(t)).length;
 
       // Calculate month-over-month change
       const momChange = prevPublished > 0
@@ -150,7 +153,7 @@ export async function GET(request: NextRequest) {
       const weeklyTarget = Math.ceil(target / weeksInMonth.length);
       const weeklyBreakdown = weeksInMonth.map((week) => {
         const tasksInWeek = projectTasks.filter((t) => {
-          if (!t.publish_date || !isPublished(t.status_content)) return false;
+          if (!t.publish_date || !isPublished(t)) return false;
           const pubDate = new Date(t.publish_date);
           return pubDate >= week.start && pubDate <= week.end;
         });
@@ -190,7 +193,7 @@ export async function GET(request: NextRequest) {
 
       // Determine bottleneck for this project
       const qcContentCount = projectTasks.filter((t) =>
-        t.status_content && t.status_content.toLowerCase().includes('qc') && !isPublished(t.status_content)
+        t.status_content && t.status_content.toLowerCase().includes('qc') && !isPublished(t)
       ).length;
       const doingCount = projectTasks.filter((t) =>
         t.status_content && t.status_content.toLowerCase().includes('doing')
@@ -217,7 +220,7 @@ export async function GET(request: NextRequest) {
       // Top performer
       const picCounts: Record<string, number> = {};
       projectTasks
-        .filter((t) => isPublished(t.status_content))
+        .filter((t) => isPublished(t))
         .forEach((t) => {
           if (t.pic) {
             picCounts[t.pic] = (picCounts[t.pic] || 0) + 1;
