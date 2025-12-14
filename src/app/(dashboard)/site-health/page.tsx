@@ -6,7 +6,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   XCircle,
-  Upload,
   Calendar,
   ExternalLink,
   ChevronDown,
@@ -14,11 +13,15 @@ import {
   Search,
   Trash2,
   Globe,
-  Link2,
   FileText,
-  Zap,
   Loader2,
   Info,
+  Download,
+  RefreshCw,
+  Type,
+  Hash,
+  Link2,
+  FileSearch,
 } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
@@ -27,6 +30,7 @@ import { cn } from '@/lib/utils';
 interface Project {
   id: string;
   name: string;
+  crawl_sheet_url?: string;
 }
 
 interface SiteCrawl {
@@ -49,6 +53,12 @@ interface SiteCrawl {
   project?: { name: string };
 }
 
+interface PageIssue {
+  severity: string;
+  name: string;
+  suggestion: string;
+}
+
 interface CrawlPage {
   id: string;
   address: string;
@@ -61,22 +71,24 @@ interface CrawlPage {
   meta_description_length: number;
   h1_1: string;
   h1_2: string;
+  canonical_link: string;
   word_count: number;
   response_time: number;
   crawl_depth: number;
   unique_inlinks: number;
   has_critical_issue: boolean;
   has_warning: boolean;
-  issues: Array<{ id: string; severity: string; name: string; suggestion: string }>;
+  issues: PageIssue[];
 }
 
-interface IssueDefinition {
-  id: string;
-  category: string;
-  severity: string;
+// Issue types for grouping
+interface IssueGroup {
   name: string;
-  description: string;
+  severity: 'critical' | 'warning' | 'opportunity';
+  count: number;
+  pages: CrawlPage[];
   suggestion: string;
+  icon: React.ReactNode;
 }
 
 export default function SiteHealthPage() {
@@ -85,13 +97,13 @@ export default function SiteHealthPage() {
   const [selectedProject, setSelectedProject] = useState<string>('');
   const [selectedCrawl, setSelectedCrawl] = useState<SiteCrawl | null>(null);
   const [pages, setPages] = useState<CrawlPage[]>([]);
-  const [issueDefinitions, setIssueDefinitions] = useState<IssueDefinition[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [filterSeverity, setFilterSeverity] = useState<string>('all');
-  const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'issues' | 'urls'>('overview');
+  const [expandedIssue, setExpandedIssue] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'issues' | 'ok'>('all');
 
   useEffect(() => {
     fetchProjects();
@@ -121,6 +133,11 @@ export default function SiteHealthPage() {
       const res = await fetch(`/api/site-crawl${projectParam}`);
       const data = await res.json();
       setCrawls(data.crawls || []);
+
+      // Auto-select latest crawl
+      if (data.crawls && data.crawls.length > 0 && !selectedCrawl) {
+        fetchCrawlDetail(data.crawls[0].id);
+      }
     } catch (error) {
       console.error('Failed to fetch crawls:', error);
     } finally {
@@ -135,11 +152,43 @@ export default function SiteHealthPage() {
       const data = await res.json();
       setSelectedCrawl(data.crawl);
       setPages(data.pages || []);
-      setIssueDefinitions(data.issueDefinitions || []);
     } catch (error) {
       console.error('Failed to fetch crawl detail:', error);
     } finally {
       setIsLoadingDetail(false);
+    }
+  };
+
+  const handleSyncCrawl = async (projectId: string, sheetUrl: string) => {
+    setIsSyncing(true);
+    try {
+      const res = await fetch('/api/site-crawl', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: projectId,
+          sheet_url: sheetUrl,
+        }),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(result.error || 'Sync failed');
+      }
+
+      // Refresh crawls and show the new one
+      await fetchCrawls();
+      if (result.crawl?.id) {
+        await fetchCrawlDetail(result.crawl.id);
+      }
+
+      alert(`Đã sync thành công ${result.imported} URLs!`);
+    } catch (error) {
+      console.error('Sync error:', error);
+      alert('Lỗi sync: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -158,45 +207,43 @@ export default function SiteHealthPage() {
     }
   };
 
-  // Group issues by category
-  const issuesByCategory = useMemo(() => {
-    const grouped: Record<string, { critical: CrawlPage[]; warning: CrawlPage[]; opportunity: CrawlPage[] }> = {
-      indexability: { critical: [], warning: [], opportunity: [] },
-      content: { critical: [], warning: [], opportunity: [] },
-      technical: { critical: [], warning: [], opportunity: [] },
-      links: { critical: [], warning: [], opportunity: [] },
-    };
+  // Group issues by type for the report view
+  const issueGroups = useMemo(() => {
+    const groups: Record<string, IssueGroup> = {};
 
     pages.forEach((page) => {
       page.issues?.forEach((issue) => {
-        const def = issueDefinitions.find((d) => d.id === issue.id);
-        if (def) {
-          grouped[def.category]?.[issue.severity as 'critical' | 'warning' | 'opportunity']?.push(page);
+        if (!groups[issue.name]) {
+          groups[issue.name] = {
+            name: issue.name,
+            severity: issue.severity as 'critical' | 'warning' | 'opportunity',
+            count: 0,
+            pages: [],
+            suggestion: issue.suggestion,
+            icon: getIssueIcon(issue.name),
+          };
         }
+        groups[issue.name].count++;
+        groups[issue.name].pages.push(page);
       });
     });
 
-    return grouped;
-  }, [pages, issueDefinitions]);
+    // Sort by severity then count
+    return Object.values(groups).sort((a, b) => {
+      const severityOrder = { critical: 0, warning: 1, opportunity: 2 };
+      if (severityOrder[a.severity] !== severityOrder[b.severity]) {
+        return severityOrder[a.severity] - severityOrder[b.severity];
+      }
+      return b.count - a.count;
+    });
+  }, [pages]);
 
-  // Filter pages
+  // Filter pages for URLs tab
   const filteredPages = useMemo(() => {
     return pages.filter((page) => {
-      // Filter by severity
-      if (filterSeverity === 'critical' && !page.has_critical_issue) return false;
-      if (filterSeverity === 'warning' && !page.has_warning) return false;
-      if (filterSeverity === 'ok' && (page.has_critical_issue || page.has_warning)) return false;
+      if (filterStatus === 'issues' && !page.has_critical_issue && !page.has_warning) return false;
+      if (filterStatus === 'ok' && (page.has_critical_issue || page.has_warning)) return false;
 
-      // Filter by category
-      if (filterCategory !== 'all') {
-        const hasIssueInCategory = page.issues?.some((issue) => {
-          const def = issueDefinitions.find((d) => d.id === issue.id);
-          return def?.category === filterCategory;
-        });
-        if (!hasIssueInCategory) return false;
-      }
-
-      // Filter by search
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         return (
@@ -207,14 +254,40 @@ export default function SiteHealthPage() {
 
       return true;
     });
-  }, [pages, filterSeverity, filterCategory, searchQuery, issueDefinitions]);
+  }, [pages, filterStatus, searchQuery]);
+
+  // Export to CSV
+  const exportIssuesCSV = () => {
+    const rows: string[][] = [['Issue Type', 'Severity', 'Count', 'URLs']];
+
+    issueGroups.forEach((group) => {
+      group.pages.forEach((page) => {
+        rows.push([
+          group.name,
+          group.severity,
+          group.count.toString(),
+          page.address,
+        ]);
+      });
+    });
+
+    const csv = rows.map((row) => row.map((cell) => `"${cell}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `seo-issues-${selectedCrawl?.project?.name || 'export'}-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+  };
 
   if (isLoading) {
     return <PageLoading />;
   }
 
+  const selectedProjectData = projects.find((p) => p.id === selectedProject);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
@@ -226,220 +299,181 @@ export default function SiteHealthPage() {
           {/* Project Filter */}
           <select
             value={selectedProject}
-            onChange={(e) => setSelectedProject(e.target.value)}
+            onChange={(e) => {
+              setSelectedProject(e.target.value);
+              setSelectedCrawl(null);
+              setPages([]);
+            }}
             className="px-3 py-2 bg-card border border-border rounded-lg text-[var(--text-primary)] text-sm"
           >
-            <option value="">Tất cả dự án</option>
+            <option value="">Chọn dự án</option>
             {projects.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
 
-          {/* Import Button */}
-          <button
-            onClick={() => setShowImportModal(true)}
-            className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-accent/90"
-          >
-            <Upload className="w-4 h-4" />
-            Import Crawl
-          </button>
+          {/* Sync Button */}
+          {selectedProject && selectedProjectData?.crawl_sheet_url && (
+            <button
+              onClick={() => handleSyncCrawl(selectedProject, selectedProjectData.crawl_sheet_url!)}
+              disabled={isSyncing}
+              className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-accent/90 disabled:opacity-50"
+            >
+              {isSyncing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Đang sync...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4" />
+                  Sync Crawl
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
-      {crawls.length === 0 ? (
+      {/* No project selected */}
+      {!selectedProject && (
+        <EmptyState
+          icon={Activity}
+          title="Chọn dự án để xem Site Health"
+          description="Vào Settings để cấu hình Crawl Sheet URL cho mỗi dự án"
+        />
+      )}
+
+      {/* No crawl data */}
+      {selectedProject && crawls.length === 0 && !selectedProjectData?.crawl_sheet_url && (
         <EmptyState
           icon={Activity}
           title="Chưa có dữ liệu crawl"
-          description="Import file CSV từ Screaming Frog để bắt đầu phân tích"
+          description="Vào Settings để thêm Crawl Sheet URL cho dự án này"
         />
-      ) : (
-        <div className="grid lg:grid-cols-3 gap-4">
-          {/* Left: Crawl List */}
-          <div className="lg:col-span-1 space-y-3">
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Lịch sử Crawl</h2>
-            <div className="space-y-2 max-h-[calc(100vh-200px)] overflow-y-auto">
-              {crawls.map((crawl) => (
-                <CrawlCard
-                  key={crawl.id}
-                  crawl={crawl}
-                  isSelected={selectedCrawl?.id === crawl.id}
-                  onClick={() => fetchCrawlDetail(crawl.id)}
-                  onDelete={() => deleteCrawl(crawl.id)}
-                />
-              ))}
+      )}
+
+      {/* No crawl but has URL */}
+      {selectedProject && crawls.length === 0 && selectedProjectData?.crawl_sheet_url && (
+        <EmptyState
+          icon={Activity}
+          title="Chưa có dữ liệu crawl"
+          description="Nhấn 'Sync Crawl' để import dữ liệu từ Google Sheet"
+        />
+      )}
+
+      {/* Main Content */}
+      {selectedCrawl && (
+        <div className="space-y-4">
+          {/* Crawl Info Bar */}
+          <div className="bg-card border border-border rounded-xl p-4 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Globe className="w-5 h-5 text-accent" />
+                <span className="font-medium text-[var(--text-primary)]">
+                  {selectedCrawl.project?.name}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-[#8888a0]">
+                <Calendar className="w-4 h-4" />
+                {new Date(selectedCrawl.crawl_date).toLocaleDateString('vi-VN')}
+              </div>
+              <span className="text-sm text-[#8888a0]">
+                {selectedCrawl.total_urls.toLocaleString()} URLs
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={exportIssuesCSV}
+                className="px-3 py-1.5 text-sm text-[#8888a0] hover:text-[var(--text-primary)] flex items-center gap-1"
+              >
+                <Download className="w-4 h-4" />
+                Export CSV
+              </button>
+              <button
+                onClick={() => deleteCrawl(selectedCrawl.id)}
+                className="p-1.5 text-[#8888a0] hover:text-red-400"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
             </div>
           </div>
 
-          {/* Right: Crawl Detail */}
-          <div className="lg:col-span-2">
-            {isLoadingDetail ? (
-              <div className="flex items-center justify-center h-64">
-                <Loader2 className="w-8 h-8 animate-spin text-accent" />
-              </div>
-            ) : selectedCrawl ? (
-              <CrawlDetail
-                crawl={selectedCrawl}
-                pages={filteredPages}
-                issuesByCategory={issuesByCategory}
-                issueDefinitions={issueDefinitions}
-                filterSeverity={filterSeverity}
-                setFilterSeverity={setFilterSeverity}
-                filterCategory={filterCategory}
-                setFilterCategory={setFilterCategory}
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-              />
-            ) : (
-              <div className="flex items-center justify-center h-64 text-[#8888a0]">
-                <div className="text-center">
-                  <Activity className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p>Chọn một crawl để xem chi tiết</p>
-                </div>
-              </div>
-            )}
+          {/* Tabs */}
+          <div className="flex items-center gap-1 bg-secondary/50 rounded-lg p-1 w-fit">
+            {[
+              { id: 'overview', label: 'Tổng quan' },
+              { id: 'issues', label: 'Issues Report' },
+              { id: 'urls', label: 'Chi tiết URLs' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as 'overview' | 'issues' | 'urls')}
+                className={cn(
+                  "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                  activeTab === tab.id
+                    ? "bg-accent text-white"
+                    : "text-[#8888a0] hover:text-[var(--text-primary)]"
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
-        </div>
-      )}
 
-      {/* Import Modal */}
-      {showImportModal && (
-        <ImportModal
-          projects={projects}
-          onClose={() => setShowImportModal(false)}
-          onSuccess={() => {
-            setShowImportModal(false);
-            fetchCrawls();
-          }}
-        />
+          {isLoadingDetail ? (
+            <div className="flex items-center justify-center h-64">
+              <Loader2 className="w-8 h-8 animate-spin text-accent" />
+            </div>
+          ) : (
+            <>
+              {/* Overview Tab */}
+              {activeTab === 'overview' && (
+                <OverviewTab crawl={selectedCrawl} issueGroups={issueGroups} />
+              )}
+
+              {/* Issues Tab */}
+              {activeTab === 'issues' && (
+                <IssuesTab
+                  issueGroups={issueGroups}
+                  expandedIssue={expandedIssue}
+                  setExpandedIssue={setExpandedIssue}
+                />
+              )}
+
+              {/* URLs Tab */}
+              {activeTab === 'urls' && (
+                <URLsTab
+                  pages={filteredPages}
+                  totalPages={pages.length}
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  filterStatus={filterStatus}
+                  setFilterStatus={setFilterStatus}
+                />
+              )}
+            </>
+          )}
+        </div>
       )}
     </div>
   );
 }
 
-// Crawl Card Component
-function CrawlCard({
-  crawl,
-  isSelected,
-  onClick,
-  onDelete,
-}: {
-  crawl: SiteCrawl;
-  isSelected: boolean;
-  onClick: () => void;
-  onDelete: () => void;
-}) {
-  const getHealthColor = (score: number) => {
-    if (score >= 80) return 'text-green-400';
-    if (score >= 60) return 'text-yellow-400';
-    return 'text-red-400';
-  };
-
-  const getHealthBg = (score: number) => {
-    if (score >= 80) return 'bg-green-500/20';
-    if (score >= 60) return 'bg-yellow-500/20';
-    return 'bg-red-500/20';
-  };
-
-  return (
-    <div
-      onClick={onClick}
-      className={cn(
-        "p-4 rounded-xl border cursor-pointer transition-all",
-        isSelected
-          ? "bg-accent/10 border-accent"
-          : "bg-card border-border hover:border-accent/50"
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <Globe className="w-4 h-4 text-accent" />
-            <span className="text-sm font-medium text-[var(--text-primary)] truncate">
-              {crawl.project?.name || 'Unknown Project'}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 mt-1 text-xs text-[#8888a0]">
-            <Calendar className="w-3 h-3" />
-            {new Date(crawl.crawl_date).toLocaleDateString('vi-VN')}
-            <span>•</span>
-            <span>{crawl.total_urls} URLs</span>
-          </div>
-        </div>
-
-        <div className={cn("px-2 py-1 rounded-lg", getHealthBg(crawl.health_score))}>
-          <span className={cn("text-lg font-bold", getHealthColor(crawl.health_score))}>
-            {crawl.health_score}
-          </span>
-        </div>
-      </div>
-
-      {/* Issue summary */}
-      <div className="flex items-center gap-3 mt-3">
-        {crawl.critical_issues > 0 && (
-          <span className="flex items-center gap-1 text-xs text-red-400">
-            <XCircle className="w-3 h-3" />
-            {crawl.critical_issues}
-          </span>
-        )}
-        {crawl.warnings > 0 && (
-          <span className="flex items-center gap-1 text-xs text-yellow-400">
-            <AlertTriangle className="w-3 h-3" />
-            {crawl.warnings}
-          </span>
-        )}
-        {crawl.opportunities > 0 && (
-          <span className="flex items-center gap-1 text-xs text-blue-400">
-            <Info className="w-3 h-3" />
-            {crawl.opportunities}
-          </span>
-        )}
-        {crawl.critical_issues === 0 && crawl.warnings === 0 && (
-          <span className="flex items-center gap-1 text-xs text-green-400">
-            <CheckCircle2 className="w-3 h-3" />
-            Không có lỗi
-          </span>
-        )}
-
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-          className="ml-auto p-1 text-[#8888a0] hover:text-red-400 transition-colors"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
-      </div>
-    </div>
-  );
+// Get icon for issue type
+function getIssueIcon(issueName: string): React.ReactNode {
+  if (issueName.includes('Title')) return <Type className="w-4 h-4" />;
+  if (issueName.includes('Meta')) return <FileText className="w-4 h-4" />;
+  if (issueName.includes('H1')) return <Hash className="w-4 h-4" />;
+  if (issueName.includes('Canonical')) return <Link2 className="w-4 h-4" />;
+  if (issueName.includes('HTTP') || issueName.includes('index')) return <XCircle className="w-4 h-4" />;
+  if (issueName.includes('Tải') || issueName.includes('sâu')) return <Activity className="w-4 h-4" />;
+  return <FileSearch className="w-4 h-4" />;
 }
 
-// Crawl Detail Component
-function CrawlDetail({
-  crawl,
-  pages,
-  issuesByCategory,
-  issueDefinitions,
-  filterSeverity,
-  setFilterSeverity,
-  filterCategory,
-  setFilterCategory,
-  searchQuery,
-  setSearchQuery,
-}: {
-  crawl: SiteCrawl;
-  pages: CrawlPage[];
-  issuesByCategory: Record<string, { critical: CrawlPage[]; warning: CrawlPage[]; opportunity: CrawlPage[] }>;
-  issueDefinitions: IssueDefinition[];
-  filterSeverity: string;
-  setFilterSeverity: (v: string) => void;
-  filterCategory: string;
-  setFilterCategory: (v: string) => void;
-  searchQuery: string;
-  setSearchQuery: (v: string) => void;
-}) {
-  const [expandedCategory, setExpandedCategory] = useState<string | null>('indexability');
-
+// Overview Tab Component
+function OverviewTab({ crawl, issueGroups }: { crawl: SiteCrawl; issueGroups: IssueGroup[] }) {
   const getHealthColor = (score: number) => {
     if (score >= 80) return 'text-green-400';
     if (score >= 60) return 'text-yellow-400';
@@ -447,342 +481,380 @@ function CrawlDetail({
   };
 
   return (
-    <div className="space-y-4">
-      {/* Health Score Overview */}
-      <div className="bg-card border border-border rounded-xl p-5">
-        <div className="flex items-center gap-6">
-          {/* Score Circle */}
+    <div className="grid lg:grid-cols-3 gap-4">
+      {/* Health Score Card */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <h3 className="text-sm font-semibold text-[#8888a0] mb-4">Health Score</h3>
+        <div className="flex items-center justify-center">
           <div className="relative">
-            <svg className="w-28 h-28 transform -rotate-90">
+            <svg className="w-32 h-32 transform -rotate-90">
               <circle
-                cx="56" cy="56" r="48"
-                stroke="currentColor" strokeWidth="10" fill="none"
+                cx="64" cy="64" r="56"
+                stroke="currentColor" strokeWidth="12" fill="none"
                 className="text-[#8888a0]/20"
               />
               <circle
-                cx="56" cy="56" r="48"
-                stroke="currentColor" strokeWidth="10" fill="none"
-                strokeDasharray={`${(crawl.health_score / 100) * 301.6} 301.6`}
+                cx="64" cy="64" r="56"
+                stroke="currentColor" strokeWidth="12" fill="none"
+                strokeDasharray={`${(crawl.health_score / 100) * 351.86} 351.86`}
                 strokeLinecap="round"
                 className={getHealthColor(crawl.health_score)}
               />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center">
-                <div className={cn("text-3xl font-bold", getHealthColor(crawl.health_score))}>
+                <div className={cn("text-4xl font-bold", getHealthColor(crawl.health_score))}>
                   {crawl.health_score}
                 </div>
-                <div className="text-xs text-[#8888a0]">Health</div>
+                <div className="text-xs text-[#8888a0]">/ 100</div>
               </div>
             </div>
           </div>
-
-          {/* Stats */}
-          <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatBox label="Tổng URLs" value={crawl.total_urls} icon={<Globe className="w-4 h-4" />} />
-            <StatBox label="Indexable" value={crawl.indexable_urls} color="green" icon={<CheckCircle2 className="w-4 h-4" />} />
-            <StatBox label="Critical" value={crawl.critical_issues} color="red" icon={<XCircle className="w-4 h-4" />} />
-            <StatBox label="Warnings" value={crawl.warnings} color="yellow" icon={<AlertTriangle className="w-4 h-4" />} />
-          </div>
         </div>
 
-        {/* Status Code Breakdown */}
-        <div className="mt-4 pt-4 border-t border-border flex items-center gap-4">
-          <span className="text-xs text-[#8888a0]">Status Codes:</span>
-          <div className="flex items-center gap-3">
-            <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs font-medium">
-              2xx: {crawl.status_2xx}
-            </span>
-            <span className="px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded text-xs font-medium">
-              3xx: {crawl.status_3xx}
-            </span>
-            <span className="px-2 py-1 bg-red-500/20 text-red-400 rounded text-xs font-medium">
-              4xx: {crawl.status_4xx}
-            </span>
-            <span className="px-2 py-1 bg-red-500/20 text-red-400 rounded text-xs font-medium">
-              5xx: {crawl.status_5xx}
-            </span>
+        <div className="mt-4 grid grid-cols-2 gap-2 text-center">
+          <div className="bg-green-500/10 rounded-lg p-2">
+            <div className="text-lg font-bold text-green-400">{crawl.indexable_urls}</div>
+            <div className="text-xs text-[#8888a0]">Indexable</div>
+          </div>
+          <div className="bg-yellow-500/10 rounded-lg p-2">
+            <div className="text-lg font-bold text-yellow-400">{crawl.non_indexable_urls}</div>
+            <div className="text-xs text-[#8888a0]">Non-Indexable</div>
           </div>
         </div>
       </div>
 
-      {/* Issue Categories */}
-      <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-[var(--text-primary)]">Phân tích theo Category</h3>
+      {/* Issues Summary Card */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <h3 className="text-sm font-semibold text-[#8888a0] mb-4">Issues Summary</h3>
 
-        {Object.entries(issuesByCategory).map(([category, issues]) => {
-          const categoryDefs = issueDefinitions.filter((d) => d.category === category);
-
-          return (
-            <IssueCategoryCard
-              key={category}
-              category={category}
-              issues={issues}
-              definitions={categoryDefs}
-              isExpanded={expandedCategory === category}
-              onToggle={() => setExpandedCategory(expandedCategory === category ? null : category)}
-            />
-          );
-        })}
-      </div>
-
-      {/* Pages List */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="p-4 border-b border-border flex flex-wrap items-center gap-3">
-          <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-            Chi tiết URLs ({pages.length})
-          </h3>
-
-          {/* Search */}
-          <div className="flex-1 min-w-[200px]">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8888a0]" />
-              <input
-                type="text"
-                placeholder="Tìm URL..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 bg-secondary border-none rounded-lg text-sm text-[var(--text-primary)]"
-              />
+        <div className="space-y-3">
+          <div className="flex items-center justify-between p-3 bg-red-500/10 rounded-lg">
+            <div className="flex items-center gap-2">
+              <XCircle className="w-5 h-5 text-red-400" />
+              <span className="text-sm font-medium text-[var(--text-primary)]">Critical</span>
             </div>
+            <span className="text-xl font-bold text-red-400">{crawl.critical_issues}</span>
           </div>
 
-          {/* Filters */}
-          <select
-            value={filterSeverity}
-            onChange={(e) => setFilterSeverity(e.target.value)}
-            className="px-2 py-1.5 bg-secondary rounded-lg text-xs text-[var(--text-primary)]"
-          >
-            <option value="all">Tất cả</option>
-            <option value="critical">Critical</option>
-            <option value="warning">Warning</option>
-            <option value="ok">OK</option>
-          </select>
-
-          <select
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-            className="px-2 py-1.5 bg-secondary rounded-lg text-xs text-[var(--text-primary)]"
-          >
-            <option value="all">Tất cả category</option>
-            <option value="indexability">Indexability</option>
-            <option value="content">Content</option>
-            <option value="technical">Technical</option>
-            <option value="links">Links</option>
-          </select>
-        </div>
-
-        <div className="max-h-[400px] overflow-y-auto">
-          {pages.length === 0 ? (
-            <div className="p-8 text-center text-[#8888a0]">
-              Không có URL nào phù hợp
+          <div className="flex items-center justify-between p-3 bg-yellow-500/10 rounded-lg">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-yellow-400" />
+              <span className="text-sm font-medium text-[var(--text-primary)]">Warnings</span>
             </div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-secondary/50 sticky top-0">
-                <tr className="text-left text-xs text-[#8888a0]">
-                  <th className="px-4 py-2 font-medium">URL</th>
-                  <th className="px-4 py-2 font-medium text-center">Status</th>
-                  <th className="px-4 py-2 font-medium text-center">Issues</th>
-                  <th className="px-4 py-2 font-medium">Title</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {pages.slice(0, 100).map((page) => (
-                  <PageRow key={page.id} page={page} />
-                ))}
-              </tbody>
-            </table>
-          )}
+            <span className="text-xl font-bold text-yellow-400">{crawl.warnings}</span>
+          </div>
+
+          <div className="flex items-center justify-between p-3 bg-blue-500/10 rounded-lg">
+            <div className="flex items-center gap-2">
+              <Info className="w-5 h-5 text-blue-400" />
+              <span className="text-sm font-medium text-[var(--text-primary)]">Opportunities</span>
+            </div>
+            <span className="text-xl font-bold text-blue-400">{crawl.opportunities}</span>
+          </div>
         </div>
+      </div>
+
+      {/* Status Codes Card */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <h3 className="text-sm font-semibold text-[#8888a0] mb-4">Status Codes</h3>
+
+        <div className="space-y-3">
+          <StatusBar label="2xx Success" value={crawl.status_2xx} total={crawl.total_urls} color="green" />
+          <StatusBar label="3xx Redirect" value={crawl.status_3xx} total={crawl.total_urls} color="yellow" />
+          <StatusBar label="4xx Client Error" value={crawl.status_4xx} total={crawl.total_urls} color="red" />
+          <StatusBar label="5xx Server Error" value={crawl.status_5xx} total={crawl.total_urls} color="red" />
+        </div>
+      </div>
+
+      {/* Top Issues - Full Width */}
+      <div className="lg:col-span-3 bg-card border border-border rounded-xl p-6">
+        <h3 className="text-sm font-semibold text-[#8888a0] mb-4">Top Issues cần sửa</h3>
+
+        {issueGroups.length === 0 ? (
+          <div className="text-center py-8">
+            <CheckCircle2 className="w-12 h-12 text-green-400 mx-auto mb-2" />
+            <p className="text-green-400 font-medium">Không có lỗi nào!</p>
+            <p className="text-sm text-[#8888a0]">Website của bạn đã được tối ưu tốt</p>
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {issueGroups.slice(0, 6).map((group) => (
+              <div
+                key={group.name}
+                className={cn(
+                  "p-4 rounded-lg",
+                  group.severity === 'critical' ? "bg-red-500/10 border border-red-500/30" :
+                  group.severity === 'warning' ? "bg-yellow-500/10 border border-yellow-500/30" :
+                  "bg-blue-500/10 border border-blue-500/30"
+                )}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={cn(
+                    "p-2 rounded-lg",
+                    group.severity === 'critical' ? "bg-red-500/20 text-red-400" :
+                    group.severity === 'warning' ? "bg-yellow-500/20 text-yellow-400" :
+                    "bg-blue-500/20 text-blue-400"
+                  )}>
+                    {group.icon}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-[var(--text-primary)] truncate">
+                        {group.name}
+                      </span>
+                    </div>
+                    <div className={cn(
+                      "text-2xl font-bold mt-1",
+                      group.severity === 'critical' ? "text-red-400" :
+                      group.severity === 'warning' ? "text-yellow-400" :
+                      "text-blue-400"
+                    )}>
+                      {group.count}
+                    </div>
+                    <div className="text-xs text-[#8888a0]">URLs cần sửa</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-// Stat Box Component
-function StatBox({
-  label,
-  value,
-  color,
-  icon,
+// Status Bar Component
+function StatusBar({ label, value, total, color }: { label: string; value: number; total: number; color: 'green' | 'yellow' | 'red' }) {
+  const percentage = total > 0 ? (value / total) * 100 : 0;
+  const colorClasses = {
+    green: 'bg-green-400',
+    yellow: 'bg-yellow-400',
+    red: 'bg-red-400',
+  };
+  const textClasses = {
+    green: 'text-green-400',
+    yellow: 'text-yellow-400',
+    red: 'text-red-400',
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between text-sm mb-1">
+        <span className="text-[#8888a0]">{label}</span>
+        <span className={textClasses[color]}>{value.toLocaleString()}</span>
+      </div>
+      <div className="h-2 bg-secondary rounded-full overflow-hidden">
+        <div className={cn("h-full rounded-full", colorClasses[color])} style={{ width: `${percentage}%` }} />
+      </div>
+    </div>
+  );
+}
+
+// Issues Tab Component
+function IssuesTab({
+  issueGroups,
+  expandedIssue,
+  setExpandedIssue
 }: {
-  label: string;
-  value: number;
-  color?: 'green' | 'red' | 'yellow' | 'blue';
-  icon?: React.ReactNode;
+  issueGroups: IssueGroup[];
+  expandedIssue: string | null;
+  setExpandedIssue: (v: string | null) => void;
+}) {
+  const criticalIssues = issueGroups.filter((g) => g.severity === 'critical');
+  const warningIssues = issueGroups.filter((g) => g.severity === 'warning');
+  const opportunityIssues = issueGroups.filter((g) => g.severity === 'opportunity');
+
+  return (
+    <div className="space-y-6">
+      {/* Critical Issues */}
+      {criticalIssues.length > 0 && (
+        <IssueSection
+          title="Critical Issues"
+          subtitle="Cần sửa ngay để tránh ảnh hưởng SEO"
+          issues={criticalIssues}
+          expandedIssue={expandedIssue}
+          setExpandedIssue={setExpandedIssue}
+          color="red"
+        />
+      )}
+
+      {/* Warnings */}
+      {warningIssues.length > 0 && (
+        <IssueSection
+          title="Warnings"
+          subtitle="Nên sửa để cải thiện SEO"
+          issues={warningIssues}
+          expandedIssue={expandedIssue}
+          setExpandedIssue={setExpandedIssue}
+          color="yellow"
+        />
+      )}
+
+      {/* Opportunities */}
+      {opportunityIssues.length > 0 && (
+        <IssueSection
+          title="Opportunities"
+          subtitle="Cơ hội tối ưu thêm"
+          issues={opportunityIssues}
+          expandedIssue={expandedIssue}
+          setExpandedIssue={setExpandedIssue}
+          color="blue"
+        />
+      )}
+
+      {issueGroups.length === 0 && (
+        <div className="bg-card border border-green-500/30 rounded-xl p-8 text-center">
+          <CheckCircle2 className="w-16 h-16 text-green-400 mx-auto mb-4" />
+          <h3 className="text-xl font-bold text-green-400 mb-2">Tuyệt vời!</h3>
+          <p className="text-[#8888a0]">Không tìm thấy lỗi SEO nào. Website của bạn đã được tối ưu tốt.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Issue Section Component
+function IssueSection({
+  title,
+  subtitle,
+  issues,
+  expandedIssue,
+  setExpandedIssue,
+  color,
+}: {
+  title: string;
+  subtitle: string;
+  issues: IssueGroup[];
+  expandedIssue: string | null;
+  setExpandedIssue: (v: string | null) => void;
+  color: 'red' | 'yellow' | 'blue';
 }) {
   const colorClasses = {
-    green: 'text-green-400',
+    red: 'border-red-500/30 bg-red-500/5',
+    yellow: 'border-yellow-500/30 bg-yellow-500/5',
+    blue: 'border-blue-500/30 bg-blue-500/5',
+  };
+  const iconClasses = {
     red: 'text-red-400',
     yellow: 'text-yellow-400',
     blue: 'text-blue-400',
   };
 
   return (
-    <div className="bg-secondary/50 rounded-lg p-3">
-      <div className="flex items-center gap-2 text-[#8888a0] mb-1">
-        {icon}
-        <span className="text-xs">{label}</span>
+    <div className={cn("border rounded-xl overflow-hidden", colorClasses[color])}>
+      <div className="p-4 border-b border-border/50">
+        <div className="flex items-center gap-2">
+          {color === 'red' && <XCircle className={cn("w-5 h-5", iconClasses[color])} />}
+          {color === 'yellow' && <AlertTriangle className={cn("w-5 h-5", iconClasses[color])} />}
+          {color === 'blue' && <Info className={cn("w-5 h-5", iconClasses[color])} />}
+          <h3 className="font-semibold text-[var(--text-primary)]">{title}</h3>
+          <span className={cn("px-2 py-0.5 rounded text-xs font-medium",
+            color === 'red' ? "bg-red-500/20 text-red-400" :
+            color === 'yellow' ? "bg-yellow-500/20 text-yellow-400" :
+            "bg-blue-500/20 text-blue-400"
+          )}>
+            {issues.length} loại
+          </span>
+        </div>
+        <p className="text-xs text-[#8888a0] mt-1">{subtitle}</p>
       </div>
-      <div className={cn("text-2xl font-bold", color ? colorClasses[color] : "text-[var(--text-primary)]")}>
-        {value}
+
+      <div className="divide-y divide-border/50">
+        {issues.map((group) => (
+          <IssueRow
+            key={group.name}
+            group={group}
+            isExpanded={expandedIssue === group.name}
+            onToggle={() => setExpandedIssue(expandedIssue === group.name ? null : group.name)}
+          />
+        ))}
       </div>
     </div>
   );
 }
 
-// Issue Category Card
-function IssueCategoryCard({
-  category,
-  issues,
-  definitions,
-  isExpanded,
-  onToggle,
-}: {
-  category: string;
-  issues: { critical: CrawlPage[]; warning: CrawlPage[]; opportunity: CrawlPage[] };
-  definitions: IssueDefinition[];
-  isExpanded: boolean;
-  onToggle: () => void;
-}) {
-  const categoryNames: Record<string, string> = {
-    indexability: 'Indexability',
-    content: 'Nội dung',
-    technical: 'Kỹ thuật',
-    links: 'Internal Links',
-  };
-
-  const categoryIcons: Record<string, React.ReactNode> = {
-    indexability: <Globe className="w-4 h-4" />,
-    content: <FileText className="w-4 h-4" />,
-    technical: <Zap className="w-4 h-4" />,
-    links: <Link2 className="w-4 h-4" />,
-  };
-
-  const totalIssues = issues.critical.length + issues.warning.length + issues.opportunity.length;
-  const hasCritical = issues.critical.length > 0;
-  const hasWarning = issues.warning.length > 0;
-
-  const borderColor = hasCritical
-    ? 'border-red-500/50'
-    : hasWarning
-    ? 'border-yellow-500/50'
-    : 'border-green-500/50';
-
-  const bgColor = hasCritical
-    ? 'bg-red-500/5'
-    : hasWarning
-    ? 'bg-yellow-500/5'
-    : 'bg-green-500/5';
-
-  // Group issues by type
-  const issueGroups: Record<string, { def: IssueDefinition; pages: CrawlPage[] }> = {};
-  [...issues.critical, ...issues.warning, ...issues.opportunity].forEach((page) => {
-    page.issues?.forEach((issue) => {
-      const def = definitions.find((d) => d.id === issue.id);
-      if (def) {
-        if (!issueGroups[issue.id]) {
-          issueGroups[issue.id] = { def, pages: [] };
-        }
-        if (!issueGroups[issue.id].pages.find((p) => p.id === page.id)) {
-          issueGroups[issue.id].pages.push(page);
-        }
-      }
-    });
-  });
-
+// Issue Row Component
+function IssueRow({ group, isExpanded, onToggle }: { group: IssueGroup; isExpanded: boolean; onToggle: () => void }) {
   return (
-    <div className={cn("rounded-xl border overflow-hidden", borderColor, bgColor)}>
+    <div>
       <button
         onClick={onToggle}
-        className="w-full px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-colors"
+        className="w-full p-4 flex items-center gap-4 hover:bg-white/5 transition-colors"
       >
         <div className={cn(
-          "p-1.5 rounded-lg",
-          hasCritical ? "bg-red-500/20 text-red-400" :
-          hasWarning ? "bg-yellow-500/20 text-yellow-400" :
-          "bg-green-500/20 text-green-400"
+          "p-2 rounded-lg",
+          group.severity === 'critical' ? "bg-red-500/20 text-red-400" :
+          group.severity === 'warning' ? "bg-yellow-500/20 text-yellow-400" :
+          "bg-blue-500/20 text-blue-400"
         )}>
-          {categoryIcons[category]}
+          {group.icon}
         </div>
+
         <div className="flex-1 text-left">
-          <span className="text-sm font-semibold text-[var(--text-primary)]">
-            {categoryNames[category]}
-          </span>
+          <div className="text-sm font-medium text-[var(--text-primary)]">{group.name}</div>
+          <div className="text-xs text-[#8888a0]">{group.suggestion}</div>
         </div>
-        <div className="flex items-center gap-2">
-          {issues.critical.length > 0 && (
-            <span className="px-2 py-0.5 bg-red-500/20 text-red-400 rounded text-xs font-medium">
-              {issues.critical.length} critical
-            </span>
-          )}
-          {issues.warning.length > 0 && (
-            <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 rounded text-xs font-medium">
-              {issues.warning.length} warning
-            </span>
-          )}
-          {totalIssues === 0 && (
-            <span className="px-2 py-0.5 bg-green-500/20 text-green-400 rounded text-xs font-medium">
-              OK
-            </span>
-          )}
-          {isExpanded ? (
-            <ChevronUp className="w-4 h-4 text-[#8888a0]" />
-          ) : (
-            <ChevronDown className="w-4 h-4 text-[#8888a0]" />
-          )}
+
+        <div className={cn(
+          "text-xl font-bold",
+          group.severity === 'critical' ? "text-red-400" :
+          group.severity === 'warning' ? "text-yellow-400" :
+          "text-blue-400"
+        )}>
+          {group.count}
         </div>
+
+        {isExpanded ? (
+          <ChevronUp className="w-5 h-5 text-[#8888a0]" />
+        ) : (
+          <ChevronDown className="w-5 h-5 text-[#8888a0]" />
+        )}
       </button>
 
-      {isExpanded && Object.keys(issueGroups).length > 0 && (
-        <div className="px-4 pb-4 space-y-2">
-          {Object.entries(issueGroups).map(([issueId, { def, pages }]) => (
-            <div
-              key={issueId}
-              className={cn(
-                "p-3 rounded-lg",
-                def.severity === 'critical' ? "bg-red-500/10" :
-                def.severity === 'warning' ? "bg-yellow-500/10" :
-                "bg-blue-500/10"
-              )}
-            >
-              <div className="flex items-start gap-2">
-                {def.severity === 'critical' ? (
-                  <XCircle className="w-4 h-4 text-red-400 mt-0.5" />
-                ) : def.severity === 'warning' ? (
-                  <AlertTriangle className="w-4 h-4 text-yellow-400 mt-0.5" />
-                ) : (
-                  <Info className="w-4 h-4 text-blue-400 mt-0.5" />
-                )}
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-[var(--text-primary)]">
-                      {def.name}
-                    </span>
-                    <span className={cn(
-                      "px-1.5 py-0.5 rounded text-[10px] font-medium",
-                      def.severity === 'critical' ? "bg-red-500/20 text-red-400" :
-                      def.severity === 'warning' ? "bg-yellow-500/20 text-yellow-400" :
-                      "bg-blue-500/20 text-blue-400"
-                    )}>
-                      {pages.length} URLs
-                    </span>
-                  </div>
-                  <p className="text-xs text-[#8888a0] mt-1">{def.description}</p>
-                  <p className="text-xs text-yellow-400 mt-1">💡 {def.suggestion}</p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {isExpanded && Object.keys(issueGroups).length === 0 && (
+      {isExpanded && (
         <div className="px-4 pb-4">
-          <div className="p-3 bg-green-500/10 rounded-lg text-center">
-            <CheckCircle2 className="w-5 h-5 text-green-400 mx-auto mb-1" />
-            <p className="text-sm text-green-400">Không có lỗi trong category này</p>
+          <div className="bg-secondary/50 rounded-lg max-h-[300px] overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-secondary">
+                <tr className="text-left text-xs text-[#8888a0]">
+                  <th className="px-3 py-2 font-medium">URL</th>
+                  <th className="px-3 py-2 font-medium">Title</th>
+                  <th className="px-3 py-2 font-medium text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/30">
+                {group.pages.slice(0, 50).map((page) => (
+                  <tr key={page.id} className="hover:bg-white/5">
+                    <td className="px-3 py-2">
+                      <span className="text-[var(--text-primary)] truncate block max-w-[400px]">
+                        {page.address}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2">
+                      <span className="text-[#8888a0] truncate block max-w-[200px]">
+                        {page.title || '-'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <a
+                        href={page.address}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-accent hover:underline"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {group.pages.length > 50 && (
+              <div className="p-3 text-center text-xs text-[#8888a0]">
+                Hiển thị 50/{group.pages.length} URLs. Export CSV để xem tất cả.
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -790,8 +862,110 @@ function IssueCategoryCard({
   );
 }
 
-// Page Row Component
-function PageRow({ page }: { page: CrawlPage }) {
+// URLs Tab Component
+function URLsTab({
+  pages,
+  totalPages,
+  searchQuery,
+  setSearchQuery,
+  filterStatus,
+  setFilterStatus,
+}: {
+  pages: CrawlPage[];
+  totalPages: number;
+  searchQuery: string;
+  setSearchQuery: (v: string) => void;
+  filterStatus: 'all' | 'issues' | 'ok';
+  setFilterStatus: (v: 'all' | 'issues' | 'ok') => void;
+}) {
+  const [displayLimit, setDisplayLimit] = useState(100);
+
+  return (
+    <div className="bg-card border border-border rounded-xl overflow-hidden">
+      {/* Filters */}
+      <div className="p-4 border-b border-border flex flex-wrap items-center gap-3">
+        <div className="flex-1 min-w-[200px]">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8888a0]" />
+            <input
+              type="text"
+              placeholder="Tìm URL hoặc Title..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 bg-secondary border-none rounded-lg text-sm text-[var(--text-primary)]"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1 bg-secondary rounded-lg p-1">
+          {[
+            { id: 'all', label: 'Tất cả' },
+            { id: 'issues', label: 'Có lỗi' },
+            { id: 'ok', label: 'OK' },
+          ].map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setFilterStatus(f.id as 'all' | 'issues' | 'ok')}
+              className={cn(
+                "px-3 py-1 rounded text-xs font-medium transition-colors",
+                filterStatus === f.id
+                  ? "bg-accent text-white"
+                  : "text-[#8888a0] hover:text-[var(--text-primary)]"
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        <span className="text-sm text-[#8888a0]">
+          {pages.length.toLocaleString()} / {totalPages.toLocaleString()} URLs
+        </span>
+      </div>
+
+      {/* Table */}
+      <div className="max-h-[600px] overflow-y-auto">
+        {pages.length === 0 ? (
+          <div className="p-8 text-center text-[#8888a0]">
+            Không có URL nào phù hợp
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-secondary/50 sticky top-0">
+              <tr className="text-left text-xs text-[#8888a0]">
+                <th className="px-4 py-2 font-medium w-8">Status</th>
+                <th className="px-4 py-2 font-medium">URL</th>
+                <th className="px-4 py-2 font-medium text-center">Code</th>
+                <th className="px-4 py-2 font-medium text-center">Issues</th>
+                <th className="px-4 py-2 font-medium">Title</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {pages.slice(0, displayLimit).map((page) => (
+                <URLRow key={page.id} page={page} />
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Load More */}
+      {pages.length > displayLimit && (
+        <div className="p-4 border-t border-border text-center">
+          <button
+            onClick={() => setDisplayLimit((prev) => prev + 100)}
+            className="px-4 py-2 bg-secondary text-[var(--text-primary)] rounded-lg text-sm hover:bg-secondary/80"
+          >
+            Hiển thị thêm ({displayLimit}/{pages.length})
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// URL Row Component
+function URLRow({ page }: { page: CrawlPage }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
@@ -805,18 +979,18 @@ function PageRow({ page }: { page: CrawlPage }) {
         )}
       >
         <td className="px-4 py-2">
-          <div className="flex items-center gap-2">
-            {page.has_critical_issue ? (
-              <XCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
-            ) : page.has_warning ? (
-              <AlertTriangle className="w-4 h-4 text-yellow-400 flex-shrink-0" />
-            ) : (
-              <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
-            )}
-            <span className="text-[var(--text-primary)] truncate max-w-[300px]">
-              {page.address}
-            </span>
-          </div>
+          {page.has_critical_issue ? (
+            <XCircle className="w-4 h-4 text-red-400" />
+          ) : page.has_warning ? (
+            <AlertTriangle className="w-4 h-4 text-yellow-400" />
+          ) : (
+            <CheckCircle2 className="w-4 h-4 text-green-400" />
+          )}
+        </td>
+        <td className="px-4 py-2">
+          <span className="text-[var(--text-primary)] truncate block max-w-[400px]">
+            {page.address}
+          </span>
         </td>
         <td className="px-4 py-2 text-center">
           <span className={cn(
@@ -825,60 +999,86 @@ function PageRow({ page }: { page: CrawlPage }) {
             page.status_code >= 300 && page.status_code < 400 ? "bg-yellow-500/20 text-yellow-400" :
             "bg-red-500/20 text-red-400"
           )}>
-            {page.status_code}
+            {page.status_code || '-'}
           </span>
         </td>
         <td className="px-4 py-2 text-center">
           <span className="text-[#8888a0]">{page.issues?.length || 0}</span>
         </td>
         <td className="px-4 py-2">
-          <span className="text-[#8888a0] truncate block max-w-[200px]">
+          <span className="text-[#8888a0] truncate block max-w-[250px]">
             {page.title || '-'}
           </span>
         </td>
       </tr>
       {isExpanded && (
         <tr>
-          <td colSpan={4} className="px-4 py-3 bg-secondary/30">
-            <div className="space-y-2">
+          <td colSpan={5} className="px-4 py-3 bg-secondary/30">
+            <div className="space-y-3">
+              {/* Meta Info */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                 <div>
-                  <span className="text-[#8888a0]">Word Count:</span>{' '}
-                  <span className="text-[var(--text-primary)]">{page.word_count || '-'}</span>
+                  <span className="text-[#8888a0]">Title Length:</span>{' '}
+                  <span className={cn(
+                    "font-medium",
+                    page.title_length && page.title_length > 60 ? "text-yellow-400" :
+                    page.title_length && page.title_length < 30 ? "text-yellow-400" :
+                    "text-[var(--text-primary)]"
+                  )}>
+                    {page.title_length || '-'}
+                  </span>
                 </div>
                 <div>
-                  <span className="text-[#8888a0]">Response:</span>{' '}
-                  <span className="text-[var(--text-primary)]">{page.response_time ? `${page.response_time}ms` : '-'}</span>
+                  <span className="text-[#8888a0]">Meta Desc Length:</span>{' '}
+                  <span className={cn(
+                    "font-medium",
+                    page.meta_description_length && page.meta_description_length > 160 ? "text-yellow-400" :
+                    !page.meta_description_length ? "text-yellow-400" :
+                    "text-[var(--text-primary)]"
+                  )}>
+                    {page.meta_description_length || '-'}
+                  </span>
                 </div>
                 <div>
-                  <span className="text-[#8888a0]">Inlinks:</span>{' '}
-                  <span className="text-[var(--text-primary)]">{page.unique_inlinks || 0}</span>
+                  <span className="text-[#8888a0]">H1:</span>{' '}
+                  <span className={cn(
+                    "font-medium",
+                    !page.h1_1 ? "text-yellow-400" : "text-[var(--text-primary)]"
+                  )}>
+                    {page.h1_1 ? 'Có' : 'Không'}
+                  </span>
                 </div>
                 <div>
-                  <span className="text-[#8888a0]">Depth:</span>{' '}
-                  <span className="text-[var(--text-primary)]">{page.crawl_depth || '-'}</span>
+                  <span className="text-[#8888a0]">Canonical:</span>{' '}
+                  <span className={cn(
+                    "font-medium",
+                    !page.canonical_link ? "text-yellow-400" : "text-[var(--text-primary)]"
+                  )}>
+                    {page.canonical_link ? 'Có' : 'Không'}
+                  </span>
                 </div>
               </div>
+
+              {/* Issues */}
               {page.issues && page.issues.length > 0 && (
-                <div className="space-y-1">
+                <div className="flex flex-wrap gap-2">
                   {page.issues.map((issue, idx) => (
-                    <div
+                    <span
                       key={idx}
                       className={cn(
-                        "flex items-center gap-2 px-2 py-1 rounded text-xs",
-                        issue.severity === 'critical' ? "bg-red-500/10 text-red-400" :
-                        issue.severity === 'warning' ? "bg-yellow-500/10 text-yellow-400" :
-                        "bg-blue-500/10 text-blue-400"
+                        "px-2 py-1 rounded text-xs",
+                        issue.severity === 'critical' ? "bg-red-500/20 text-red-400" :
+                        issue.severity === 'warning' ? "bg-yellow-500/20 text-yellow-400" :
+                        "bg-blue-500/20 text-blue-400"
                       )}
                     >
-                      {issue.severity === 'critical' ? <XCircle className="w-3 h-3" /> :
-                       issue.severity === 'warning' ? <AlertTriangle className="w-3 h-3" /> :
-                       <Info className="w-3 h-3" />}
-                      <span>{issue.name}</span>
-                    </div>
+                      {issue.name}
+                    </span>
                   ))}
                 </div>
               )}
+
+              {/* Actions */}
               <a
                 href={page.address}
                 target="_blank"
@@ -893,195 +1093,4 @@ function PageRow({ page }: { page: CrawlPage }) {
       )}
     </>
   );
-}
-
-// Import Modal Component
-function ImportModal({
-  projects,
-  onClose,
-  onSuccess,
-}: {
-  projects: Project[];
-  onClose: () => void;
-  onSuccess: () => void;
-}) {
-  const [projectId, setProjectId] = useState('');
-  const [crawlDate, setCrawlDate] = useState(new Date().toISOString().split('T')[0]);
-  const [csvData, setCsvData] = useState('');
-  const [isImporting, setIsImporting] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleImport = async () => {
-    if (!projectId) {
-      setError('Vui lòng chọn dự án');
-      return;
-    }
-    if (!csvData.trim()) {
-      setError('Vui lòng paste dữ liệu CSV');
-      return;
-    }
-
-    setIsImporting(true);
-    setError('');
-
-    try {
-      // Parse CSV
-      const lines = csvData.trim().split('\n');
-      const headers = parseCSVLine(lines[0]);
-      const data = lines.slice(1).map((line) => {
-        const values = parseCSVLine(line);
-        const row: Record<string, string> = {};
-        headers.forEach((header, idx) => {
-          row[header] = values[idx] || '';
-        });
-        return row;
-      });
-
-      // Send to API
-      const res = await fetch('/api/site-crawl', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          project_id: projectId,
-          crawl_date: crawlDate,
-          data,
-        }),
-      });
-
-      const result = await res.json();
-
-      if (!res.ok) {
-        throw new Error(result.error || 'Import failed');
-      }
-
-      onSuccess();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Import failed');
-    } finally {
-      setIsImporting(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-card border border-border rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
-        <div className="p-4 border-b border-border flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Import Crawl Data</h2>
-          <button onClick={onClose} className="text-[#8888a0] hover:text-[var(--text-primary)]">
-            <XCircle className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(90vh-130px)]">
-          {error && (
-            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
-              {error}
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-[#8888a0] mb-1">Dự án *</label>
-              <select
-                value={projectId}
-                onChange={(e) => setProjectId(e.target.value)}
-                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)]"
-              >
-                <option value="">Chọn dự án</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm text-[#8888a0] mb-1">Ngày crawl</label>
-              <input
-                type="date"
-                value={crawlDate}
-                onChange={(e) => setCrawlDate(e.target.value)}
-                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)]"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm text-[#8888a0] mb-1">
-              Dữ liệu CSV (copy từ Google Sheet hoặc Excel)
-            </label>
-            <textarea
-              value={csvData}
-              onChange={(e) => setCsvData(e.target.value)}
-              placeholder="Paste dữ liệu CSV tại đây (bao gồm header row)..."
-              rows={15}
-              className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm font-mono"
-            />
-          </div>
-
-          <div className="text-xs text-[#8888a0]">
-            <p className="font-medium mb-1">Hướng dẫn:</p>
-            <ol className="list-decimal list-inside space-y-1">
-              <li>Export dữ liệu từ Screaming Frog (File → Export → Internal → All)</li>
-              <li>Mở file trong Google Sheet hoặc Excel</li>
-              <li>Chọn tất cả (Ctrl+A) và copy (Ctrl+C)</li>
-              <li>Paste vào ô trên</li>
-            </ol>
-          </div>
-        </div>
-
-        <div className="p-4 border-t border-border flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-[#8888a0] hover:text-[var(--text-primary)]"
-          >
-            Hủy
-          </button>
-          <button
-            onClick={handleImport}
-            disabled={isImporting}
-            className="px-4 py-2 bg-accent text-white rounded-lg font-medium flex items-center gap-2 disabled:opacity-50"
-          >
-            {isImporting ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Đang import...
-              </>
-            ) : (
-              <>
-                <Upload className="w-4 h-4" />
-                Import
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Parse CSV line (handle quoted values)
-function parseCSVLine(line: string): string[] {
-  const result: string[] = [];
-  let current = '';
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-
-    if (char === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        current += '"';
-        i++;
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if ((char === ',' || char === '\t') && !inQuotes) {
-      result.push(current.trim());
-      current = '';
-    } else {
-      current += char;
-    }
-  }
-
-  result.push(current.trim());
-  return result;
 }

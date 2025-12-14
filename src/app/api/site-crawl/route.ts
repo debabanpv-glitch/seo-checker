@@ -102,6 +102,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { project_id, crawl_date, source_url, data, sheet_url } = body;
 
+    console.log('[CRAWL] Starting import for project:', project_id);
+
     if (!project_id) {
       return NextResponse.json({ error: 'Missing project_id' }, { status: 400 });
     }
@@ -110,11 +112,14 @@ export async function POST(request: NextRequest) {
 
     // If sheet_url is provided, fetch data from Google Sheets
     if (sheet_url) {
+      console.log('[CRAWL] Fetching from sheet URL:', sheet_url);
       const sheetResult = await fetchGoogleSheetData(sheet_url);
       if (sheetResult.error) {
+        console.error('[CRAWL] Sheet fetch error:', sheetResult.error);
         return NextResponse.json({ error: sheetResult.error }, { status: 400 });
       }
       crawlData = sheetResult.data || [];
+      console.log('[CRAWL] Fetched', crawlData.length, 'rows from sheet');
     } else if (data && Array.isArray(data)) {
       crawlData = data;
     } else {
@@ -123,6 +128,20 @@ export async function POST(request: NextRequest) {
 
     if (crawlData.length === 0) {
       return NextResponse.json({ error: 'No data found in sheet' }, { status: 400 });
+    }
+
+    // Delete existing crawls for this project (keep only latest)
+    const { data: existingCrawls } = await supabase
+      .from('site_crawls')
+      .select('id')
+      .eq('project_id', project_id);
+
+    if (existingCrawls && existingCrawls.length > 0) {
+      console.log('[CRAWL] Deleting', existingCrawls.length, 'existing crawls');
+      for (const ec of existingCrawls) {
+        await supabase.from('crawl_pages').delete().eq('crawl_id', ec.id);
+        await supabase.from('site_crawls').delete().eq('id', ec.id);
+      }
     }
 
     // Create crawl record
@@ -138,14 +157,23 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (crawlError) {
+      console.error('[CRAWL] Create crawl error:', crawlError);
       return NextResponse.json({ error: crawlError.message }, { status: 500 });
     }
+
+    console.log('[CRAWL] Created crawl record:', crawl.id);
 
     // Map and insert pages
     const pages = crawlData.map((row: Record<string, string | number>) => mapCrawlRow(row, crawl.id));
 
-    // Insert in batches of 100
-    const batchSize = 100;
+    // Log sample mapped data
+    if (pages.length > 0) {
+      console.log('[CRAWL] Sample mapped page:', JSON.stringify(pages[0], null, 2));
+    }
+
+    // Insert in batches of 500 for better performance
+    const batchSize = 500;
+    let insertedCount = 0;
     for (let i = 0; i < pages.length; i += batchSize) {
       const batch = pages.slice(i, i + batchSize);
       const { error: insertError } = await supabase
@@ -153,13 +181,18 @@ export async function POST(request: NextRequest) {
         .insert(batch);
 
       if (insertError) {
-        console.error('Insert error:', insertError);
-        // Continue with other batches
+        console.error('[CRAWL] Insert error at batch', i, ':', insertError);
+      } else {
+        insertedCount += batch.length;
       }
     }
 
+    console.log('[CRAWL] Inserted', insertedCount, 'pages');
+
     // Analyze and calculate scores
-    await analyzeAndScoreCrawl(supabase, crawl.id);
+    console.log('[CRAWL] Starting analysis...');
+    const analysisResult = await analyzeAndScoreCrawl(supabase, crawl.id);
+    console.log('[CRAWL] Analysis result:', analysisResult);
 
     // Get updated crawl
     const { data: updatedCrawl } = await supabase
@@ -168,10 +201,17 @@ export async function POST(request: NextRequest) {
       .eq('id', crawl.id)
       .single();
 
-    return NextResponse.json({ crawl: updatedCrawl, imported: pages.length });
+    console.log('[CRAWL] Final crawl stats:', {
+      total: updatedCrawl?.total_urls,
+      critical: updatedCrawl?.critical_issues,
+      warnings: updatedCrawl?.warnings,
+      health: updatedCrawl?.health_score
+    });
+
+    return NextResponse.json({ crawl: updatedCrawl, imported: insertedCount });
   } catch (error) {
-    console.error('Import error:', error);
-    return NextResponse.json({ error: 'Import failed' }, { status: 500 });
+    console.error('[CRAWL] Import error:', error);
+    return NextResponse.json({ error: 'Import failed: ' + (error instanceof Error ? error.message : 'Unknown error') }, { status: 500 });
   }
 }
 
@@ -382,6 +422,8 @@ function mapCrawlRow(row: Record<string, string | number>, crawlId: string) {
 // Analyze crawl and calculate scores
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function analyzeAndScoreCrawl(supabase: any, crawlId: string) {
+  console.log('[ANALYZE] Starting analysis for crawl:', crawlId);
+
   // Get all pages - fetch in batches to handle very large sites
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const allPages: any[] = [];
@@ -390,23 +432,32 @@ async function analyzeAndScoreCrawl(supabase: any, crawlId: string) {
   let hasMore = true;
 
   while (hasMore) {
-    const { data: batch } = await supabase
+    const { data: batch, error: fetchError } = await supabase
       .from('crawl_pages')
       .select('*')
       .eq('crawl_id', crawlId)
       .range(offset, offset + batchSize - 1);
 
-    if (batch && batch.length > 0) {
+    if (fetchError) {
+      console.error('[ANALYZE] Fetch error at offset', offset, ':', fetchError);
+      hasMore = false;
+    } else if (batch && batch.length > 0) {
       allPages.push(...batch);
       offset += batchSize;
       hasMore = batch.length === batchSize;
+      console.log('[ANALYZE] Fetched batch, total pages:', allPages.length);
     } else {
       hasMore = false;
     }
   }
 
   const pages = allPages;
-  if (pages.length === 0) return;
+  console.log('[ANALYZE] Total pages to analyze:', pages.length);
+
+  if (pages.length === 0) {
+    console.log('[ANALYZE] No pages found, skipping analysis');
+    return { pagesAnalyzed: 0 };
+  }
 
   // Status code breakdown
   let status2xx = 0, status3xx = 0, status4xx = 0, status5xx = 0;
@@ -546,8 +597,18 @@ async function analyzeAndScoreCrawl(supabase: any, crawlId: string) {
   const cleanPages = pages.length - pagesWithCritical - pagesWithWarning;
   const healthScore = Math.round((cleanPages / pages.length) * 100);
 
+  console.log('[ANALYZE] Summary:', {
+    totalPages: pages.length,
+    cleanPages,
+    pagesWithCritical,
+    pagesWithWarning,
+    criticalCount,
+    warningCount,
+    healthScore
+  });
+
   // Update crawl summary
-  await supabase
+  const { error: updateError } = await supabase
     .from('site_crawls')
     .update({
       total_urls: pages.length,
@@ -564,4 +625,16 @@ async function analyzeAndScoreCrawl(supabase: any, crawlId: string) {
       updated_at: new Date().toISOString(),
     })
     .eq('id', crawlId);
+
+  if (updateError) {
+    console.error('[ANALYZE] Update crawl error:', updateError);
+  }
+
+  return {
+    pagesAnalyzed: pages.length,
+    criticalCount,
+    warningCount,
+    opportunityCount,
+    healthScore: Math.max(0, Math.min(100, healthScore))
+  };
 }
