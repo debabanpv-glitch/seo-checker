@@ -32,17 +32,36 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: crawlError.message }, { status: 500 });
       }
 
-      // Get pages for this crawl
-      const { data: pages, error: pagesError } = await supabase
-        .from('crawl_pages')
-        .select('*')
-        .eq('crawl_id', crawlId)
-        .order('has_critical_issue', { ascending: false })
-        .order('has_warning', { ascending: false });
+      // Get pages for this crawl - fetch in batches to handle large sites
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const allPages: any[] = [];
+      const batchSize = 1000;
+      let offset = 0;
+      let hasMore = true;
 
-      if (pagesError) {
-        return NextResponse.json({ error: pagesError.message }, { status: 500 });
+      while (hasMore) {
+        const { data: batch, error: pagesError } = await supabase
+          .from('crawl_pages')
+          .select('*')
+          .eq('crawl_id', crawlId)
+          .order('has_critical_issue', { ascending: false })
+          .order('has_warning', { ascending: false })
+          .range(offset, offset + batchSize - 1);
+
+        if (pagesError) {
+          return NextResponse.json({ error: pagesError.message }, { status: 500 });
+        }
+
+        if (batch && batch.length > 0) {
+          allPages.push(...batch);
+          offset += batchSize;
+          hasMore = batch.length === batchSize;
+        } else {
+          hasMore = false;
+        }
       }
+
+      const pages = allPages;
 
       // Get issue definitions
       const { data: issueDefinitions } = await supabase
