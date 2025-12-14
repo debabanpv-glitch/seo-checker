@@ -286,7 +286,7 @@ export default function SettingsPage() {
         sheet_name: project.sheet_name || 'Content',
         monthly_target: project.monthly_target || 20,
         ranking_sheet_url: project.ranking_sheet_url || '',
-        crawl_sheet_url: (project as Project & { crawl_sheet_url?: string }).crawl_sheet_url || '',
+        crawl_sheet_url: project.crawl_sheet_url || '',
       });
       setSheetUrlInput('');
     } else {
@@ -586,8 +586,8 @@ thuê căn hộ chung cư,https://example.com/thue-can-ho,12,2024/12/01`;
                         </span>
                       </button>
                       <button
-                        onClick={() => handleSyncCrawl(project.id, (project as Project & { crawl_sheet_url?: string }).crawl_sheet_url || '')}
-                        disabled={!(project as Project & { crawl_sheet_url?: string }).crawl_sheet_url || isSyncingCrawl === project.id}
+                        onClick={() => handleSyncCrawl(project.id, project.crawl_sheet_url || '')}
+                        disabled={!project.crawl_sheet_url || isSyncingCrawl === project.id}
                         className="flex items-center gap-2 px-4 py-3 bg-secondary hover:bg-secondary/70 disabled:opacity-50 rounded-lg text-sm transition-colors"
                       >
                         <Zap className={cn('w-4 h-4 text-blue-400', isSyncingCrawl === project.id && 'animate-pulse')} />

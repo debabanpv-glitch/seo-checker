@@ -6,6 +6,7 @@ export interface Project {
   sheet_name: string;
   monthly_target: number;
   ranking_sheet_url?: string;
+  crawl_sheet_url?: string;
   created_at: string;
 }
 
