@@ -80,7 +80,15 @@ export default function DashboardPage() {
   const filteredStats = useMemo(() => {
     if (!stats) return null;
 
+    // Debug: Log task data to console
+    console.log('=== Dashboard Debug ===');
+    console.log('allTasks.length:', allTasks.length);
+    const tasksWithPublishDate = allTasks.filter((t) => t.publish_date);
+    console.log('Tasks with publish_date:', tasksWithPublishDate.length);
+    console.log('Sample task:', allTasks[0]);
+
     const published = allTasks.filter((t) => isPublished(t)).length;
+    console.log('Published count:', published);
     const inProgress = allTasks.filter((t) =>
       t.status_content &&
       !isPublished(t)
