@@ -26,7 +26,6 @@ import {
   ChevronUp,
   Target,
   Zap,
-  Upload,
 } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import { Project } from '@/types';
@@ -96,6 +95,7 @@ export default function SettingsPage() {
     sheet_name: 'Content',
     monthly_target: 20,
     ranking_sheet_url: '',
+    crawl_sheet_url: '',
   });
   const [isSavingProject, setIsSavingProject] = useState(false);
   const [sheetUrlInput, setSheetUrlInput] = useState('');
@@ -108,15 +108,12 @@ export default function SettingsPage() {
   const [targetValue, setTargetValue] = useState(20);
   const [isSavingTarget, setIsSavingTarget] = useState(false);
 
-  // Screaming Frog import modal
-  const [showCrawlModal, setShowCrawlModal] = useState(false);
-  const [crawlProjectId, setCrawlProjectId] = useState('');
-  const [crawlDate, setCrawlDate] = useState(new Date().toISOString().split('T')[0]);
-  const [crawlSheetUrl, setCrawlSheetUrl] = useState('');
-  const [isImportingCrawl, setIsImportingCrawl] = useState(false);
 
   // Keyword ranking sync
   const [isSyncingRanking, setIsSyncingRanking] = useState<string | null>(null);
+
+  // Crawl sync
+  const [isSyncingCrawl, setIsSyncingCrawl] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -241,6 +238,44 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSyncCrawl = async (projectId: string, crawlUrl: string) => {
+    if (!crawlUrl) {
+      setSyncResult({ success: false, message: 'Dự án chưa có link Google Sheet crawl data' });
+      return;
+    }
+
+    setIsSyncingCrawl(projectId);
+    setSyncResult(null);
+
+    try {
+      const res = await fetch('/api/site-crawl', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: projectId,
+          sheet_url: crawlUrl,
+          crawl_date: new Date().toISOString().split('T')[0],
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        await fetchData();
+        setSyncResult({
+          success: true,
+          message: `Đồng bộ thành công ${data.imported || 0} URLs!`,
+        });
+      } else {
+        setSyncResult({ success: false, message: data.error || 'Đồng bộ thất bại' });
+      }
+    } catch {
+      setSyncResult({ success: false, message: 'Có lỗi xảy ra khi đồng bộ' });
+    } finally {
+      setIsSyncingCrawl(null);
+    }
+  };
+
   // Project handlers
   const openProjectModal = (project?: Project) => {
     if (project) {
@@ -251,6 +286,7 @@ export default function SettingsPage() {
         sheet_name: project.sheet_name || 'Content',
         monthly_target: project.monthly_target || 20,
         ranking_sheet_url: project.ranking_sheet_url || '',
+        crawl_sheet_url: (project as Project & { crawl_sheet_url?: string }).crawl_sheet_url || '',
       });
       setSheetUrlInput('');
     } else {
@@ -261,6 +297,7 @@ export default function SettingsPage() {
         sheet_name: 'Content',
         monthly_target: 20,
         ranking_sheet_url: '',
+        crawl_sheet_url: '',
       });
       setSheetUrlInput('');
     }
@@ -361,54 +398,6 @@ export default function SettingsPage() {
       setMonthlyTargets((prev) => prev.filter((t) => t.id !== targetId));
     } catch (error) {
       console.error('Failed to delete target:', error);
-    }
-  };
-
-  // Crawl import handlers
-  const openCrawlModal = (projectId: string) => {
-    setCrawlProjectId(projectId);
-    setCrawlDate(new Date().toISOString().split('T')[0]);
-    setCrawlSheetUrl('');
-    setShowCrawlModal(true);
-  };
-
-  const handleImportCrawl = async () => {
-    if (!crawlProjectId || !crawlSheetUrl.trim()) {
-      setSyncResult({ success: false, message: 'Vui lòng nhập Google Sheets URL' });
-      return;
-    }
-
-    // Validate Google Sheets URL
-    if (!crawlSheetUrl.includes('docs.google.com/spreadsheets')) {
-      setSyncResult({ success: false, message: 'URL không hợp lệ. Vui lòng nhập link Google Sheets.' });
-      return;
-    }
-
-    setIsImportingCrawl(true);
-    try {
-      const res = await fetch('/api/site-crawl', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          project_id: crawlProjectId,
-          crawl_date: crawlDate,
-          sheet_url: crawlSheetUrl,
-        }),
-      });
-
-      const result = await res.json();
-
-      if (res.ok) {
-        await fetchData();
-        setShowCrawlModal(false);
-        setSyncResult({ success: true, message: `Import thành công ${result.imported} URLs!` });
-      } else {
-        throw new Error(result.error || 'Import failed');
-      }
-    } catch (err) {
-      setSyncResult({ success: false, message: err instanceof Error ? err.message : 'Import failed' });
-    } finally {
-      setIsImportingCrawl(false);
     }
   };
 
@@ -597,11 +586,14 @@ thuê căn hộ chung cư,https://example.com/thue-can-ho,12,2024/12/01`;
                         </span>
                       </button>
                       <button
-                        onClick={() => openCrawlModal(project.id)}
-                        className="flex items-center gap-2 px-4 py-3 bg-secondary hover:bg-secondary/70 rounded-lg text-sm transition-colors"
+                        onClick={() => handleSyncCrawl(project.id, (project as Project & { crawl_sheet_url?: string }).crawl_sheet_url || '')}
+                        disabled={!(project as Project & { crawl_sheet_url?: string }).crawl_sheet_url || isSyncingCrawl === project.id}
+                        className="flex items-center gap-2 px-4 py-3 bg-secondary hover:bg-secondary/70 disabled:opacity-50 rounded-lg text-sm transition-colors"
                       >
-                        <Upload className="w-4 h-4 text-blue-400" />
-                        <span className="text-[var(--text-primary)]">Import Crawl</span>
+                        <Zap className={cn('w-4 h-4 text-blue-400', isSyncingCrawl === project.id && 'animate-pulse')} />
+                        <span className="text-[var(--text-primary)]">
+                          {isSyncingCrawl === project.id ? 'Đang sync...' : 'Sync Crawl'}
+                        </span>
                       </button>
                       <a
                         href={`https://docs.google.com/spreadsheets/d/${project.sheet_id}`}
@@ -976,6 +968,23 @@ thuê căn hộ chung cư,https://example.com/thue-can-ho,12,2024/12/01`;
                   className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm"
                 />
               </div>
+
+              <div>
+                <label className="block text-sm text-[#8888a0] mb-2">
+                  <Zap className="w-4 h-4 inline mr-1" />
+                  Link Sheet Screaming Frog Crawl
+                </label>
+                <input
+                  type="url"
+                  value={projectForm.crawl_sheet_url}
+                  onChange={(e) => setProjectForm({ ...projectForm, crawl_sheet_url: e.target.value })}
+                  placeholder="https://docs.google.com/spreadsheets/d/..."
+                  className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm"
+                />
+                <p className="text-xs text-[#8888a0] mt-1">
+                  Sheet cần có headers gốc từ Screaming Frog: Address, Status Code, Title 1...
+                </p>
+              </div>
             </div>
 
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-secondary/30">
@@ -1065,72 +1074,6 @@ thuê căn hộ chung cư,https://example.com/thue-can-ho,12,2024/12/01`;
         </div>
       )}
 
-      {/* Crawl Import Modal */}
-      {showCrawlModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <div className="flex items-center gap-3">
-                <Zap className="w-5 h-5 text-blue-400" />
-                <h3 className="text-lg font-semibold text-[var(--text-primary)]">Import Screaming Frog</h3>
-              </div>
-              <button onClick={() => setShowCrawlModal(false)} className="p-1 text-[#8888a0]">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-140px)]">
-              <div>
-                <label className="block text-sm text-[#8888a0] mb-2">Google Sheets URL</label>
-                <input
-                  type="url"
-                  value={crawlSheetUrl}
-                  onChange={(e) => setCrawlSheetUrl(e.target.value)}
-                  placeholder="https://docs.google.com/spreadsheets/d/..."
-                  className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-[#8888a0] mb-2">Ngày crawl</label>
-                <input
-                  type="date"
-                  value={crawlDate}
-                  onChange={(e) => setCrawlDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)]"
-                />
-              </div>
-
-              <div className="text-xs text-[#8888a0] p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                <p className="font-medium mb-2 text-blue-400">Hướng dẫn:</p>
-                <ol className="list-decimal list-inside space-y-1">
-                  <li>Export từ Screaming Frog (File → Export → Internal → All)</li>
-                  <li>Upload file lên Google Sheets</li>
-                  <li>Đảm bảo Sheet được chia sẻ công khai (Anyone with link can view)</li>
-                  <li>Copy link Google Sheets và paste vào ô trên</li>
-                </ol>
-                <p className="mt-2 text-[#8888a0]">
-                  <span className="text-yellow-400">Lưu ý:</span> Headers cần giữ nguyên tên gốc từ Screaming Frog (Address, Status Code, Title 1, etc.)
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border">
-              <button onClick={() => setShowCrawlModal(false)} className="px-4 py-2 text-[#8888a0]">
-                Hủy
-              </button>
-              <button
-                onClick={handleImportCrawl}
-                disabled={isImportingCrawl || !crawlSheetUrl.trim()}
-                className="flex items-center gap-2 px-6 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/50 rounded-lg text-white font-medium"
-              >
-                <Upload className="w-4 h-4" />
-                {isImportingCrawl ? 'Đang import...' : 'Import từ Sheet'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
