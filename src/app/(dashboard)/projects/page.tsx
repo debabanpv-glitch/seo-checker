@@ -15,6 +15,10 @@ import {
   XCircle,
   ArrowRight,
   Zap,
+  BarChart3,
+  ArrowUp,
+  ArrowDown,
+  Minus,
 } from 'lucide-react';
 import ProgressBar from '@/components/ProgressBar';
 import { PageLoading } from '@/components/LoadingSpinner';
@@ -114,6 +118,37 @@ interface ReportMeta {
   currentWeekInMonth: number;
 }
 
+// Ranking Growth interfaces
+interface DailySnapshot {
+  date: string;
+  top3: number;
+  top10: number;
+  top20: number;
+  top30: number;
+  total: number;
+}
+
+interface RankingGrowthData {
+  snapshots: DailySnapshot[];
+  summary: {
+    firstDate: string;
+    lastDate: string;
+    top3Change: number;
+    top10Change: number;
+    top20Change: number;
+    top30Change: number;
+    totalChange: number;
+    top3First: number;
+    top3Last: number;
+    top10First: number;
+    top10Last: number;
+    top20First: number;
+    top20Last: number;
+    top30First: number;
+    top30Last: number;
+  } | null;
+}
+
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<ProjectReport[]>([]);
   const [meta, setMeta] = useState<ReportMeta | null>(null);
@@ -121,10 +156,21 @@ export default function ProjectsPage() {
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
 
+  // Ranking Growth state
+  const [rankingGrowth, setRankingGrowth] = useState<RankingGrowthData | null>(null);
+  const [rankingDays, setRankingDays] = useState(30);
+  const [isLoadingRanking, setIsLoadingRanking] = useState(false);
+
   useEffect(() => {
     fetchProjects();
+    fetchRankingGrowth();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMonth, selectedYear]);
+
+  useEffect(() => {
+    fetchRankingGrowth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rankingDays]);
 
   const fetchProjects = async () => {
     setIsLoading(true);
@@ -137,6 +183,19 @@ export default function ProjectsPage() {
       console.error('Failed to fetch projects:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchRankingGrowth = async () => {
+    setIsLoadingRanking(true);
+    try {
+      const res = await fetch(`/api/keyword-rankings/growth?days=${rankingDays}`);
+      const data = await res.json();
+      setRankingGrowth(data);
+    } catch (error) {
+      console.error('Failed to fetch ranking growth:', error);
+    } finally {
+      setIsLoadingRanking(false);
     }
   };
 
@@ -309,6 +368,14 @@ export default function ProjectsPage() {
               color={avgDaysRemaining < 7 ? 'danger' : avgDaysRemaining < 14 ? 'warning' : 'accent'}
             />
           </div>
+
+          {/* Ranking Growth Section */}
+          <RankingGrowthSection
+            data={rankingGrowth}
+            isLoading={isLoadingRanking}
+            days={rankingDays}
+            onDaysChange={setRankingDays}
+          />
 
           {/* Main Content Grid */}
           <div className="grid lg:grid-cols-3 gap-4">
@@ -1051,5 +1118,349 @@ function DeadlineBadge({
       <p className="text-lg font-bold">{count}</p>
       <p className="text-[10px]">{label}</p>
     </div>
+  );
+}
+
+// Ranking Growth Section Component
+function RankingGrowthSection({
+  data,
+  isLoading,
+  days,
+  onDaysChange,
+}: {
+  data: RankingGrowthData | null;
+  isLoading: boolean;
+  days: number;
+  onDaysChange: (days: number) => void;
+}) {
+  if (isLoading) {
+    return (
+      <div className="bg-card border border-border rounded-xl p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <BarChart3 className="w-5 h-5 text-accent" />
+          <h2 className="font-semibold text-[var(--text-primary)]">Tăng trưởng Keyword Ranking</h2>
+        </div>
+        <div className="h-48 flex items-center justify-center">
+          <div className="animate-pulse text-[#8888a0]">Đang tải...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data || data.snapshots.length === 0) {
+    return (
+      <div className="bg-card border border-border rounded-xl p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <BarChart3 className="w-5 h-5 text-accent" />
+          <h2 className="font-semibold text-[var(--text-primary)]">Tăng trưởng Keyword Ranking</h2>
+        </div>
+        <div className="h-32 flex flex-col items-center justify-center text-[#8888a0]">
+          <TrendingUp className="w-8 h-8 mb-2 opacity-50" />
+          <p className="text-sm">Chưa có dữ liệu ranking</p>
+          <p className="text-xs mt-1">Sync dữ liệu từ Cài đặt để bắt đầu theo dõi</p>
+        </div>
+      </div>
+    );
+  }
+
+  const { snapshots, summary } = data;
+
+  // Format date for display
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+  };
+
+  // Get change indicator
+  const getChangeIndicator = (change: number) => {
+    if (change > 0) {
+      return (
+        <span className="flex items-center gap-1 text-success font-bold">
+          <ArrowUp className="w-4 h-4" />+{change}
+        </span>
+      );
+    }
+    if (change < 0) {
+      return (
+        <span className="flex items-center gap-1 text-danger font-bold">
+          <ArrowDown className="w-4 h-4" />{change}
+        </span>
+      );
+    }
+    return (
+      <span className="flex items-center gap-1 text-[#8888a0]">
+        <Minus className="w-4 h-4" />0
+      </span>
+    );
+  };
+
+  return (
+    <div className="bg-card border border-border rounded-xl overflow-hidden">
+      {/* Header */}
+      <div className="p-4 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="w-5 h-5 text-accent" />
+          <h2 className="font-semibold text-[var(--text-primary)]">Tăng trưởng Keyword Ranking</h2>
+          <span className="text-xs text-[#8888a0]">({snapshots.length} lần check)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-[#8888a0]">Hiển thị:</span>
+          <select
+            value={days}
+            onChange={(e) => onDaysChange(parseInt(e.target.value))}
+            className="px-2 py-1 bg-secondary border border-border rounded text-[var(--text-primary)] text-sm"
+          >
+            <option value={7}>7 ngày</option>
+            <option value={14}>14 ngày</option>
+            <option value={30}>30 ngày</option>
+            <option value={60}>60 ngày</option>
+            <option value={90}>90 ngày</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      {summary && (
+        <div className="p-4 bg-secondary/30 border-b border-border">
+          <div className="flex items-center gap-2 mb-3 text-xs text-[#8888a0]">
+            <Calendar className="w-4 h-4" />
+            <span>
+              {formatDate(summary.firstDate)} → {formatDate(summary.lastDate)}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-card rounded-lg p-3 text-center">
+              <p className="text-xs text-[#8888a0] mb-1">Top 3</p>
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-success font-bold text-lg">{summary.top3Last}</span>
+                {getChangeIndicator(summary.top3Change)}
+              </div>
+              <p className="text-[10px] text-[#8888a0] mt-1">
+                {summary.top3First} → {summary.top3Last}
+              </p>
+            </div>
+            <div className="bg-card rounded-lg p-3 text-center">
+              <p className="text-xs text-[#8888a0] mb-1">Top 10</p>
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-accent font-bold text-lg">{summary.top10Last}</span>
+                {getChangeIndicator(summary.top10Change)}
+              </div>
+              <p className="text-[10px] text-[#8888a0] mt-1">
+                {summary.top10First} → {summary.top10Last}
+              </p>
+            </div>
+            <div className="bg-card rounded-lg p-3 text-center">
+              <p className="text-xs text-[#8888a0] mb-1">Top 20</p>
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-blue-400 font-bold text-lg">{summary.top20Last}</span>
+                {getChangeIndicator(summary.top20Change)}
+              </div>
+              <p className="text-[10px] text-[#8888a0] mt-1">
+                {summary.top20First} → {summary.top20Last}
+              </p>
+            </div>
+            <div className="bg-card rounded-lg p-3 text-center">
+              <p className="text-xs text-[#8888a0] mb-1">Top 30</p>
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-warning font-bold text-lg">{summary.top30Last}</span>
+                {getChangeIndicator(summary.top30Change)}
+              </div>
+              <p className="text-[10px] text-[#8888a0] mt-1">
+                {summary.top30First} → {summary.top30Last}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Chart Area */}
+      <div className="p-4">
+        <div className="h-48 relative">
+          <GrowthChart snapshots={snapshots} />
+        </div>
+      </div>
+
+      {/* Daily Table (Scrollable) */}
+      <div className="border-t border-border">
+        <div className="p-4 pb-2">
+          <p className="text-xs text-[#8888a0] font-medium mb-2">Chi tiết theo ngày</p>
+        </div>
+        <div className="overflow-x-auto max-h-[200px]">
+          <table className="w-full text-sm">
+            <thead className="bg-secondary/50 sticky top-0">
+              <tr className="text-xs text-[#8888a0]">
+                <th className="px-4 py-2 text-left font-medium">Ngày</th>
+                <th className="px-4 py-2 text-center font-medium">Top 3</th>
+                <th className="px-4 py-2 text-center font-medium">Top 10</th>
+                <th className="px-4 py-2 text-center font-medium">Top 20</th>
+                <th className="px-4 py-2 text-center font-medium">Top 30</th>
+                <th className="px-4 py-2 text-center font-medium">Tổng</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {[...snapshots].reverse().map((snap, idx) => {
+                const prev = snapshots[snapshots.length - idx - 2];
+                return (
+                  <tr key={snap.date} className="hover:bg-secondary/30">
+                    <td className="px-4 py-2 text-[var(--text-primary)]">
+                      {formatDate(snap.date)}
+                    </td>
+                    <td className="px-4 py-2 text-center">
+                      <span className="text-success font-medium">{snap.top3}</span>
+                      {prev && snap.top3 !== prev.top3 && (
+                        <span className={cn(
+                          "ml-1 text-xs",
+                          snap.top3 > prev.top3 ? "text-success" : "text-danger"
+                        )}>
+                          {snap.top3 > prev.top3 ? "+" : ""}{snap.top3 - prev.top3}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-center">
+                      <span className="text-accent font-medium">{snap.top10}</span>
+                      {prev && snap.top10 !== prev.top10 && (
+                        <span className={cn(
+                          "ml-1 text-xs",
+                          snap.top10 > prev.top10 ? "text-success" : "text-danger"
+                        )}>
+                          {snap.top10 > prev.top10 ? "+" : ""}{snap.top10 - prev.top10}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-center">
+                      <span className="text-blue-400 font-medium">{snap.top20}</span>
+                    </td>
+                    <td className="px-4 py-2 text-center">
+                      <span className="text-warning font-medium">{snap.top30}</span>
+                    </td>
+                    <td className="px-4 py-2 text-center text-[var(--text-primary)]">
+                      {snap.total}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Growth Chart Component
+function GrowthChart({ snapshots }: { snapshots: DailySnapshot[] }) {
+  if (snapshots.length < 2) {
+    return (
+      <div className="h-full flex items-center justify-center text-[#8888a0] text-sm">
+        Cần ít nhất 2 điểm dữ liệu để hiển thị biểu đồ
+      </div>
+    );
+  }
+
+  const maxTop30 = Math.max(...snapshots.map(s => s.top30), 1);
+  const maxValue = Math.max(maxTop30, 10);
+
+  const width = 100;
+  const height = 100;
+  const padding = { top: 10, bottom: 20, left: 5, right: 5 };
+
+  const getX = (idx: number) => {
+    return padding.left + (idx / (snapshots.length - 1)) * (width - padding.left - padding.right);
+  };
+
+  const getY = (value: number) => {
+    return height - padding.bottom - (value / maxValue) * (height - padding.top - padding.bottom);
+  };
+
+  // Create path for top10
+  const top10Path = snapshots.map((s, i) => {
+    const x = getX(i);
+    const y = getY(s.top10);
+    return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+  }).join(' ');
+
+  // Create path for top3
+  const top3Path = snapshots.map((s, i) => {
+    const x = getX(i);
+    const y = getY(s.top3);
+    return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+  }).join(' ');
+
+  // Create area path for top10
+  const top10Area = `${top10Path} L ${getX(snapshots.length - 1)} ${height - padding.bottom} L ${getX(0)} ${height - padding.bottom} Z`;
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full" preserveAspectRatio="none">
+      {/* Grid lines */}
+      <line
+        x1={padding.left} y1={padding.top}
+        x2={width - padding.right} y2={padding.top}
+        stroke="currentColor" strokeOpacity="0.1"
+      />
+      <line
+        x1={padding.left} y1={(height - padding.bottom + padding.top) / 2}
+        x2={width - padding.right} y2={(height - padding.bottom + padding.top) / 2}
+        stroke="currentColor" strokeOpacity="0.1"
+      />
+      <line
+        x1={padding.left} y1={height - padding.bottom}
+        x2={width - padding.right} y2={height - padding.bottom}
+        stroke="currentColor" strokeOpacity="0.1"
+      />
+
+      {/* Top 10 Area */}
+      <path
+        d={top10Area}
+        fill="rgb(99 102 241)"
+        fillOpacity="0.1"
+      />
+
+      {/* Top 10 Line */}
+      <path
+        d={top10Path}
+        fill="none"
+        stroke="rgb(99 102 241)"
+        strokeWidth="0.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+
+      {/* Top 3 Line */}
+      <path
+        d={top3Path}
+        fill="none"
+        stroke="rgb(34 197 94)"
+        strokeWidth="0.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+
+      {/* Points for Top 10 */}
+      {snapshots.map((s, i) => (
+        <circle
+          key={`top10-${i}`}
+          cx={getX(i)}
+          cy={getY(s.top10)}
+          r="1.2"
+          fill="rgb(99 102 241)"
+        />
+      ))}
+
+      {/* Points for Top 3 */}
+      {snapshots.map((s, i) => (
+        <circle
+          key={`top3-${i}`}
+          cx={getX(i)}
+          cy={getY(s.top3)}
+          r="1.2"
+          fill="rgb(34 197 94)"
+        />
+      ))}
+
+      {/* Y-axis labels */}
+      <text x="2" y={padding.top + 3} className="text-[3px] fill-[#8888a0]">{maxValue}</text>
+      <text x="2" y={(height - padding.bottom + padding.top) / 2 + 1} className="text-[3px] fill-[#8888a0]">{Math.round(maxValue / 2)}</text>
+      <text x="2" y={height - padding.bottom + 3} className="text-[3px] fill-[#8888a0]">0</text>
+    </svg>
   );
 }
