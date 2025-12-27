@@ -9,9 +9,6 @@ import {
   ArrowUp,
   ArrowDown,
   Minus,
-  FileText,
-  Award,
-  Percent,
   ChevronDown,
 } from 'lucide-react';
 import {
@@ -169,22 +166,6 @@ export default function ProjectsPage() {
     };
   }, [rankingGrowth]);
 
-  // Content stats
-  const contentStats = useMemo(() => {
-    if (!selectedProject) return null;
-
-    // Total content built (this month)
-    const contentBuilt = selectedProject.thisMonthTotal || 0;
-
-    // Content with ranking = keywords with position
-    const contentWithRanking = kpiStats?.top30.count || 0;
-
-    return {
-      built: contentBuilt,
-      withRanking: contentWithRanking,
-      totalKeywords: kpiStats?.total || 0,
-    };
-  }, [selectedProject, kpiStats]);
 
   if (isLoading) {
     return <PageLoading />;
@@ -274,50 +255,6 @@ export default function ProjectsPage() {
               color="warning"
               isLoading={isLoadingRanking}
             />
-          </div>
-
-          {/* Content Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-card border border-border rounded-xl p-5">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 bg-accent/20 rounded-lg flex items-center justify-center">
-                  <FileText className="w-5 h-5 text-accent" />
-                </div>
-                <span className="text-[#8888a0] text-sm">Content đã build</span>
-              </div>
-              <p className="text-3xl font-bold text-[var(--text-primary)]">
-                {contentStats?.built || 0}
-                <span className="text-lg font-normal text-[#8888a0] ml-2">bài</span>
-              </p>
-              <p className="text-xs text-[#8888a0] mt-1">Tháng này</p>
-            </div>
-
-            <div className="bg-card border border-border rounded-xl p-5">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 bg-success/20 rounded-lg flex items-center justify-center">
-                  <Award className="w-5 h-5 text-success" />
-                </div>
-                <span className="text-[#8888a0] text-sm">Từ khóa có ranking</span>
-              </div>
-              <p className="text-3xl font-bold text-success">
-                {contentStats?.withRanking || 0}
-                <span className="text-lg font-normal text-[#8888a0] ml-2">/ {contentStats?.totalKeywords || 0}</span>
-              </p>
-              <p className="text-xs text-[#8888a0] mt-1">Trong Top 30</p>
-            </div>
-
-            <div className="bg-card border border-border rounded-xl p-5">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 bg-warning/20 rounded-lg flex items-center justify-center">
-                  <Percent className="w-5 h-5 text-warning" />
-                </div>
-                <span className="text-[#8888a0] text-sm">Tỷ lệ có ranking</span>
-              </div>
-              <p className="text-3xl font-bold text-warning">
-                {contentStats?.totalKeywords ? Math.round((contentStats.withRanking / contentStats.totalKeywords) * 100) : 0}%
-              </p>
-              <p className="text-xs text-[#8888a0] mt-1">Keywords trong Top 30</p>
-            </div>
           </div>
 
           {/* Ranking Growth Chart */}
@@ -474,13 +411,15 @@ function RankingGrowthChart({
     );
   };
 
-  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; dataKey: string; color: string }>; label?: string }) => {
+  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; dataKey: string; color: string; payload?: { total?: number } }>; label?: string }) => {
     if (active && payload && payload.length) {
-      const total = payload.find(p => p.dataKey === 'total')?.value || 0;
+      // Get total from the data point
+      const total = payload[0]?.payload?.total || 0;
       return (
         <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
           <p className="text-[var(--text-primary)] font-medium mb-2">{label}</p>
-          {payload.filter(p => p.dataKey !== 'total').map((entry, index) => {
+          <p className="text-xs text-[#8888a0] mb-2">Tổng: {total} từ khóa</p>
+          {payload.map((entry, index) => {
             const percent = total > 0 ? Math.round((entry.value / total) * 100) : 0;
             return (
               <p key={index} className="text-sm" style={{ color: entry.color }}>
