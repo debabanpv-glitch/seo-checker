@@ -20,6 +20,16 @@ import {
   ArrowDown,
   Minus,
 } from 'lucide-react';
+import {
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  Area,
+  AreaChart,
+} from 'recharts';
 import ProgressBar from '@/components/ProgressBar';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
@@ -1121,7 +1131,7 @@ function DeadlineBadge({
   );
 }
 
-// Ranking Growth Section Component
+// Ranking Growth Section Component with Recharts
 function RankingGrowthSection({
   data,
   isLoading,
@@ -1140,7 +1150,7 @@ function RankingGrowthSection({
           <BarChart3 className="w-5 h-5 text-accent" />
           <h2 className="font-semibold text-[var(--text-primary)]">Tăng trưởng Keyword Ranking</h2>
         </div>
-        <div className="h-48 flex items-center justify-center">
+        <div className="h-64 flex items-center justify-center">
           <div className="animate-pulse text-[#8888a0]">Đang tải...</div>
         </div>
       </div>
@@ -1171,296 +1181,252 @@ function RankingGrowthSection({
     return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
   };
 
+  // Prepare chart data
+  const chartData = snapshots.map((snap) => ({
+    ...snap,
+    dateLabel: formatDate(snap.date),
+  }));
+
   // Get change indicator
-  const getChangeIndicator = (change: number) => {
+  const getChangeIndicator = (change: number, size: 'sm' | 'lg' = 'sm') => {
+    const iconSize = size === 'lg' ? 'w-5 h-5' : 'w-4 h-4';
+    const textSize = size === 'lg' ? 'text-lg' : 'text-sm';
+
     if (change > 0) {
       return (
-        <span className="flex items-center gap-1 text-success font-bold">
-          <ArrowUp className="w-4 h-4" />+{change}
+        <span className={`flex items-center gap-1 text-success font-bold ${textSize}`}>
+          <ArrowUp className={iconSize} />+{change}
         </span>
       );
     }
     if (change < 0) {
       return (
-        <span className="flex items-center gap-1 text-danger font-bold">
-          <ArrowDown className="w-4 h-4" />{change}
+        <span className={`flex items-center gap-1 text-danger font-bold ${textSize}`}>
+          <ArrowDown className={iconSize} />{change}
         </span>
       );
     }
     return (
-      <span className="flex items-center gap-1 text-[#8888a0]">
-        <Minus className="w-4 h-4" />0
+      <span className={`flex items-center gap-1 text-[#8888a0] ${textSize}`}>
+        <Minus className={iconSize} />0
       </span>
     );
+  };
+
+  // Custom tooltip
+  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; dataKey: string; color: string }>; label?: string }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
+          <p className="text-[var(--text-primary)] font-medium mb-2">{label}</p>
+          {payload.map((entry, index) => (
+            <p key={index} className="text-sm" style={{ color: entry.color }}>
+              {entry.dataKey === 'top3' && 'Top 3: '}
+              {entry.dataKey === 'top10' && 'Top 10: '}
+              {entry.dataKey === 'top20' && 'Top 20: '}
+              {entry.dataKey === 'top30' && 'Top 30: '}
+              <span className="font-bold">{entry.value}</span> từ khóa
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
   };
 
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden">
       {/* Header */}
       <div className="p-4 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <BarChart3 className="w-5 h-5 text-accent" />
-          <h2 className="font-semibold text-[var(--text-primary)]">Tăng trưởng Keyword Ranking</h2>
-          <span className="text-xs text-[#8888a0]">({snapshots.length} lần check)</span>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-accent/20 rounded-xl flex items-center justify-center">
+            <BarChart3 className="w-5 h-5 text-accent" />
+          </div>
+          <div>
+            <h2 className="font-semibold text-[var(--text-primary)]">Tăng trưởng Keyword Ranking</h2>
+            <p className="text-xs text-[#8888a0]">{snapshots.length} lần check trong {days} ngày</p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-[#8888a0]">Hiển thị:</span>
-          <select
-            value={days}
-            onChange={(e) => onDaysChange(parseInt(e.target.value))}
-            className="px-2 py-1 bg-secondary border border-border rounded text-[var(--text-primary)] text-sm"
-          >
-            <option value={7}>7 ngày</option>
-            <option value={14}>14 ngày</option>
-            <option value={30}>30 ngày</option>
-            <option value={60}>60 ngày</option>
-            <option value={90}>90 ngày</option>
-          </select>
-        </div>
+        <select
+          value={days}
+          onChange={(e) => onDaysChange(parseInt(e.target.value))}
+          className="px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm cursor-pointer"
+        >
+          <option value={7}>7 ngày</option>
+          <option value={14}>14 ngày</option>
+          <option value={30}>30 ngày</option>
+          <option value={60}>60 ngày</option>
+          <option value={90}>90 ngày</option>
+        </select>
       </div>
 
       {/* Summary Cards */}
       {summary && (
-        <div className="p-4 bg-secondary/30 border-b border-border">
-          <div className="flex items-center gap-2 mb-3 text-xs text-[#8888a0]">
+        <div className="p-4 bg-gradient-to-r from-secondary/50 to-transparent border-b border-border">
+          <div className="flex items-center gap-2 mb-4 text-sm text-[#8888a0]">
             <Calendar className="w-4 h-4" />
-            <span>
-              {formatDate(summary.firstDate)} → {formatDate(summary.lastDate)}
-            </span>
+            <span>So sánh: <span className="text-[var(--text-primary)] font-medium">{formatDate(summary.firstDate)}</span> → <span className="text-[var(--text-primary)] font-medium">{formatDate(summary.lastDate)}</span></span>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-card rounded-lg p-3 text-center">
-              <p className="text-xs text-[#8888a0] mb-1">Top 3</p>
-              <div className="flex items-center justify-center gap-2">
-                <span className="text-success font-bold text-lg">{summary.top3Last}</span>
-                {getChangeIndicator(summary.top3Change)}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-card rounded-xl p-4 border border-success/20">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-[#8888a0]">Top 3</span>
+                <div className="w-8 h-8 bg-success/20 rounded-lg flex items-center justify-center">
+                  <span className="text-success text-xs font-bold">🥇</span>
+                </div>
               </div>
-              <p className="text-[10px] text-[#8888a0] mt-1">
-                {summary.top3First} → {summary.top3Last}
-              </p>
+              <div className="flex items-end justify-between">
+                <div>
+                  <p className="text-3xl font-bold text-success">{summary.top3Last}</p>
+                  <p className="text-xs text-[#8888a0]">từ {summary.top3First}</p>
+                </div>
+                {getChangeIndicator(summary.top3Change, 'lg')}
+              </div>
             </div>
-            <div className="bg-card rounded-lg p-3 text-center">
-              <p className="text-xs text-[#8888a0] mb-1">Top 10</p>
-              <div className="flex items-center justify-center gap-2">
-                <span className="text-accent font-bold text-lg">{summary.top10Last}</span>
-                {getChangeIndicator(summary.top10Change)}
+            <div className="bg-card rounded-xl p-4 border border-accent/20">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-[#8888a0]">Top 10</span>
+                <div className="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center">
+                  <span className="text-accent text-xs font-bold">🔟</span>
+                </div>
               </div>
-              <p className="text-[10px] text-[#8888a0] mt-1">
-                {summary.top10First} → {summary.top10Last}
-              </p>
+              <div className="flex items-end justify-between">
+                <div>
+                  <p className="text-3xl font-bold text-accent">{summary.top10Last}</p>
+                  <p className="text-xs text-[#8888a0]">từ {summary.top10First}</p>
+                </div>
+                {getChangeIndicator(summary.top10Change, 'lg')}
+              </div>
             </div>
-            <div className="bg-card rounded-lg p-3 text-center">
-              <p className="text-xs text-[#8888a0] mb-1">Top 20</p>
-              <div className="flex items-center justify-center gap-2">
-                <span className="text-blue-400 font-bold text-lg">{summary.top20Last}</span>
-                {getChangeIndicator(summary.top20Change)}
+            <div className="bg-card rounded-xl p-4 border border-blue-400/20">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-[#8888a0]">Top 20</span>
+                <div className="w-8 h-8 bg-blue-400/20 rounded-lg flex items-center justify-center">
+                  <span className="text-blue-400 text-xs font-bold">20</span>
+                </div>
               </div>
-              <p className="text-[10px] text-[#8888a0] mt-1">
-                {summary.top20First} → {summary.top20Last}
-              </p>
+              <div className="flex items-end justify-between">
+                <div>
+                  <p className="text-3xl font-bold text-blue-400">{summary.top20Last}</p>
+                  <p className="text-xs text-[#8888a0]">từ {summary.top20First}</p>
+                </div>
+                {getChangeIndicator(summary.top20Change, 'lg')}
+              </div>
             </div>
-            <div className="bg-card rounded-lg p-3 text-center">
-              <p className="text-xs text-[#8888a0] mb-1">Top 30</p>
-              <div className="flex items-center justify-center gap-2">
-                <span className="text-warning font-bold text-lg">{summary.top30Last}</span>
-                {getChangeIndicator(summary.top30Change)}
+            <div className="bg-card rounded-xl p-4 border border-warning/20">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-[#8888a0]">Top 30</span>
+                <div className="w-8 h-8 bg-warning/20 rounded-lg flex items-center justify-center">
+                  <span className="text-warning text-xs font-bold">30</span>
+                </div>
               </div>
-              <p className="text-[10px] text-[#8888a0] mt-1">
-                {summary.top30First} → {summary.top30Last}
-              </p>
+              <div className="flex items-end justify-between">
+                <div>
+                  <p className="text-3xl font-bold text-warning">{summary.top30Last}</p>
+                  <p className="text-xs text-[#8888a0]">từ {summary.top30First}</p>
+                </div>
+                {getChangeIndicator(summary.top30Change, 'lg')}
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Chart Area */}
+      {/* Chart Area with Recharts */}
       <div className="p-4">
-        <div className="h-48 relative">
-          <GrowthChart snapshots={snapshots} />
-        </div>
-      </div>
-
-      {/* Daily Table (Scrollable) */}
-      <div className="border-t border-border">
-        <div className="p-4 pb-2">
-          <p className="text-xs text-[#8888a0] font-medium mb-2">Chi tiết theo ngày</p>
-        </div>
-        <div className="overflow-x-auto max-h-[200px]">
-          <table className="w-full text-sm">
-            <thead className="bg-secondary/50 sticky top-0">
-              <tr className="text-xs text-[#8888a0]">
-                <th className="px-4 py-2 text-left font-medium">Ngày</th>
-                <th className="px-4 py-2 text-center font-medium">Top 3</th>
-                <th className="px-4 py-2 text-center font-medium">Top 10</th>
-                <th className="px-4 py-2 text-center font-medium">Top 20</th>
-                <th className="px-4 py-2 text-center font-medium">Top 30</th>
-                <th className="px-4 py-2 text-center font-medium">Tổng</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {[...snapshots].reverse().map((snap, idx) => {
-                const prev = snapshots[snapshots.length - idx - 2];
-                return (
-                  <tr key={snap.date} className="hover:bg-secondary/30">
-                    <td className="px-4 py-2 text-[var(--text-primary)]">
-                      {formatDate(snap.date)}
-                    </td>
-                    <td className="px-4 py-2 text-center">
-                      <span className="text-success font-medium">{snap.top3}</span>
-                      {prev && snap.top3 !== prev.top3 && (
-                        <span className={cn(
-                          "ml-1 text-xs",
-                          snap.top3 > prev.top3 ? "text-success" : "text-danger"
-                        )}>
-                          {snap.top3 > prev.top3 ? "+" : ""}{snap.top3 - prev.top3}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-center">
-                      <span className="text-accent font-medium">{snap.top10}</span>
-                      {prev && snap.top10 !== prev.top10 && (
-                        <span className={cn(
-                          "ml-1 text-xs",
-                          snap.top10 > prev.top10 ? "text-success" : "text-danger"
-                        )}>
-                          {snap.top10 > prev.top10 ? "+" : ""}{snap.top10 - prev.top10}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-center">
-                      <span className="text-blue-400 font-medium">{snap.top20}</span>
-                    </td>
-                    <td className="px-4 py-2 text-center">
-                      <span className="text-warning font-medium">{snap.top30}</span>
-                    </td>
-                    <td className="px-4 py-2 text-center text-[var(--text-primary)]">
-                      {snap.total}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="h-80">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorTop3" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
+                </linearGradient>
+                <linearGradient id="colorTop10" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                </linearGradient>
+                <linearGradient id="colorTop20" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#60a5fa" stopOpacity={0.2}/>
+                  <stop offset="95%" stopColor="#60a5fa" stopOpacity={0}/>
+                </linearGradient>
+                <linearGradient id="colorTop30" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.2}/>
+                  <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#333" strokeOpacity={0.3} />
+              <XAxis
+                dataKey="dateLabel"
+                stroke="#8888a0"
+                fontSize={12}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis
+                stroke="#8888a0"
+                fontSize={12}
+                tickLine={false}
+                axisLine={false}
+                width={40}
+              />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend
+                wrapperStyle={{ paddingTop: '20px' }}
+                formatter={(value) => {
+                  const labels: Record<string, string> = {
+                    top3: 'Top 3',
+                    top10: 'Top 10',
+                    top20: 'Top 20',
+                    top30: 'Top 30',
+                  };
+                  return <span className="text-[var(--text-primary)] text-sm">{labels[value] || value}</span>;
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="top30"
+                stroke="#f59e0b"
+                strokeWidth={2}
+                fillOpacity={1}
+                fill="url(#colorTop30)"
+                dot={{ fill: '#f59e0b', strokeWidth: 0, r: 4 }}
+                activeDot={{ r: 6, stroke: '#f59e0b', strokeWidth: 2 }}
+              />
+              <Area
+                type="monotone"
+                dataKey="top20"
+                stroke="#60a5fa"
+                strokeWidth={2}
+                fillOpacity={1}
+                fill="url(#colorTop20)"
+                dot={{ fill: '#60a5fa', strokeWidth: 0, r: 4 }}
+                activeDot={{ r: 6, stroke: '#60a5fa', strokeWidth: 2 }}
+              />
+              <Area
+                type="monotone"
+                dataKey="top10"
+                stroke="#6366f1"
+                strokeWidth={2}
+                fillOpacity={1}
+                fill="url(#colorTop10)"
+                dot={{ fill: '#6366f1', strokeWidth: 0, r: 4 }}
+                activeDot={{ r: 6, stroke: '#6366f1', strokeWidth: 2 }}
+              />
+              <Area
+                type="monotone"
+                dataKey="top3"
+                stroke="#22c55e"
+                strokeWidth={3}
+                fillOpacity={1}
+                fill="url(#colorTop3)"
+                dot={{ fill: '#22c55e', strokeWidth: 0, r: 5 }}
+                activeDot={{ r: 7, stroke: '#22c55e', strokeWidth: 2 }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
       </div>
     </div>
-  );
-}
-
-// Growth Chart Component
-function GrowthChart({ snapshots }: { snapshots: DailySnapshot[] }) {
-  if (snapshots.length < 2) {
-    return (
-      <div className="h-full flex items-center justify-center text-[#8888a0] text-sm">
-        Cần ít nhất 2 điểm dữ liệu để hiển thị biểu đồ
-      </div>
-    );
-  }
-
-  const maxTop30 = Math.max(...snapshots.map(s => s.top30), 1);
-  const maxValue = Math.max(maxTop30, 10);
-
-  const width = 100;
-  const height = 100;
-  const padding = { top: 10, bottom: 20, left: 5, right: 5 };
-
-  const getX = (idx: number) => {
-    return padding.left + (idx / (snapshots.length - 1)) * (width - padding.left - padding.right);
-  };
-
-  const getY = (value: number) => {
-    return height - padding.bottom - (value / maxValue) * (height - padding.top - padding.bottom);
-  };
-
-  // Create path for top10
-  const top10Path = snapshots.map((s, i) => {
-    const x = getX(i);
-    const y = getY(s.top10);
-    return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-  }).join(' ');
-
-  // Create path for top3
-  const top3Path = snapshots.map((s, i) => {
-    const x = getX(i);
-    const y = getY(s.top3);
-    return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-  }).join(' ');
-
-  // Create area path for top10
-  const top10Area = `${top10Path} L ${getX(snapshots.length - 1)} ${height - padding.bottom} L ${getX(0)} ${height - padding.bottom} Z`;
-
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full" preserveAspectRatio="none">
-      {/* Grid lines */}
-      <line
-        x1={padding.left} y1={padding.top}
-        x2={width - padding.right} y2={padding.top}
-        stroke="currentColor" strokeOpacity="0.1"
-      />
-      <line
-        x1={padding.left} y1={(height - padding.bottom + padding.top) / 2}
-        x2={width - padding.right} y2={(height - padding.bottom + padding.top) / 2}
-        stroke="currentColor" strokeOpacity="0.1"
-      />
-      <line
-        x1={padding.left} y1={height - padding.bottom}
-        x2={width - padding.right} y2={height - padding.bottom}
-        stroke="currentColor" strokeOpacity="0.1"
-      />
-
-      {/* Top 10 Area */}
-      <path
-        d={top10Area}
-        fill="rgb(99 102 241)"
-        fillOpacity="0.1"
-      />
-
-      {/* Top 10 Line */}
-      <path
-        d={top10Path}
-        fill="none"
-        stroke="rgb(99 102 241)"
-        strokeWidth="0.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
-      {/* Top 3 Line */}
-      <path
-        d={top3Path}
-        fill="none"
-        stroke="rgb(34 197 94)"
-        strokeWidth="0.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
-      {/* Points for Top 10 */}
-      {snapshots.map((s, i) => (
-        <circle
-          key={`top10-${i}`}
-          cx={getX(i)}
-          cy={getY(s.top10)}
-          r="1.2"
-          fill="rgb(99 102 241)"
-        />
-      ))}
-
-      {/* Points for Top 3 */}
-      {snapshots.map((s, i) => (
-        <circle
-          key={`top3-${i}`}
-          cx={getX(i)}
-          cy={getY(s.top3)}
-          r="1.2"
-          fill="rgb(34 197 94)"
-        />
-      ))}
-
-      {/* Y-axis labels */}
-      <text x="2" y={padding.top + 3} className="text-[3px] fill-[#8888a0]">{maxValue}</text>
-      <text x="2" y={(height - padding.bottom + padding.top) / 2 + 1} className="text-[3px] fill-[#8888a0]">{Math.round(maxValue / 2)}</text>
-      <text x="2" y={height - padding.bottom + 3} className="text-[3px] fill-[#8888a0]">0</text>
-    </svg>
   );
 }
