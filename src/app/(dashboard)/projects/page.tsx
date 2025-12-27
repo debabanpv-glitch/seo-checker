@@ -15,6 +15,10 @@ import {
   ExternalLink,
   Search,
   List,
+  CheckCircle2,
+  XCircle,
+  Zap,
+  TrendingDown,
 } from 'lucide-react';
 import {
   XAxis,
@@ -25,6 +29,8 @@ import {
   ResponsiveContainer,
   Area,
   AreaChart,
+  Bar,
+  BarChart,
 } from 'recharts';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
@@ -86,6 +92,57 @@ interface URLDetail {
   }[];
 }
 
+// Analysis interfaces
+interface ContentStats {
+  total: number;
+  hasRanking: number;
+  noRanking: number;
+  percentEffective: number;
+}
+
+interface MonthlyContent {
+  month: string;
+  year: number;
+  monthNum: number;
+  published: number;
+  hasRanking: number;
+  noRanking: number;
+}
+
+interface URLAnalysis {
+  url: string;
+  bestPosition: number;
+  keywordCount: number;
+  seoScore: number | null;
+  seoMaxScore: number | null;
+  status: 'top10' | 'top30' | 'low' | 'none';
+  action: string;
+  keywords: { keyword: string; position: number }[];
+}
+
+interface OpportunityKeyword {
+  keyword: string;
+  url: string;
+  position: number;
+  change: number;
+}
+
+interface DecliningKeyword {
+  keyword: string;
+  url: string;
+  currentPosition: number;
+  previousPosition: number;
+  decline: number;
+}
+
+interface AnalysisData {
+  contentStats: ContentStats;
+  monthlyContent: MonthlyContent[];
+  urlAnalysis: URLAnalysis[];
+  opportunityKeywords: OpportunityKeyword[];
+  decliningKeywords: DecliningKeyword[];
+}
+
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
@@ -104,9 +161,14 @@ export default function ProjectsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [latestDate, setLatestDate] = useState<string | null>(null);
 
+  // Analysis data state
+  const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
+  const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
+
   // Fetch projects on mount
   useEffect(() => {
     fetchProjects();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Fetch ranking data when project changes
@@ -114,6 +176,7 @@ export default function ProjectsPage() {
     if (selectedProjectId) {
       fetchRankingGrowth();
       fetchDetails();
+      fetchAnalysis();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rankingDays, selectedProjectId]);
@@ -186,6 +249,24 @@ export default function ProjectsPage() {
       console.error('Failed to fetch details:', error);
     } finally {
       setIsLoadingDetails(false);
+    }
+  };
+
+  const fetchAnalysis = async () => {
+    if (!selectedProjectId) return;
+
+    setIsLoadingAnalysis(true);
+    try {
+      const params = new URLSearchParams({
+        projectId: selectedProjectId,
+      });
+      const res = await fetch(`/api/keyword-rankings/analysis?${params}`);
+      const data = await res.json();
+      setAnalysisData(data);
+    } catch (error) {
+      console.error('Failed to fetch analysis:', error);
+    } finally {
+      setIsLoadingAnalysis(false);
     }
   };
 
@@ -630,6 +711,24 @@ export default function ProjectsPage() {
               </div>
             )}
           </div>
+
+          {/* Content Performance Analysis */}
+          <ContentPerformanceSection
+            data={analysisData}
+            isLoading={isLoadingAnalysis}
+          />
+
+          {/* URL Analysis with SEO Scores */}
+          <URLAnalysisSection
+            data={analysisData}
+            isLoading={isLoadingAnalysis}
+          />
+
+          {/* Opportunity & Declining Keywords */}
+          <KeywordInsightsSection
+            data={analysisData}
+            isLoading={isLoadingAnalysis}
+          />
         </>
       )}
     </div>
@@ -900,6 +999,427 @@ function RankingGrowthChart({
             </AreaChart>
           </ResponsiveContainer>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Content Performance Section
+function ContentPerformanceSection({
+  data,
+  isLoading,
+}: {
+  data: AnalysisData | null;
+  isLoading: boolean;
+}) {
+  if (isLoading) {
+    return (
+      <div className="bg-card border border-border rounded-xl p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-6 bg-secondary rounded w-48"></div>
+          <div className="grid grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-24 bg-secondary rounded-lg"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) return null;
+
+  const { contentStats, monthlyContent } = data;
+
+  const monthNames = ['', 'Th1', 'Th2', 'Th3', 'Th4', 'Th5', 'Th6', 'Th7', 'Th8', 'Th9', 'Th10', 'Th11', 'Th12'];
+  const chartData = monthlyContent.map((m) => ({
+    ...m,
+    label: `${monthNames[m.monthNum]}/${m.year.toString().slice(-2)}`,
+  }));
+
+  return (
+    <div className="bg-card border border-border rounded-xl overflow-hidden">
+      {/* Header */}
+      <div className="p-4 border-b border-border">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-success/20 rounded-xl flex items-center justify-center">
+            <FileText className="w-5 h-5 text-success" />
+          </div>
+          <div>
+            <h2 className="font-semibold text-[var(--text-primary)]">Hiệu suất Content</h2>
+            <p className="text-xs text-[#8888a0]">Phân tích content đã publish và ranking</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-secondary/50 rounded-xl p-4 text-center">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <FileText className="w-5 h-5 text-accent" />
+          </div>
+          <p className="text-3xl font-bold text-accent">{contentStats.total}</p>
+          <p className="text-xs text-[#8888a0] mt-1">Tổng bài đã publish</p>
+        </div>
+
+        <div className="bg-secondary/50 rounded-xl p-4 text-center">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <CheckCircle2 className="w-5 h-5 text-success" />
+          </div>
+          <p className="text-3xl font-bold text-success">{contentStats.hasRanking}</p>
+          <p className="text-xs text-[#8888a0] mt-1">Có ranking</p>
+        </div>
+
+        <div className="bg-secondary/50 rounded-xl p-4 text-center">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <XCircle className="w-5 h-5 text-danger" />
+          </div>
+          <p className="text-3xl font-bold text-danger">{contentStats.noRanking}</p>
+          <p className="text-xs text-[#8888a0] mt-1">Chưa có ranking</p>
+        </div>
+
+        <div className="bg-secondary/50 rounded-xl p-4 text-center">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Target className="w-5 h-5 text-warning" />
+          </div>
+          <p className="text-3xl font-bold text-warning">{contentStats.percentEffective}%</p>
+          <p className="text-xs text-[#8888a0] mt-1">Tỷ lệ hiệu quả</p>
+        </div>
+      </div>
+
+      {/* Monthly Chart */}
+      {chartData.length > 0 && (
+        <div className="p-4 border-t border-border">
+          <h3 className="text-sm font-medium text-[var(--text-primary)] mb-4">Content theo tháng</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#333" strokeOpacity={0.3} />
+                <XAxis dataKey="label" stroke="#8888a0" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="#8888a0" fontSize={12} tickLine={false} axisLine={false} width={30} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)', borderRadius: '8px' }}
+                  labelStyle={{ color: 'var(--text-primary)' }}
+                />
+                <Legend
+                  wrapperStyle={{ paddingTop: '10px' }}
+                  formatter={(value) => {
+                    const labels: Record<string, string> = { hasRanking: 'Có ranking', noRanking: 'Chưa ranking' };
+                    return <span className="text-[var(--text-primary)] text-sm">{labels[value] || value}</span>;
+                  }}
+                />
+                <Bar dataKey="hasRanking" stackId="a" fill="#22c55e" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="noRanking" stackId="a" fill="#ef4444" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// URL Analysis Section with SEO Scores
+function URLAnalysisSection({
+  data,
+  isLoading,
+}: {
+  data: AnalysisData | null;
+  isLoading: boolean;
+}) {
+  const [showAll, setShowAll] = useState(false);
+
+  if (isLoading) {
+    return (
+      <div className="bg-card border border-border rounded-xl p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-6 bg-secondary rounded w-48"></div>
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-16 bg-secondary rounded-lg"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data || data.urlAnalysis.length === 0) return null;
+
+  const { urlAnalysis } = data;
+  const displayData = showAll ? urlAnalysis : urlAnalysis.slice(0, 10);
+
+  const getStatusBadge = (status: URLAnalysis['status']) => {
+    switch (status) {
+      case 'top10':
+        return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-success/20 text-success">Top 10</span>;
+      case 'top30':
+        return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-warning/20 text-warning">Top 30</span>;
+      case 'low':
+        return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-danger/20 text-danger">Thấp</span>;
+      default:
+        return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-secondary text-[#8888a0]">Chưa ranking</span>;
+    }
+  };
+
+  const getSEOScoreColor = (score: number | null) => {
+    if (score === null) return 'text-[#8888a0]';
+    if (score >= 80) return 'text-success';
+    if (score >= 60) return 'text-warning';
+    return 'text-danger';
+  };
+
+  return (
+    <div className="bg-card border border-border rounded-xl overflow-hidden">
+      {/* Header */}
+      <div className="p-4 border-b border-border">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-accent/20 rounded-xl flex items-center justify-center">
+            <Link2 className="w-5 h-5 text-accent" />
+          </div>
+          <div>
+            <h2 className="font-semibold text-[var(--text-primary)]">Phân tích URL & SEO</h2>
+            <p className="text-xs text-[#8888a0]">Trạng thái ranking và điểm SEO từng URL</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-secondary/50">
+            <tr>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-[#8888a0] uppercase tracking-wider">URL</th>
+              <th className="text-center px-4 py-3 text-xs font-semibold text-[#8888a0] uppercase tracking-wider w-24">Trạng thái</th>
+              <th className="text-center px-4 py-3 text-xs font-semibold text-[#8888a0] uppercase tracking-wider w-20">Vị trí</th>
+              <th className="text-center px-4 py-3 text-xs font-semibold text-[#8888a0] uppercase tracking-wider w-20">SEO</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-[#8888a0] uppercase tracking-wider">Đề xuất</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {displayData.map((item, idx) => (
+              <tr key={idx} className="hover:bg-secondary/30 transition-colors">
+                <td className="px-4 py-3">
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-accent hover:underline inline-flex items-center gap-1 max-w-xs"
+                  >
+                    <span className="truncate">{item.url.replace(/^https?:\/\//, '').slice(0, 50)}</span>
+                    <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                  </a>
+                  {item.keywords.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {item.keywords.slice(0, 3).map((kw, kwIdx) => (
+                        <span key={kwIdx} className="text-xs bg-secondary px-1.5 py-0.5 rounded text-[#8888a0]">
+                          {kw.keyword} #{kw.position}
+                        </span>
+                      ))}
+                      {item.keywords.length > 3 && (
+                        <span className="text-xs text-[#8888a0]">+{item.keywords.length - 3}</span>
+                      )}
+                    </div>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-center">
+                  {getStatusBadge(item.status)}
+                </td>
+                <td className="px-4 py-3 text-center">
+                  {item.bestPosition > 0 ? (
+                    <span className={cn(
+                      "inline-flex items-center justify-center w-8 h-8 rounded-lg text-sm font-bold",
+                      item.bestPosition <= 3 ? "bg-success/20 text-success" :
+                      item.bestPosition <= 10 ? "bg-accent/20 text-accent" :
+                      item.bestPosition <= 30 ? "bg-warning/20 text-warning" :
+                      "bg-secondary text-[#8888a0]"
+                    )}>
+                      {item.bestPosition}
+                    </span>
+                  ) : (
+                    <span className="text-[#8888a0]">-</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-center">
+                  {item.seoScore !== null ? (
+                    <span className={cn("font-bold", getSEOScoreColor(item.seoScore))}>
+                      {item.seoScore}
+                    </span>
+                  ) : (
+                    <span className="text-[#8888a0]">-</span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  <span className="text-xs text-[#8888a0]">{item.action}</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Show More */}
+      {urlAnalysis.length > 10 && (
+        <div className="p-4 border-t border-border text-center">
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className="text-sm text-accent hover:underline"
+          >
+            {showAll ? 'Thu gọn' : `Xem thêm ${urlAnalysis.length - 10} URLs`}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Keyword Insights Section (Opportunity & Declining)
+function KeywordInsightsSection({
+  data,
+  isLoading,
+}: {
+  data: AnalysisData | null;
+  isLoading: boolean;
+}) {
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {[1, 2].map((i) => (
+          <div key={i} className="bg-card border border-border rounded-xl p-6 animate-pulse">
+            <div className="h-6 bg-secondary rounded w-48 mb-4"></div>
+            <div className="space-y-2">
+              {[1, 2, 3].map((j) => (
+                <div key={j} className="h-12 bg-secondary rounded-lg"></div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (!data) return null;
+
+  const { opportunityKeywords, decliningKeywords } = data;
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Opportunity Keywords */}
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="p-4 border-b border-border">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-warning/20 rounded-xl flex items-center justify-center">
+              <Zap className="w-5 h-5 text-warning" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-[var(--text-primary)]">Cơ hội (11-20)</h2>
+              <p className="text-xs text-[#8888a0]">Từ khóa gần top 10, cần thêm effort</p>
+            </div>
+          </div>
+        </div>
+
+        {opportunityKeywords.length === 0 ? (
+          <div className="p-6 text-center text-[#8888a0] text-sm">
+            Không có từ khóa nào ở vị trí 11-20
+          </div>
+        ) : (
+          <div className="divide-y divide-border max-h-80 overflow-y-auto">
+            {opportunityKeywords.slice(0, 10).map((item, idx) => (
+              <div key={idx} className="p-3 hover:bg-secondary/30 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-[var(--text-primary)] truncate">{item.keyword}</p>
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-accent hover:underline truncate block"
+                    >
+                      {item.url.replace(/^https?:\/\//, '').slice(0, 40)}...
+                    </a>
+                  </div>
+                  <div className="flex items-center gap-2 ml-2">
+                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-sm font-bold bg-warning/20 text-warning">
+                      {item.position}
+                    </span>
+                    {item.change !== 0 && (
+                      <span className={cn(
+                        "text-xs font-medium flex items-center gap-0.5",
+                        item.change > 0 ? "text-success" : "text-danger"
+                      )}>
+                        {item.change > 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                        {Math.abs(item.change)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {opportunityKeywords.length > 10 && (
+          <div className="p-3 border-t border-border text-center text-xs text-[#8888a0]">
+            +{opportunityKeywords.length - 10} từ khóa khác
+          </div>
+        )}
+      </div>
+
+      {/* Declining Keywords */}
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="p-4 border-b border-border">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-danger/20 rounded-xl flex items-center justify-center">
+              <TrendingDown className="w-5 h-5 text-danger" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-[var(--text-primary)]">Đang giảm</h2>
+              <p className="text-xs text-[#8888a0]">Từ khóa giảm 3+ vị trí, cần chú ý</p>
+            </div>
+          </div>
+        </div>
+
+        {decliningKeywords.length === 0 ? (
+          <div className="p-6 text-center text-[#8888a0] text-sm">
+            Không có từ khóa nào giảm mạnh
+          </div>
+        ) : (
+          <div className="divide-y divide-border max-h-80 overflow-y-auto">
+            {decliningKeywords.slice(0, 10).map((item, idx) => (
+              <div key={idx} className="p-3 hover:bg-secondary/30 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-[var(--text-primary)] truncate">{item.keyword}</p>
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-accent hover:underline truncate block"
+                    >
+                      {item.url.replace(/^https?:\/\//, '').slice(0, 40)}...
+                    </a>
+                  </div>
+                  <div className="flex items-center gap-2 ml-2">
+                    <div className="text-right">
+                      <span className="text-xs text-[#8888a0]">{item.previousPosition} → </span>
+                      <span className="text-sm font-bold text-danger">{item.currentPosition}</span>
+                    </div>
+                    <span className="inline-flex items-center gap-0.5 px-2 py-1 rounded-lg text-xs font-bold bg-danger/20 text-danger">
+                      <ArrowDown className="w-3 h-3" />
+                      {item.decline}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {decliningKeywords.length > 10 && (
+          <div className="p-3 border-t border-border text-center text-xs text-[#8888a0]">
+            +{decliningKeywords.length - 10} từ khóa khác
+          </div>
+        )}
       </div>
     </div>
   );
