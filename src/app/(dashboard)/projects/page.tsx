@@ -10,6 +10,8 @@ import {
   ArrowDown,
   Minus,
   ChevronDown,
+  FileText,
+  Link2,
 } from 'lucide-react';
 import {
   XAxis,
@@ -42,6 +44,7 @@ interface DailySnapshot {
   top20: number;
   top30: number;
   total: number;
+  uniqueUrls: number;
 }
 
 interface RankingGrowthData {
@@ -163,8 +166,23 @@ export default function ProjectsPage() {
         change: rankingGrowth.summary.top30Change,
       },
       total,
+      uniqueUrls: lastSnapshot.uniqueUrls || 0,
     };
   }, [rankingGrowth]);
+
+  // Content stats from selected project
+  const contentStats = useMemo(() => {
+    if (!selectedProject) return null;
+
+    return {
+      // Content đã publish = actual (bài đã đăng tháng này)
+      published: selectedProject.actual || 0,
+      // Total URLs có ranking
+      urlsWithRanking: kpiStats?.uniqueUrls || 0,
+      // Total keywords
+      totalKeywords: kpiStats?.total || 0,
+    };
+  }, [selectedProject, kpiStats]);
 
 
   if (isLoading) {
@@ -255,6 +273,51 @@ export default function ProjectsPage() {
               color="warning"
               isLoading={isLoadingRanking}
             />
+          </div>
+
+          {/* Content Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-card border border-border rounded-xl p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-accent/20 rounded-lg flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-accent" />
+                </div>
+                <span className="text-[#8888a0] text-sm">Content đã đăng</span>
+              </div>
+              <p className="text-3xl font-bold text-[var(--text-primary)]">
+                {contentStats?.published || 0}
+                <span className="text-lg font-normal text-[#8888a0] ml-2">bài</span>
+              </p>
+              <p className="text-xs text-[#8888a0] mt-1">Tháng này</p>
+            </div>
+
+            <div className="bg-card border border-border rounded-xl p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-success/20 rounded-lg flex items-center justify-center">
+                  <Link2 className="w-5 h-5 text-success" />
+                </div>
+                <span className="text-[#8888a0] text-sm">URL có ranking</span>
+              </div>
+              <p className="text-3xl font-bold text-success">
+                {contentStats?.urlsWithRanking || 0}
+                <span className="text-lg font-normal text-[#8888a0] ml-2">URLs</span>
+              </p>
+              <p className="text-xs text-[#8888a0] mt-1">Trong hệ thống tracking</p>
+            </div>
+
+            <div className="bg-card border border-border rounded-xl p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-warning/20 rounded-lg flex items-center justify-center">
+                  <Target className="w-5 h-5 text-warning" />
+                </div>
+                <span className="text-[#8888a0] text-sm">Tổng từ khóa</span>
+              </div>
+              <p className="text-3xl font-bold text-warning">
+                {contentStats?.totalKeywords || 0}
+                <span className="text-lg font-normal text-[#8888a0] ml-2">keywords</span>
+              </p>
+              <p className="text-xs text-[#8888a0] mt-1">Đang theo dõi</p>
+            </div>
           </div>
 
           {/* Ranking Growth Chart */}

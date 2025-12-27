@@ -10,6 +10,7 @@ interface DailySnapshot {
   top20: number;
   top30: number;
   total: number;
+  uniqueUrls: number;
 }
 
 interface GrowthData {
@@ -40,10 +41,10 @@ export async function GET(request: NextRequest) {
     const projectId = searchParams.get('projectId');
     const days = parseInt(searchParams.get('days') || '30');
 
-    // Build query
+    // Build query - include url for unique URL counting
     let query = supabase
       .from('keyword_rankings')
-      .select('keyword, position, date')
+      .select('keyword, position, date, url')
       .order('date', { ascending: true });
 
     if (projectId) {
@@ -63,18 +64,24 @@ export async function GET(request: NextRequest) {
     }
 
     // Group by date and calculate stats
-    const dateMap = new Map<string, Map<string, number>>();
+    const dateMap = new Map<string, { keywords: Map<string, number>; urls: Set<string> }>();
 
     (data || []).forEach((record) => {
       const date = record.date;
       if (!dateMap.has(date)) {
-        dateMap.set(date, new Map());
+        dateMap.set(date, { keywords: new Map(), urls: new Set() });
       }
+      const dateData = dateMap.get(date)!;
+
       // Store best position for each keyword on this date
-      const keywordMap = dateMap.get(date)!;
-      const existing = keywordMap.get(record.keyword);
+      const existing = dateData.keywords.get(record.keyword);
       if (!existing || record.position < existing) {
-        keywordMap.set(record.keyword, record.position);
+        dateData.keywords.set(record.keyword, record.position);
+      }
+
+      // Track unique URLs
+      if (record.url && record.url.trim()) {
+        dateData.urls.add(record.url.trim());
       }
     });
 
@@ -83,13 +90,13 @@ export async function GET(request: NextRequest) {
     const sortedDates = Array.from(dateMap.keys()).sort();
 
     sortedDates.forEach((date) => {
-      const keywordMap = dateMap.get(date)!;
+      const dateData = dateMap.get(date)!;
       let top3 = 0;
       let top10 = 0;
       let top20 = 0;
       let top30 = 0;
 
-      keywordMap.forEach((position) => {
+      dateData.keywords.forEach((position) => {
         if (position <= 3) top3++;
         if (position <= 10) top10++;
         if (position <= 20) top20++;
@@ -102,7 +109,8 @@ export async function GET(request: NextRequest) {
         top10,
         top20,
         top30,
-        total: keywordMap.size,
+        total: dateData.keywords.size,
+        uniqueUrls: dateData.urls.size,
       });
     });
 
