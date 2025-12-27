@@ -169,18 +169,19 @@ export default function ProjectsPage() {
   // Ranking Growth state
   const [rankingGrowth, setRankingGrowth] = useState<RankingGrowthData | null>(null);
   const [rankingDays, setRankingDays] = useState(30);
+  const [rankingProjectId, setRankingProjectId] = useState<string>('');
   const [isLoadingRanking, setIsLoadingRanking] = useState(false);
 
   useEffect(() => {
     fetchProjects();
-    fetchRankingGrowth();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMonth, selectedYear]);
 
+  // Fetch ranking growth when days or project changes
   useEffect(() => {
     fetchRankingGrowth();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rankingDays]);
+  }, [rankingDays, rankingProjectId]);
 
   const fetchProjects = async () => {
     setIsLoading(true);
@@ -199,7 +200,11 @@ export default function ProjectsPage() {
   const fetchRankingGrowth = async () => {
     setIsLoadingRanking(true);
     try {
-      const res = await fetch(`/api/keyword-rankings/growth?days=${rankingDays}`);
+      const params = new URLSearchParams({ days: rankingDays.toString() });
+      if (rankingProjectId) {
+        params.append('projectId', rankingProjectId);
+      }
+      const res = await fetch(`/api/keyword-rankings/growth?${params}`);
       const data = await res.json();
       setRankingGrowth(data);
     } catch (error) {
@@ -385,6 +390,9 @@ export default function ProjectsPage() {
             isLoading={isLoadingRanking}
             days={rankingDays}
             onDaysChange={setRankingDays}
+            projects={projects}
+            selectedProjectId={rankingProjectId}
+            onProjectChange={setRankingProjectId}
           />
 
           {/* Main Content Grid */}
@@ -1137,12 +1145,19 @@ function RankingGrowthSection({
   isLoading,
   days,
   onDaysChange,
+  projects,
+  selectedProjectId,
+  onProjectChange,
 }: {
   data: RankingGrowthData | null;
   isLoading: boolean;
   days: number;
   onDaysChange: (days: number) => void;
+  projects: ProjectReport[];
+  selectedProjectId: string;
+  onProjectChange: (projectId: string) => void;
 }) {
+  const selectedProject = projects.find(p => p.id === selectedProjectId);
   if (isLoading) {
     return (
       <div className="bg-card border border-border rounded-xl p-6">
@@ -1243,21 +1258,42 @@ function RankingGrowthSection({
             <BarChart3 className="w-5 h-5 text-accent" />
           </div>
           <div>
-            <h2 className="font-semibold text-[var(--text-primary)]">Tăng trưởng Keyword Ranking</h2>
+            <h2 className="font-semibold text-[var(--text-primary)]">
+              Tăng trưởng Keyword Ranking
+              {selectedProject && (
+                <span className="text-accent ml-2">- {selectedProject.name}</span>
+              )}
+            </h2>
             <p className="text-xs text-[#8888a0]">{snapshots.length} lần check trong {days} ngày</p>
           </div>
         </div>
-        <select
-          value={days}
-          onChange={(e) => onDaysChange(parseInt(e.target.value))}
-          className="px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm cursor-pointer"
-        >
-          <option value={7}>7 ngày</option>
-          <option value={14}>14 ngày</option>
-          <option value={30}>30 ngày</option>
-          <option value={60}>60 ngày</option>
-          <option value={90}>90 ngày</option>
-        </select>
+        <div className="flex items-center gap-2">
+          {/* Project Filter */}
+          <select
+            value={selectedProjectId}
+            onChange={(e) => onProjectChange(e.target.value)}
+            className="px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm cursor-pointer min-w-[140px]"
+          >
+            <option value="">Tất cả dự án</option>
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))}
+          </select>
+          {/* Days Filter */}
+          <select
+            value={days}
+            onChange={(e) => onDaysChange(parseInt(e.target.value))}
+            className="px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm cursor-pointer"
+          >
+            <option value={7}>7 ngày</option>
+            <option value={14}>14 ngày</option>
+            <option value={30}>30 ngày</option>
+            <option value={60}>60 ngày</option>
+            <option value={90}>90 ngày</option>
+          </select>
+        </div>
       </div>
 
       {/* Summary Cards */}
