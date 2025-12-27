@@ -25,7 +25,6 @@ import {
   ChevronDown,
   ChevronUp,
   Target,
-  Zap,
 } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import { Project } from '@/types';
@@ -51,12 +50,6 @@ interface SyncLog {
   duration_ms: number | null;
 }
 
-interface SiteCrawl {
-  id: string;
-  crawl_date: string;
-  health_score: number;
-  total_urls: number;
-}
 
 // Action labels
 const actionLabels: Record<string, { label: string; color: string }> = {
@@ -84,7 +77,6 @@ export default function SettingsPage() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<{ success: boolean; message: string } | null>(null);
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
-  const [crawlsByProject, setCrawlsByProject] = useState<Record<string, SiteCrawl[]>>({});
 
   // Project modal
   const [showProjectModal, setShowProjectModal] = useState(false);
@@ -95,7 +87,6 @@ export default function SettingsPage() {
     sheet_name: 'Content',
     monthly_target: 20,
     ranking_sheet_url: '',
-    crawl_sheet_url: '',
   });
   const [isSavingProject, setIsSavingProject] = useState(false);
   const [sheetUrlInput, setSheetUrlInput] = useState('');
@@ -112,9 +103,6 @@ export default function SettingsPage() {
   // Keyword ranking sync
   const [isSyncingRanking, setIsSyncingRanking] = useState<string | null>(null);
 
-  // Crawl sync
-  const [isSyncingCrawl, setIsSyncingCrawl] = useState<string | null>(null);
-
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -123,35 +111,23 @@ export default function SettingsPage() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [projectsRes, targetsRes, logsRes, activityRes, crawlsRes] = await Promise.all([
+      const [projectsRes, targetsRes, logsRes, activityRes] = await Promise.all([
         fetch('/api/projects'),
         fetch('/api/targets'),
         fetch('/api/sync/logs'),
         fetch('/api/activity-logs?limit=20'),
-        fetch('/api/site-crawl'),
       ]);
 
       const projectsData = await projectsRes.json();
       const targetsData = await targetsRes.json();
       const logsData = await logsRes.json();
       const activityData = await activityRes.json();
-      const crawlsData = await crawlsRes.json();
 
       setProjects(projectsData.projects || []);
       setMonthlyTargets(targetsData.targets || []);
       setSyncLogs(logsData.logs || []);
       setLastSync(logsData.lastSync || null);
       setActivityLogs(activityData.logs || []);
-
-      // Group crawls by project
-      const crawlsGrouped: Record<string, SiteCrawl[]> = {};
-      (crawlsData.crawls || []).forEach((crawl: SiteCrawl & { project_id: string }) => {
-        if (!crawlsGrouped[crawl.project_id]) {
-          crawlsGrouped[crawl.project_id] = [];
-        }
-        crawlsGrouped[crawl.project_id].push(crawl);
-      });
-      setCrawlsByProject(crawlsGrouped);
 
       if (projectsData.projects?.length > 0 && !expandedProject) {
         setExpandedProject(projectsData.projects[0].id);
@@ -238,44 +214,6 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSyncCrawl = async (projectId: string, crawlUrl: string) => {
-    if (!crawlUrl) {
-      setSyncResult({ success: false, message: 'Dự án chưa có link Google Sheet crawl data' });
-      return;
-    }
-
-    setIsSyncingCrawl(projectId);
-    setSyncResult(null);
-
-    try {
-      const res = await fetch('/api/site-crawl', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          project_id: projectId,
-          sheet_url: crawlUrl,
-          crawl_date: new Date().toISOString().split('T')[0],
-        }),
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        await fetchData();
-        setSyncResult({
-          success: true,
-          message: `Đồng bộ thành công ${data.imported || 0} URLs!`,
-        });
-      } else {
-        setSyncResult({ success: false, message: data.error || 'Đồng bộ thất bại' });
-      }
-    } catch {
-      setSyncResult({ success: false, message: 'Có lỗi xảy ra khi đồng bộ' });
-    } finally {
-      setIsSyncingCrawl(null);
-    }
-  };
-
   // Project handlers
   const openProjectModal = (project?: Project) => {
     if (project) {
@@ -286,7 +224,6 @@ export default function SettingsPage() {
         sheet_name: project.sheet_name || 'Content',
         monthly_target: project.monthly_target || 20,
         ranking_sheet_url: project.ranking_sheet_url || '',
-        crawl_sheet_url: project.crawl_sheet_url || '',
       });
       setSheetUrlInput('');
     } else {
@@ -297,7 +234,6 @@ export default function SettingsPage() {
         sheet_name: 'Content',
         monthly_target: 20,
         ranking_sheet_url: '',
-        crawl_sheet_url: '',
       });
       setSheetUrlInput('');
     }
@@ -498,7 +434,6 @@ thuê căn hộ chung cư,https://example.com/thue-can-ho,12,2024/12/01`;
           {/* Project Cards */}
           {projects.map((project) => {
             const projectTargets = monthlyTargets.filter((t) => t.project_id === project.id);
-            const projectCrawls = crawlsByProject[project.id] || [];
             const isExpanded = expandedProject === project.id;
 
             return (
@@ -526,12 +461,6 @@ thuê căn hộ chung cư,https://example.com/thue-can-ho,12,2024/12/01`;
                         <span className="text-success flex items-center gap-1">
                           <TrendingUp className="w-3 h-3" />
                           Có ranking
-                        </span>
-                      )}
-                      {projectCrawls.length > 0 && (
-                        <span className="text-blue-400 flex items-center gap-1">
-                          <Activity className="w-3 h-3" />
-                          {projectCrawls.length} crawl
                         </span>
                       )}
                     </div>
@@ -567,7 +496,7 @@ thuê căn hộ chung cư,https://example.com/thue-can-ho,12,2024/12/01`;
                 {isExpanded && (
                   <div className="px-5 pb-5 space-y-4 border-t border-border pt-4">
                     {/* Quick Actions */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                       <button
                         onClick={() => openTargetModal(project.id)}
                         className="flex items-center gap-2 px-4 py-3 bg-secondary hover:bg-secondary/70 rounded-lg text-sm transition-colors"
@@ -583,16 +512,6 @@ thuê căn hộ chung cư,https://example.com/thue-can-ho,12,2024/12/01`;
                         <TrendingUp className={cn('w-4 h-4 text-success', isSyncingRanking === project.id && 'animate-spin')} />
                         <span className="text-[var(--text-primary)]">
                           {isSyncingRanking === project.id ? 'Đang sync...' : 'Sync Ranking'}
-                        </span>
-                      </button>
-                      <button
-                        onClick={() => handleSyncCrawl(project.id, project.crawl_sheet_url || '')}
-                        disabled={!project.crawl_sheet_url || isSyncingCrawl === project.id}
-                        className="flex items-center gap-2 px-4 py-3 bg-secondary hover:bg-secondary/70 disabled:opacity-50 rounded-lg text-sm transition-colors"
-                      >
-                        <Zap className={cn('w-4 h-4 text-blue-400', isSyncingCrawl === project.id && 'animate-pulse')} />
-                        <span className="text-[var(--text-primary)]">
-                          {isSyncingCrawl === project.id ? 'Đang sync...' : 'Sync Crawl'}
                         </span>
                       </button>
                       <a
@@ -638,45 +557,6 @@ thuê căn hộ chung cư,https://example.com/thue-can-ho,12,2024/12/01`;
                         <p className="text-sm text-[#8888a0]">Chưa có target. Nhấn &quot;Thêm Target&quot; để tạo.</p>
                       )}
                     </div>
-
-                    {/* Recent Crawls */}
-                    {projectCrawls.length > 0 && (
-                      <div className="bg-secondary/30 rounded-lg p-4">
-                        <h4 className="text-sm font-medium text-[var(--text-primary)] mb-3">
-                          Screaming Frog Crawls gần đây
-                        </h4>
-                        <div className="space-y-2">
-                          {projectCrawls.slice(0, 3).map((crawl) => (
-                            <div
-                              key={crawl.id}
-                              className="flex items-center justify-between px-3 py-2 bg-card rounded-lg"
-                            >
-                              <div className="flex items-center gap-3">
-                                <Activity className="w-4 h-4 text-blue-400" />
-                                <span className="text-sm text-[var(--text-primary)]">
-                                  {new Date(crawl.crawl_date).toLocaleDateString('vi-VN')}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                <span className="text-xs text-[#8888a0]">{crawl.total_urls} URLs</span>
-                                <span
-                                  className={cn(
-                                    'text-sm font-bold',
-                                    crawl.health_score >= 80
-                                      ? 'text-green-400'
-                                      : crawl.health_score >= 60
-                                      ? 'text-yellow-400'
-                                      : 'text-red-400'
-                                  )}
-                                >
-                                  {crawl.health_score}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
 
                     {/* Sheet Info */}
                     <div className="text-xs text-[#8888a0] space-y-1">
@@ -969,22 +849,6 @@ thuê căn hộ chung cư,https://example.com/thue-can-ho,12,2024/12/01`;
                 />
               </div>
 
-              <div>
-                <label className="block text-sm text-[#8888a0] mb-2">
-                  <Zap className="w-4 h-4 inline mr-1" />
-                  Link Sheet Screaming Frog Crawl
-                </label>
-                <input
-                  type="url"
-                  value={projectForm.crawl_sheet_url}
-                  onChange={(e) => setProjectForm({ ...projectForm, crawl_sheet_url: e.target.value })}
-                  placeholder="https://docs.google.com/spreadsheets/d/..."
-                  className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm"
-                />
-                <p className="text-xs text-[#8888a0] mt-1">
-                  Sheet cần có headers gốc từ Screaming Frog: Address, Status Code, Title 1...
-                </p>
-              </div>
             </div>
 
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-secondary/30">
