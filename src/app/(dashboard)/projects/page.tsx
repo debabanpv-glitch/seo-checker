@@ -12,6 +12,9 @@ import {
   ChevronDown,
   FileText,
   Link2,
+  ExternalLink,
+  Search,
+  List,
 } from 'lucide-react';
 import {
   XAxis,
@@ -67,6 +70,22 @@ interface RankingGrowthData {
   } | null;
 }
 
+interface KeywordDetail {
+  keyword: string;
+  url: string;
+  position: number;
+  change: number;
+}
+
+interface URLDetail {
+  url: string;
+  keywords: {
+    keyword: string;
+    position: number;
+    change: number;
+  }[];
+}
+
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
@@ -77,6 +96,14 @@ export default function ProjectsPage() {
   const [rankingDays, setRankingDays] = useState(30);
   const [isLoadingRanking, setIsLoadingRanking] = useState(false);
 
+  // Detail tables state
+  const [keywordDetails, setKeywordDetails] = useState<KeywordDetail[]>([]);
+  const [urlDetails, setUrlDetails] = useState<URLDetail[]>([]);
+  const [detailsView, setDetailsView] = useState<'keywords' | 'urls'>('keywords');
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [latestDate, setLatestDate] = useState<string | null>(null);
+
   // Fetch projects on mount
   useEffect(() => {
     fetchProjects();
@@ -86,9 +113,18 @@ export default function ProjectsPage() {
   useEffect(() => {
     if (selectedProjectId) {
       fetchRankingGrowth();
+      fetchDetails();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rankingDays, selectedProjectId]);
+
+  // Fetch details when view changes
+  useEffect(() => {
+    if (selectedProjectId) {
+      fetchDetails();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detailsView]);
 
   const fetchProjects = async () => {
     setIsLoading(true);
@@ -125,6 +161,31 @@ export default function ProjectsPage() {
       console.error('Failed to fetch ranking growth:', error);
     } finally {
       setIsLoadingRanking(false);
+    }
+  };
+
+  const fetchDetails = async () => {
+    if (!selectedProjectId) return;
+
+    setIsLoadingDetails(true);
+    try {
+      const params = new URLSearchParams({
+        projectId: selectedProjectId,
+        view: detailsView,
+      });
+      const res = await fetch(`/api/keyword-rankings/details?${params}`);
+      const data = await res.json();
+
+      if (detailsView === 'keywords') {
+        setKeywordDetails(data.keywords || []);
+      } else {
+        setUrlDetails(data.urls || []);
+      }
+      setLatestDate(data.latestDate);
+    } catch (error) {
+      console.error('Failed to fetch details:', error);
+    } finally {
+      setIsLoadingDetails(false);
     }
   };
 
@@ -183,6 +244,24 @@ export default function ProjectsPage() {
       totalKeywords: kpiStats?.total || 0,
     };
   }, [selectedProject, kpiStats]);
+
+  // Filtered keyword details for search
+  const filteredKeywords = useMemo(() => {
+    if (!searchTerm) return keywordDetails;
+    const term = searchTerm.toLowerCase();
+    return keywordDetails.filter(
+      (k) => k.keyword.toLowerCase().includes(term) || k.url.toLowerCase().includes(term)
+    );
+  }, [keywordDetails, searchTerm]);
+
+  // Filtered URL details for search
+  const filteredUrls = useMemo(() => {
+    if (!searchTerm) return urlDetails;
+    const term = searchTerm.toLowerCase();
+    return urlDetails.filter(
+      (u) => u.url.toLowerCase().includes(term) || u.keywords.some((k) => k.keyword.toLowerCase().includes(term))
+    );
+  }, [urlDetails, searchTerm]);
 
 
   if (isLoading) {
@@ -328,6 +407,229 @@ export default function ProjectsPage() {
             onDaysChange={setRankingDays}
             projectName={selectedProject?.name || ''}
           />
+
+          {/* Detailed Tables Section */}
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            {/* Header with View Toggle and Search */}
+            <div className="p-4 border-b border-border">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-accent/20 rounded-xl flex items-center justify-center">
+                    <List className="w-5 h-5 text-accent" />
+                  </div>
+                  <div>
+                    <h2 className="font-semibold text-[var(--text-primary)]">Chi tiết Ranking</h2>
+                    <p className="text-xs text-[#8888a0]">
+                      {latestDate ? `Cập nhật: ${new Date(latestDate).toLocaleDateString('vi-VN')}` : 'Chưa có dữ liệu'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {/* View Toggle */}
+                  <div className="flex bg-secondary rounded-lg p-1">
+                    <button
+                      onClick={() => setDetailsView('keywords')}
+                      className={cn(
+                        "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                        detailsView === 'keywords'
+                          ? "bg-accent text-white"
+                          : "text-[#8888a0] hover:text-[var(--text-primary)]"
+                      )}
+                    >
+                      Từ khóa
+                    </button>
+                    <button
+                      onClick={() => setDetailsView('urls')}
+                      className={cn(
+                        "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                        detailsView === 'urls'
+                          ? "bg-accent text-white"
+                          : "text-[#8888a0] hover:text-[var(--text-primary)]"
+                      )}
+                    >
+                      URLs
+                    </button>
+                  </div>
+
+                  {/* Search */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8888a0]" />
+                    <input
+                      type="text"
+                      placeholder="Tìm kiếm..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-9 pr-4 py-2 bg-secondary border border-border rounded-lg text-sm text-[var(--text-primary)] placeholder-[#8888a0] focus:outline-none focus:ring-2 focus:ring-accent/50 w-48"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Table Content */}
+            {isLoadingDetails ? (
+              <div className="p-8 text-center text-[#8888a0]">
+                <div className="animate-pulse">Đang tải dữ liệu...</div>
+              </div>
+            ) : detailsView === 'keywords' ? (
+              /* Keywords Table */
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-secondary/50">
+                    <tr>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-[#8888a0] uppercase tracking-wider w-12">STT</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-[#8888a0] uppercase tracking-wider">Từ khóa</th>
+                      <th className="text-center px-4 py-3 text-xs font-semibold text-[#8888a0] uppercase tracking-wider w-24">Vị trí</th>
+                      <th className="text-center px-4 py-3 text-xs font-semibold text-[#8888a0] uppercase tracking-wider w-24">Thay đổi</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-[#8888a0] uppercase tracking-wider">URL</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {filteredKeywords.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-8 text-center text-[#8888a0]">
+                          {searchTerm ? 'Không tìm thấy kết quả' : 'Chưa có dữ liệu từ khóa'}
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredKeywords.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-secondary/30 transition-colors">
+                          <td className="px-4 py-3 text-sm text-[#8888a0]">{idx + 1}</td>
+                          <td className="px-4 py-3">
+                            <span className="text-sm font-medium text-[var(--text-primary)]">{item.keyword}</span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={cn(
+                              "inline-flex items-center justify-center w-8 h-8 rounded-lg text-sm font-bold",
+                              item.position <= 3 ? "bg-success/20 text-success" :
+                              item.position <= 10 ? "bg-accent/20 text-accent" :
+                              item.position <= 20 ? "bg-blue-400/20 text-blue-400" :
+                              item.position <= 30 ? "bg-warning/20 text-warning" :
+                              "bg-secondary text-[#8888a0]"
+                            )}>
+                              {item.position}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {item.change !== 0 ? (
+                              <span className={cn(
+                                "inline-flex items-center gap-0.5 text-sm font-medium",
+                                item.change > 0 ? "text-success" : "text-danger"
+                              )}>
+                                {item.change > 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                                {item.change > 0 ? '+' : ''}{item.change}
+                              </span>
+                            ) : (
+                              <span className="text-[#8888a0]">-</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {item.url ? (
+                              <a
+                                href={item.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm text-accent hover:underline inline-flex items-center gap-1 max-w-xs truncate"
+                              >
+                                <span className="truncate">{item.url.replace(/^https?:\/\//, '').split('/').slice(0, 2).join('/')}</span>
+                                <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                              </a>
+                            ) : (
+                              <span className="text-[#8888a0] text-sm">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+                {filteredKeywords.length > 0 && (
+                  <div className="px-4 py-3 border-t border-border bg-secondary/30 text-xs text-[#8888a0]">
+                    Hiển thị {filteredKeywords.length} / {keywordDetails.length} từ khóa
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* URLs Table */
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-secondary/50">
+                    <tr>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-[#8888a0] uppercase tracking-wider w-12">STT</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-[#8888a0] uppercase tracking-wider">URL</th>
+                      <th className="text-center px-4 py-3 text-xs font-semibold text-[#8888a0] uppercase tracking-wider w-24">Số từ khóa</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-[#8888a0] uppercase tracking-wider">Từ khóa & Vị trí</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {filteredUrls.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-8 text-center text-[#8888a0]">
+                          {searchTerm ? 'Không tìm thấy kết quả' : 'Chưa có dữ liệu URL'}
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredUrls.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-secondary/30 transition-colors align-top">
+                          <td className="px-4 py-3 text-sm text-[#8888a0]">{idx + 1}</td>
+                          <td className="px-4 py-3">
+                            <a
+                              href={item.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-accent hover:underline inline-flex items-center gap-1"
+                            >
+                              <span className="max-w-xs truncate">{item.url.replace(/^https?:\/\//, '')}</span>
+                              <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                            </a>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="inline-flex items-center justify-center px-2 py-1 rounded-full bg-accent/20 text-accent text-sm font-medium">
+                              {item.keywords.length}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-wrap gap-2">
+                              {item.keywords.slice(0, 5).map((kw, kwIdx) => (
+                                <span
+                                  key={kwIdx}
+                                  className={cn(
+                                    "inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs",
+                                    kw.position <= 3 ? "bg-success/20 text-success" :
+                                    kw.position <= 10 ? "bg-accent/20 text-accent" :
+                                    kw.position <= 20 ? "bg-blue-400/20 text-blue-400" :
+                                    kw.position <= 30 ? "bg-warning/20 text-warning" :
+                                    "bg-secondary text-[#8888a0]"
+                                  )}
+                                >
+                                  <span className="font-medium">{kw.keyword}</span>
+                                  <span className="opacity-75">#{kw.position}</span>
+                                  {kw.change !== 0 && (
+                                    <span className={kw.change > 0 ? "text-success" : "text-danger"}>
+                                      {kw.change > 0 ? '↑' : '↓'}
+                                    </span>
+                                  )}
+                                </span>
+                              ))}
+                              {item.keywords.length > 5 && (
+                                <span className="text-xs text-[#8888a0]">+{item.keywords.length - 5} khác</span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+                {filteredUrls.length > 0 && (
+                  <div className="px-4 py-3 border-t border-border bg-secondary/30 text-xs text-[#8888a0]">
+                    Hiển thị {filteredUrls.length} / {urlDetails.length} URLs
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </>
       )}
     </div>
