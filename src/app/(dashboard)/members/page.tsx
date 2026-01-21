@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Users, CheckCircle2, Clock, Plus, Trash2, Pencil } from 'lucide-react';
+import { Users, CheckCircle2, Clock, Plus, Trash2, Pencil, Wallet } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
 import ProgressBar from '@/components/ProgressBar';
 import { MemberStats, Project } from '@/types';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency, calculateSalary } from '@/lib/utils';
 
 interface MemberInfo {
   id: string;
@@ -129,6 +129,9 @@ export default function MembersPage() {
   // Calculate totals
   const totalPublished = members.reduce((sum, m) => sum + m.published, 0);
   const totalInProgress = members.reduce((sum, m) => sum + m.inProgress, 0);
+  const totalSalary = viewType === 'month'
+    ? members.reduce((sum, m) => sum + calculateSalary(m.published).total, 0)
+    : 0;
 
   if (isLoading) {
     return <PageLoading />;
@@ -218,6 +221,16 @@ export default function MembersPage() {
             <span className="text-warning font-bold">{totalInProgress}</span>
             <span className="text-[#8888a0] text-sm">đang làm</span>
           </div>
+          {viewType === 'month' && (
+            <>
+              <div className="h-6 w-px bg-border" />
+              <div className="flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-accent" />
+                <span className="text-accent font-bold">{formatCurrency(totalSalary)}</span>
+                <span className="text-[#8888a0] text-sm">tổng lương</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -234,6 +247,7 @@ export default function MembersPage() {
                 <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase text-center">Đang làm</th>
                 <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase text-center">Đúng hạn</th>
                 <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase">KPI</th>
+                <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase text-right">Lương</th>
                 <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase text-right"></th>
               </tr>
             </thead>
@@ -300,6 +314,23 @@ export default function MembersPage() {
                           {member.published}/{kpiTarget}
                         </span>
                       </div>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {viewType === 'month' ? (
+                        <div>
+                          <span className={cn(
+                            "font-mono font-medium",
+                            calculateSalary(member.published).isKpiMet ? "text-success" : "text-[var(--text-primary)]"
+                          )}>
+                            {formatCurrency(calculateSalary(member.published).total)}
+                          </span>
+                          {calculateSalary(member.published).isKpiMet && (
+                            <div className="text-[10px] text-success">Đạt KPI</div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-[#8888a0] text-xs">-</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right">
                       {info && (
