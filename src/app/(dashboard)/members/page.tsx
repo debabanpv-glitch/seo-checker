@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Users, CheckCircle2, Clock, Plus, Trash2, Pencil } from 'lucide-react';
+import { Users, CheckCircle2, Clock, Plus, Trash2, Pencil, Wallet, BadgeCheck } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
 import ProgressBar from '@/components/ProgressBar';
 import { MemberStats, Project } from '@/types';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency, calculateSalary } from '@/lib/utils';
 
 interface MemberInfo {
   id: string;
@@ -21,12 +21,22 @@ interface MemberInfo {
   bank_account: string;
 }
 
+interface SalaryPayment {
+  id: string;
+  member_name: string;
+  month: number;
+  year: number;
+  amount: number;
+  paid_at: string;
+}
+
 type ViewType = 'day' | 'week' | 'month';
 
 export default function MembersPage() {
   const [members, setMembers] = useState<MemberStats[]>([]);
   const [memberInfos, setMemberInfos] = useState<MemberInfo[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [salaryPayments, setSalaryPayments] = useState<SalaryPayment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [viewType, setViewType] = useState<ViewType>('month');
   const [selectedMonth, setSelectedMonth] = useState(() => {
@@ -45,17 +55,20 @@ export default function MembersPage() {
     setIsLoading(true);
     try {
       const [month, year] = selectedMonth.split('-');
-      const [membersRes, projectsRes] = await Promise.all([
+      const [membersRes, projectsRes, paymentsRes] = await Promise.all([
         fetch(`/api/members?month=${month}&year=${year}&view=${viewType}`),
         fetch('/api/projects'),
+        viewType === 'month' ? fetch(`/api/salary-payments?month=${month}&year=${year}`) : Promise.resolve(null),
       ]);
 
       const membersData = await membersRes.json();
       const projectsData = await projectsRes.json();
+      const paymentsData = paymentsRes ? await paymentsRes.json() : { payments: [] };
 
       setMembers(membersData.members || []);
       setMemberInfos(membersData.memberInfos || []);
       setProjects(projectsData.projects || []);
+      setSalaryPayments(paymentsData.payments || []);
     } catch (error) {
       console.error('Failed to fetch data:', error);
     } finally {
@@ -126,9 +139,20 @@ export default function MembersPage() {
     return selectedMonth.split('-').map((s, i) => i === 0 ? `T${s}` : s).join('/');
   };
 
+  // Check if member is paid
+  const isMemberPaid = (name: string) => {
+    return salaryPayments.some((p) => p.member_name === name);
+  };
+
   // Calculate totals
   const totalPublished = members.reduce((sum, m) => sum + m.published, 0);
   const totalInProgress = members.reduce((sum, m) => sum + m.inProgress, 0);
+  const totalSalary = viewType === 'month'
+    ? members.reduce((sum, m) => sum + calculateSalary(m.published).total, 0)
+    : 0;
+  const paidCount = viewType === 'month'
+    ? members.filter((m) => isMemberPaid(m.name)).length
+    : 0;
 
   if (isLoading) {
     return <PageLoading />;
@@ -218,6 +242,22 @@ export default function MembersPage() {
             <span className="text-warning font-bold">{totalInProgress}</span>
             <span className="text-[#8888a0] text-sm">đang làm</span>
           </div>
+          {viewType === 'month' && (
+            <>
+              <div className="h-6 w-px bg-border" />
+              <div className="flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-accent" />
+                <span className="text-accent font-bold">{formatCurrency(totalSalary)}</span>
+                <span className="text-[#8888a0] text-sm">tổng lương</span>
+              </div>
+              <div className="h-6 w-px bg-border" />
+              <div className="flex items-center gap-2">
+                <BadgeCheck className="w-4 h-4 text-emerald-400" />
+                <span className="text-emerald-400 font-bold">{paidCount}/{members.length}</span>
+                <span className="text-[#8888a0] text-sm">đã thanh toán</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -234,6 +274,7 @@ export default function MembersPage() {
                 <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase text-center">Đang làm</th>
                 <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase text-center">Đúng hạn</th>
                 <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase">KPI</th>
+                <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase text-right">Lương</th>
                 <th className="px-4 py-3 text-xs font-medium text-[#8888a0] uppercase text-right"></th>
               </tr>
             </thead>
@@ -300,6 +341,35 @@ export default function MembersPage() {
                           {member.published}/{kpiTarget}
                         </span>
                       </div>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {viewType === 'month' ? (
+                        <div>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <span className={cn(
+                              "font-mono font-medium",
+                              isMemberPaid(member.name) ? "text-emerald-400" :
+                              calculateSalary(member.published).isKpiMet ? "text-success" : "text-[var(--text-primary)]"
+                            )}>
+                              {formatCurrency(calculateSalary(member.published).total)}
+                            </span>
+                            {isMemberPaid(member.name) && (
+                              <BadgeCheck className="w-4 h-4 text-emerald-400" />
+                            )}
+                          </div>
+                          <div className="text-[10px]">
+                            {isMemberPaid(member.name) ? (
+                              <span className="text-emerald-400">Đã thanh toán</span>
+                            ) : calculateSalary(member.published).isKpiMet ? (
+                              <span className="text-success">Đạt KPI</span>
+                            ) : (
+                              <span className="text-[#8888a0]">Chưa TT</span>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-[#8888a0] text-xs">-</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right">
                       {info && (
