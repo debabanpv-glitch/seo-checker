@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import {
   FileText,
   CheckCircle2,
@@ -19,12 +20,72 @@ import {
   ClipboardList,
   AlertCircle,
   CheckCircle,
+  Wallet,
+  Search,
+  ArrowRight,
+  Bell,
+  X,
+  TrendingDown,
 } from 'lucide-react';
 import ProgressBar from '@/components/ProgressBar';
 import { PageLoading } from '@/components/LoadingSpinner';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatCurrency } from '@/lib/utils';
 import { isPublished } from '@/lib/task-helpers';
 import { Task, ProjectStats, BottleneckData, Stats, BottleneckTask } from '@/types';
+
+// Overview data types
+interface OverviewData {
+  tasks: {
+    total: number;
+    published: number;
+    inProgress: number;
+    overdue: number;
+    dueSoon: number;
+  };
+  finance: {
+    totalSalary: number;
+    paidSalary: number;
+    unpaidSalary: number;
+    paidCount: number;
+    unpaidCount: number;
+    totalMembers: number;
+  };
+  seo: {
+    keywords: {
+      total: number;
+      top3: number;
+      top10: number;
+      top20: number;
+      top30: number;
+    };
+    audit: {
+      total: number;
+      passed: number;
+      failed: number;
+      avgScore: number;
+    };
+    decliningKeywords: Array<{
+      keyword: string;
+      currentPosition: number;
+      previousPosition: number;
+      change: number;
+    }>;
+  };
+  alerts: Array<{
+    type: 'danger' | 'warning' | 'info';
+    title: string;
+    message: string;
+    count?: number;
+    link?: string;
+  }>;
+  topPerformers: Array<{
+    name: string;
+    published: number;
+    salary: number;
+    isPaid: boolean;
+    isKpiMet: boolean;
+  }>;
+}
 
 export default function DashboardPage() {
   // Month/Year state
@@ -37,6 +98,10 @@ export default function DashboardPage() {
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [overdueFromPreviousMonths, setOverdueFromPreviousMonths] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Overview data for manager view
+  const [overview, setOverview] = useState<OverviewData | null>(null);
+  const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
 
   // Workflow expanded state
   const [expandedWorkflow, setExpandedWorkflow] = useState<string | null>(null);
@@ -61,20 +126,35 @@ export default function DashboardPage() {
   const fetchDashboardData = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/stats?month=${selectedMonth}&year=${selectedYear}`);
-      const data = await res.json();
+      // Fetch both stats and overview in parallel
+      const [statsRes, overviewRes] = await Promise.all([
+        fetch(`/api/stats?month=${selectedMonth}&year=${selectedYear}`),
+        fetch(`/api/dashboard/overview?month=${selectedMonth}&year=${selectedYear}`),
+      ]);
+
+      const data = await statsRes.json();
+      const overviewData = await overviewRes.json();
 
       setStats(data.stats);
       setProjectStats(data.projectStats);
       setBottleneck(data.bottleneck);
       setAllTasks((data.allTasks || data.recentTasks || []));
       setOverdueFromPreviousMonths(data.overdueFromPreviousMonths || []);
+      setOverview(overviewData);
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Dismiss alert
+  const dismissAlert = (alertTitle: string) => {
+    setDismissedAlerts(prev => [...prev, alertTitle]);
+  };
+
+  // Active alerts (not dismissed)
+  const activeAlerts = overview?.alerts?.filter(a => !dismissedAlerts.includes(a.title)) || [];
 
   // Calculate stats based on all tasks
   const filteredStats = useMemo(() => {
@@ -424,11 +504,86 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-4 md:space-y-6">
+      {/* Alert Banner - Critical alerts at top */}
+      {activeAlerts.length > 0 && (
+        <div className="space-y-2">
+          {activeAlerts.map((alert) => (
+            <div
+              key={alert.title}
+              className={`flex items-center justify-between p-3 rounded-xl border ${
+                alert.type === 'danger'
+                  ? 'bg-danger/10 border-danger/30'
+                  : alert.type === 'warning'
+                  ? 'bg-warning/10 border-warning/30'
+                  : 'bg-accent/10 border-accent/30'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${
+                  alert.type === 'danger'
+                    ? 'bg-danger/20'
+                    : alert.type === 'warning'
+                    ? 'bg-warning/20'
+                    : 'bg-accent/20'
+                }`}>
+                  {alert.type === 'danger' ? (
+                    <AlertTriangle className="w-4 h-4 text-danger" />
+                  ) : alert.type === 'warning' ? (
+                    <Bell className="w-4 h-4 text-warning" />
+                  ) : (
+                    <Clock className="w-4 h-4 text-accent" />
+                  )}
+                </div>
+                <div>
+                  <p className={`font-medium text-sm ${
+                    alert.type === 'danger'
+                      ? 'text-danger'
+                      : alert.type === 'warning'
+                      ? 'text-warning'
+                      : 'text-accent'
+                  }`}>
+                    {alert.title}
+                    {alert.count && (
+                      <span className="ml-2 px-1.5 py-0.5 bg-white/20 rounded text-xs">
+                        {alert.count}
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-[#8888a0] text-xs">{alert.message}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {alert.link && (
+                  <Link
+                    href={alert.link}
+                    className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                      alert.type === 'danger'
+                        ? 'bg-danger text-white hover:bg-danger/90'
+                        : alert.type === 'warning'
+                        ? 'bg-warning text-white hover:bg-warning/90'
+                        : 'bg-accent text-white hover:bg-accent/90'
+                    }`}
+                  >
+                    Xem ngay
+                  </Link>
+                )}
+                <button
+                  onClick={() => dismissAlert(alert.title)}
+                  className="p-1 hover:bg-white/10 rounded"
+                >
+                  <X className="w-4 h-4 text-[#8888a0]" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Header with Date Range */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-[var(--text-primary)]">Dashboard</h1>
-          <p className="text-[#8888a0] text-xs md:text-sm">Tổng quan tiến độ công việc</p>
+          <p className="text-[#8888a0] text-xs md:text-sm">Tổng quan tiến độ công việc - T{selectedMonth}/{selectedYear}</p>
         </div>
 
         {/* Month/Year Picker */}
@@ -462,6 +617,71 @@ export default function DashboardPage() {
             ))}
           </select>
         </div>
+      </div>
+
+      {/* Quick Navigation Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Link href="/salary" className="group bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 border border-emerald-500/30 rounded-xl p-4 hover:border-emerald-500/50 transition-all">
+          <div className="flex items-center justify-between mb-2">
+            <Wallet className="w-5 h-5 text-emerald-400" />
+            <ArrowRight className="w-4 h-4 text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+          <p className="text-lg font-bold text-emerald-400">
+            {overview?.finance ? formatCurrency(overview.finance.totalSalary) : '---'}
+          </p>
+          <p className="text-xs text-[#8888a0]">Tổng lương tháng</p>
+          {overview?.finance && overview.finance.unpaidCount > 0 && (
+            <p className="text-xs text-warning mt-1">{overview.finance.unpaidCount} chưa TT</p>
+          )}
+        </Link>
+
+        <Link href="/keyword-ranking" className="group bg-gradient-to-br from-blue-500/20 to-blue-500/5 border border-blue-500/30 rounded-xl p-4 hover:border-blue-500/50 transition-all">
+          <div className="flex items-center justify-between mb-2">
+            <TrendingUp className="w-5 h-5 text-blue-400" />
+            <ArrowRight className="w-4 h-4 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+          <p className="text-lg font-bold text-blue-400">
+            {overview?.seo?.keywords?.top10 || 0}
+            <span className="text-sm font-normal text-[#8888a0]">/{overview?.seo?.keywords?.total || 0}</span>
+          </p>
+          <p className="text-xs text-[#8888a0]">Top 10 Keywords</p>
+          {overview?.seo?.decliningKeywords && overview.seo.decliningKeywords.length > 0 && (
+            <p className="text-xs text-danger mt-1 flex items-center gap-1">
+              <TrendingDown className="w-3 h-3" />
+              {overview.seo.decliningKeywords.length} giảm mạnh
+            </p>
+          )}
+        </Link>
+
+        <Link href="/seo-audit" className="group bg-gradient-to-br from-purple-500/20 to-purple-500/5 border border-purple-500/30 rounded-xl p-4 hover:border-purple-500/50 transition-all">
+          <div className="flex items-center justify-between mb-2">
+            <Search className="w-5 h-5 text-purple-400" />
+            <ArrowRight className="w-4 h-4 text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+          <p className="text-lg font-bold text-purple-400">
+            {overview?.seo?.audit?.avgScore || 0}
+            <span className="text-sm font-normal text-[#8888a0]">/100</span>
+          </p>
+          <p className="text-xs text-[#8888a0]">SEO Score TB</p>
+          {overview?.seo?.audit && overview.seo.audit.failed > 0 && (
+            <p className="text-xs text-warning mt-1">{overview.seo.audit.failed} cần fix</p>
+          )}
+        </Link>
+
+        <Link href="/members" className="group bg-gradient-to-br from-orange-500/20 to-orange-500/5 border border-orange-500/30 rounded-xl p-4 hover:border-orange-500/50 transition-all">
+          <div className="flex items-center justify-between mb-2">
+            <User className="w-5 h-5 text-orange-400" />
+            <ArrowRight className="w-4 h-4 text-orange-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+          <p className="text-lg font-bold text-orange-400">
+            {overview?.topPerformers?.filter(p => p.isKpiMet).length || 0}
+            <span className="text-sm font-normal text-[#8888a0]">/{overview?.finance?.totalMembers || 0}</span>
+          </p>
+          <p className="text-xs text-[#8888a0]">Đạt KPI</p>
+          {overview?.topPerformers && overview.topPerformers[0] && (
+            <p className="text-xs text-success mt-1">Top: {overview.topPerformers[0].name}</p>
+          )}
+        </Link>
       </div>
 
       {/* Key Metrics */}
