@@ -144,7 +144,7 @@ interface AnalyticsSummary {
   teamGrowthRate: number;
 }
 
-const CHART_COLORS = ['#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#84cc16', '#f97316'];
+const CHART_COLORS = ['#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#0ea5e9', '#06b6d4', '#14b8a6', '#10b981'];
 
 type ViewTab = 'overview' | 'projects' | 'members' | 'detail';
 
@@ -580,18 +580,19 @@ export default function SalaryPage() {
                 <AreaChart data={analytics.monthlyTrend}>
                   <defs>
                     <linearGradient id="colorSalary" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#333" />
                   <XAxis dataKey="shortLabel" stroke="#8888a0" fontSize={12} />
                   <YAxis stroke="#8888a0" fontSize={12} tickFormatter={(val) => `${(val / 1000000).toFixed(0)}M`} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#1a1a2e', border: '1px solid #333', borderRadius: '8px' }}
+                    contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569', borderRadius: '8px', color: '#f1f5f9' }}
+                    labelStyle={{ color: '#94a3b8' }}
                     formatter={(value: number) => [formatCurrency(value), 'Tổng lương']}
                   />
-                  <Area type="monotone" dataKey="totalSalary" stroke="#8b5cf6" strokeWidth={2} fill="url(#colorSalary)" />
+                  <Area type="monotone" dataKey="totalSalary" stroke="#3b82f6" strokeWidth={2} fill="url(#colorSalary)" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -608,7 +609,9 @@ export default function SalaryPage() {
                   <XAxis type="number" stroke="#8888a0" fontSize={12} tickFormatter={(val) => `${(val / 1000000).toFixed(1)}M`} />
                   <YAxis type="category" dataKey="name" stroke="#8888a0" fontSize={11} width={80}
                     tickFormatter={(val) => val.length > 10 ? val.slice(0, 10) + '...' : val} />
-                  <Tooltip contentStyle={{ backgroundColor: '#1a1a2e', border: '1px solid #333', borderRadius: '8px' }}
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569', borderRadius: '8px', color: '#f1f5f9' }}
+                    labelStyle={{ color: '#94a3b8' }}
                     formatter={(value: number) => [formatCurrency(value), 'Chi phí']} />
                   <Bar dataKey="total" radius={[0, 4, 4, 0]}>
                     {analytics.projectBreakdown.slice(0, 5).map((_, index) => (
@@ -806,10 +809,12 @@ export default function SalaryPage() {
                       <CartesianGrid strokeDasharray="3 3" stroke="#333" />
                       <XAxis dataKey="label" stroke="#8888a0" fontSize={12} />
                       <YAxis stroke="#8888a0" fontSize={12} tickFormatter={(val) => `${(val / 1000000).toFixed(1)}M`} />
-                      <Tooltip contentStyle={{ backgroundColor: '#1a1a2e', border: '1px solid #333', borderRadius: '8px' }}
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569', borderRadius: '8px', color: '#f1f5f9' }}
+                        labelStyle={{ color: '#94a3b8' }}
                         formatter={(value: number, name: string) => [formatCurrency(value), name === 'cost' ? 'Chi phí' : 'Bài viết']} />
                       <Legend />
-                      <Line type="monotone" dataKey="cost" name="Chi phí" stroke="#8b5cf6" strokeWidth={2} dot={{ fill: '#8b5cf6' }} />
+                      <Line type="monotone" dataKey="cost" name="Chi phí" stroke="#3b82f6" strokeWidth={2} dot={{ fill: '#8b5cf6' }} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -931,12 +936,14 @@ export default function SalaryPage() {
                       <CartesianGrid strokeDasharray="3 3" stroke="#333" />
                       <XAxis dataKey="label" stroke="#8888a0" fontSize={12} />
                       <YAxis stroke="#8888a0" fontSize={12} tickFormatter={(val) => `${(val / 1000000).toFixed(1)}M`} />
-                      <Tooltip contentStyle={{ backgroundColor: '#1a1a2e', border: '1px solid #333', borderRadius: '8px' }}
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569', borderRadius: '8px', color: '#f1f5f9' }}
+                        labelStyle={{ color: '#94a3b8' }}
                         formatter={(value: number, name: string) => [
                           name === 'salary' ? formatCurrency(value) : value,
                           name === 'salary' ? 'Thu nhập' : 'Bài viết'
                         ]} />
-                      <Bar dataKey="salary" name="Thu nhập" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="salary" name="Thu nhập" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
