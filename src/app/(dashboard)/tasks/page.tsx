@@ -1,12 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Search, ExternalLink, Filter, Calendar } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import {
+  Search,
+  ExternalLink,
+  Filter,
+  Calendar,
+  FileText,
+  CheckCircle2,
+  Clock,
+  AlertTriangle,
+  Users,
+} from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
 import { formatDate, isOverdue, isDueSoon, truncate, cn } from '@/lib/utils';
 import { Task, Project } from '@/types';
+
+type ViewTab = 'all' | 'overdue' | 'dueSoon' | 'inProgress' | 'published';
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -23,6 +35,7 @@ export default function TasksPage() {
     search: '',
   });
   const [pics, setPics] = useState<string[]>([]);
+  const [viewTab, setViewTab] = useState<ViewTab>('all');
 
   // Generate month options
   const monthOptions = [];
@@ -65,24 +78,94 @@ export default function TasksPage() {
     }
   };
 
-  const filteredTasks = tasks.filter((task) => {
-    // Filter out empty tasks
-    if (!task.title && !task.keyword_sub) return false;
+  // Calculate stats
+  const stats = useMemo(() => {
+    const validTasks = tasks.filter(t => t.title || t.keyword_sub);
+    const published = validTasks.filter(t =>
+      t.status_content?.includes('4. Publish') || t.status_content?.includes('4.Publish')
+    );
+    const inProgress = validTasks.filter(t =>
+      t.status_content && !t.status_content.includes('4. Publish') && !t.status_content.includes('4.Publish')
+    );
+    const overdue = validTasks.filter(t => {
+      if (!t.deadline) return false;
+      if (t.status_content?.includes('4. Publish')) return false;
+      return isOverdue(t.deadline);
+    });
+    const dueSoon = validTasks.filter(t => {
+      if (!t.deadline) return false;
+      if (t.status_content?.includes('4. Publish')) return false;
+      return isDueSoon(t.deadline) && !isOverdue(t.deadline);
+    });
 
-    if (filters.project && task.project_id !== filters.project) return false;
-    if (filters.pic && task.pic !== filters.pic) return false;
-    if (filters.status) {
-      const status = task.status_content || task.status_outline || '';
-      if (!status.toLowerCase().includes(filters.status.toLowerCase())) return false;
+    // Group by PIC
+    const byPic: Record<string, { total: number; published: number; overdue: number }> = {};
+    validTasks.forEach(t => {
+      const pic = t.pic || 'Unknown';
+      if (!byPic[pic]) byPic[pic] = { total: 0, published: 0, overdue: 0 };
+      byPic[pic].total++;
+      if (t.status_content?.includes('4. Publish')) byPic[pic].published++;
+      if (t.deadline && isOverdue(t.deadline) && !t.status_content?.includes('4. Publish')) {
+        byPic[pic].overdue++;
+      }
+    });
+
+    return {
+      total: validTasks.length,
+      published: published.length,
+      inProgress: inProgress.length,
+      overdue: overdue.length,
+      dueSoon: dueSoon.length,
+      byPic,
+    };
+  }, [tasks]);
+
+  const filteredTasks = useMemo(() => {
+    let result = tasks.filter((task) => {
+      // Filter out empty tasks
+      if (!task.title && !task.keyword_sub) return false;
+
+      if (filters.project && task.project_id !== filters.project) return false;
+      if (filters.pic && task.pic !== filters.pic) return false;
+      if (filters.status) {
+        const status = task.status_content || task.status_outline || '';
+        if (!status.toLowerCase().includes(filters.status.toLowerCase())) return false;
+      }
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase();
+        const title = (task.title || '').toLowerCase();
+        const keyword = (task.keyword_sub || '').toLowerCase();
+        if (!title.includes(searchLower) && !keyword.includes(searchLower)) return false;
+      }
+      return true;
+    });
+
+    // Apply view tab filter
+    switch (viewTab) {
+      case 'overdue':
+        result = result.filter(t =>
+          t.deadline && isOverdue(t.deadline) && !t.status_content?.includes('4. Publish')
+        );
+        break;
+      case 'dueSoon':
+        result = result.filter(t =>
+          t.deadline && isDueSoon(t.deadline) && !isOverdue(t.deadline) && !t.status_content?.includes('4. Publish')
+        );
+        break;
+      case 'inProgress':
+        result = result.filter(t =>
+          t.status_content && !t.status_content.includes('4. Publish')
+        );
+        break;
+      case 'published':
+        result = result.filter(t =>
+          t.status_content?.includes('4. Publish')
+        );
+        break;
     }
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      const title = (task.title || '').toLowerCase();
-      const keyword = (task.keyword_sub || '').toLowerCase();
-      if (!title.includes(searchLower) && !keyword.includes(searchLower)) return false;
-    }
-    return true;
-  });
+
+    return result;
+  }, [tasks, filters, viewTab]);
 
   const getRowClass = (task: Task) => {
     if (task.status_content === '4. Publish') return 'bg-success/5';
@@ -96,12 +179,12 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-primary)]">Tasks</h1>
-          <p className="text-[#8888a0] text-sm">Danh sách tất cả công việc</p>
+          <p className="text-[#8888a0] text-sm">Quản lý công việc - T{selectedMonth.replace('-', '/')}</p>
         </div>
 
         {/* Month Selector */}
@@ -120,6 +203,125 @@ export default function TasksPage() {
           </select>
         </div>
       </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <button
+          onClick={() => setViewTab('all')}
+          className={cn(
+            "bg-card border rounded-xl p-4 text-left transition-all",
+            viewTab === 'all' ? "border-accent ring-2 ring-accent/20" : "border-border hover:border-accent/50"
+          )}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <FileText className="w-5 h-5 text-accent" />
+            <span className="text-xs text-[#8888a0]">Tổng</span>
+          </div>
+          <p className="text-2xl font-bold text-[var(--text-primary)]">{stats.total}</p>
+        </button>
+
+        <button
+          onClick={() => setViewTab('published')}
+          className={cn(
+            "bg-card border rounded-xl p-4 text-left transition-all",
+            viewTab === 'published' ? "border-success ring-2 ring-success/20" : "border-border hover:border-success/50"
+          )}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <CheckCircle2 className="w-5 h-5 text-success" />
+            <span className="text-xs text-[#8888a0]">Published</span>
+          </div>
+          <p className="text-2xl font-bold text-success">{stats.published}</p>
+          <p className="text-xs text-[#8888a0]">{stats.total > 0 ? Math.round(stats.published / stats.total * 100) : 0}% hoàn thành</p>
+        </button>
+
+        <button
+          onClick={() => setViewTab('inProgress')}
+          className={cn(
+            "bg-card border rounded-xl p-4 text-left transition-all",
+            viewTab === 'inProgress' ? "border-warning ring-2 ring-warning/20" : "border-border hover:border-warning/50"
+          )}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <Clock className="w-5 h-5 text-warning" />
+            <span className="text-xs text-[#8888a0]">Đang làm</span>
+          </div>
+          <p className="text-2xl font-bold text-warning">{stats.inProgress}</p>
+        </button>
+
+        <button
+          onClick={() => setViewTab('overdue')}
+          className={cn(
+            "bg-card border rounded-xl p-4 text-left transition-all",
+            viewTab === 'overdue' ? "border-danger ring-2 ring-danger/20" : "border-border hover:border-danger/50"
+          )}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <AlertTriangle className="w-5 h-5 text-danger" />
+            <span className="text-xs text-[#8888a0]">Trễ</span>
+          </div>
+          <p className="text-2xl font-bold text-danger">{stats.overdue}</p>
+          {stats.overdue > 0 && (
+            <p className="text-xs text-danger">Cần xử lý!</p>
+          )}
+        </button>
+
+        <button
+          onClick={() => setViewTab('dueSoon')}
+          className={cn(
+            "bg-card border rounded-xl p-4 text-left transition-all",
+            viewTab === 'dueSoon' ? "border-orange-500 ring-2 ring-orange-500/20" : "border-border hover:border-orange-500/50"
+          )}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <Clock className="w-5 h-5 text-orange-400" />
+            <span className="text-xs text-[#8888a0]">Sắp trễ</span>
+          </div>
+          <p className="text-2xl font-bold text-orange-400">{stats.dueSoon}</p>
+          <p className="text-xs text-[#8888a0]">Trong 3 ngày</p>
+        </button>
+      </div>
+
+      {/* PIC Overview - Compact */}
+      {Object.keys(stats.byPic).length > 0 && (
+        <div className="bg-card border border-border rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Users className="w-4 h-4 text-accent" />
+            <span className="text-sm font-medium text-[var(--text-primary)]">Theo người phụ trách</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(stats.byPic)
+              .filter(([name]) => name !== 'Unknown')
+              .sort((a, b) => b[1].total - a[1].total)
+              .slice(0, 10)
+              .map(([name, data]) => (
+                <button
+                  key={name}
+                  onClick={() => setFilters({ ...filters, pic: filters.pic === name ? '' : name })}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-sm flex items-center gap-2 transition-colors",
+                    filters.pic === name
+                      ? "bg-accent text-white"
+                      : "bg-secondary text-[var(--text-primary)] hover:bg-accent/20"
+                  )}
+                >
+                  <span className="font-medium">{name}</span>
+                  <span className={cn(
+                    "px-1.5 py-0.5 rounded text-xs",
+                    filters.pic === name ? "bg-white/20" : "bg-card"
+                  )}>
+                    {data.published}/{data.total}
+                  </span>
+                  {data.overdue > 0 && (
+                    <span className="px-1.5 py-0.5 bg-danger text-white rounded text-xs">
+                      {data.overdue}
+                    </span>
+                  )}
+                </button>
+              ))}
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 p-4 bg-card border border-border rounded-xl">
@@ -269,7 +471,29 @@ export default function TasksPage() {
 
       {/* Summary */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-sm text-[#8888a0]">
-        <span>Hiển thị {filteredTasks.length} / {tasks.filter(t => t.title || t.keyword_sub).length} tasks</span>
+        <div className="flex items-center gap-3">
+          <span>
+            Hiển thị <span className="text-accent font-medium">{filteredTasks.length}</span> / {stats.total} tasks
+            {viewTab !== 'all' && (
+              <span className="ml-2 text-accent">
+                ({viewTab === 'overdue' ? 'Trễ' :
+                  viewTab === 'dueSoon' ? 'Sắp trễ' :
+                  viewTab === 'inProgress' ? 'Đang làm' : 'Published'})
+              </span>
+            )}
+          </span>
+          {(viewTab !== 'all' || filters.pic || filters.project || filters.status || filters.search) && (
+            <button
+              onClick={() => {
+                setViewTab('all');
+                setFilters({ project: '', pic: '', status: '', search: '' });
+              }}
+              className="text-accent hover:underline"
+            >
+              Xóa bộ lọc
+            </button>
+          )}
+        </div>
         <div className="flex flex-wrap gap-4">
           <span className="flex items-center gap-2">
             <span className="w-3 h-3 rounded bg-danger/30" /> Trễ deadline
