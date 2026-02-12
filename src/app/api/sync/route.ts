@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { parseSheetDate } from '@/lib/utils';
 
+// Vercel function config: extend timeout for sync operations
+export const maxDuration = 60; // 60 seconds (requires Vercel Pro plan, Hobby = 10s)
+
 // Google Sheets API endpoint (using public CSV export)
 async function fetchGoogleSheet(sheetId: string, sheetName: string) {
-  // Use Google Sheets API v4 or public CSV export
   const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
 
   try {
@@ -12,6 +14,7 @@ async function fetchGoogleSheet(sheetId: string, sheetName: string) {
       headers: {
         'User-Agent': 'Mozilla/5.0',
       },
+      signal: AbortSignal.timeout(15000),
     });
 
     if (!response.ok) {
@@ -56,10 +59,8 @@ function mapRowToTask(row: SheetRow, projectId: string) {
   };
 
   const getFormattedValue = (index: number): string => {
-    // Get formatted value (f) which is what user sees, or fall back to raw value (v)
     const cell = row.c[index];
     if (!cell) return '';
-    // Prefer formatted value for dates
     if (cell.f) return String(cell.f);
     return cell.v !== null ? String(cell.v) : '';
   };
@@ -74,22 +75,16 @@ function mapRowToTask(row: SheetRow, projectId: string) {
     return typeof val === 'number' ? val : parseInt(String(val)) || 0;
   };
 
-  // Parse keywords from string - split by newline (various formats), comma, or semicolon
-  // Also handle case where Google Sheets doesn't preserve newlines properly
   const parseKeywords = (str: string): string[] => {
     if (!str) return [];
 
-    // First try splitting by common delimiters (including \n which gviz uses)
     let keywords = str
-      .split(/[\r\n]+|\\n|,|;/)  // Also split by literal \n
+      .split(/[\r\n]+|\\n|,|;/)
       .map(k => k.trim())
       .filter(k => k.length > 0);
 
-    // If only 1 result and it's long (likely multiple keywords merged),
-    // try to detect lowercase-uppercase boundaries
     if (keywords.length === 1 && keywords[0].length > 50) {
       const merged = keywords[0];
-      // Split where lowercase Vietnamese letter is followed by uppercase
       const splitByCase = merged.split(/(?<=[a-zàáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵđ])(?=[A-ZÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÈÉẺẼẸÊẾỀỂỄỆÌÍỈĨỊÒÓỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÙÚỦŨỤƯỨỪỬỮỰỲÝỶỸỴĐM])/);
       if (splitByCase.length > 1) {
         keywords = splitByCase.map(k => k.trim()).filter(k => k.length > 0);
@@ -99,7 +94,6 @@ function mapRowToTask(row: SheetRow, projectId: string) {
     return keywords;
   };
 
-  // Helper to extract month/year from date string (YYYY-MM-DD format)
   const extractMonthYear = (dateStr: string | null): { month: number; year: number } | null => {
     if (!dateStr) return null;
     const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -112,13 +106,10 @@ function mapRowToTask(row: SheetRow, projectId: string) {
     return null;
   };
 
-  // Column mapping based on typical content tracking sheet structure
   const stt = getNumberValue(0);
-  // Skip columns B (1) and C (2) - we derive month/year from deadline/publish_date
   const parentKeyword = getStringValue(3);
   const keywordSub = getStringValue(4);
 
-  // Parse keywords list from keyword_sub
   const keywordsList = parseKeywords(keywordSub);
   const keywordCount = keywordsList.length;
   const searchVolume = getNumberValue(5);
@@ -136,15 +127,9 @@ function mapRowToTask(row: SheetRow, projectId: string) {
   const publishDate = parseSheetDate(rawPublishDate);
   const note = getStringValue(16);
 
-  // Derive month/year from deadline first, then publish_date, then current date
   const dateInfo = extractMonthYear(deadline) || extractMonthYear(publishDate);
   const year = dateInfo?.year || new Date().getFullYear();
   const month = dateInfo?.month || new Date().getMonth() + 1;
-
-  // Debug log for dates
-  if (rawPublishDate || rawDeadline) {
-    console.log(`[SYNC DEBUG] Row ${stt}: deadline="${rawDeadline}" -> ${deadline}, publishDate="${rawPublishDate}" -> ${publishDate}, derived month=${month}/${year}`);
-  }
 
   return {
     project_id: projectId,
@@ -233,52 +218,114 @@ export async function POST() {
     }
 
     let totalSynced = 0;
+    let totalFailed = 0;
+    let totalSkipped = 0;
     let projectsSynced = 0;
+    const projectErrors: string[] = [];
+
+    // Phase 1: Fetch ALL data from all sheets first (don't touch DB yet)
+    const projectData: Array<{
+      project: typeof projects[0];
+      tasks: ReturnType<typeof mapRowToTask>[];
+      totalRows: number;
+      skippedRows: number;
+    }> = [];
 
     for (const project of projects || []) {
       try {
-        // Fetch data from Google Sheet
         const sheetData = await fetchGoogleSheet(project.sheet_id, project.sheet_name);
 
         if (!sheetData?.rows?.length) {
-          console.log(`No data found for project: ${project.name}`);
+          projectErrors.push(`${project.name}: Không có dữ liệu trên Sheet`);
           continue;
         }
 
-        // Map data - only include rows with valid data (no header skip)
+        const totalRows = sheetData.rows.length;
+
         const tasks = sheetData.rows
           .filter((row: SheetRow) => isValidRow(row))
           .map((row: SheetRow) => mapRowToTask(row, project.id));
 
-        // Delete existing tasks for this project and insert new ones
-        await supabase.from('tasks').delete().eq('project_id', project.id);
+        const skippedRows = totalRows - tasks.length;
+        totalSkipped += skippedRows;
 
-        // Insert in batches of 100
+        if (tasks.length === 0) {
+          projectErrors.push(`${project.name}: ${totalRows} rows nhưng không có row hợp lệ`);
+          continue;
+        }
+
+        projectData.push({ project, tasks, totalRows, skippedRows });
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Unknown error';
+        projectErrors.push(`${project.name}: Fetch Sheet lỗi - ${msg}`);
+      }
+    }
+
+    // Phase 2: All data fetched successfully, now update DB
+    for (const { project, tasks, totalRows, skippedRows } of projectData) {
+      try {
+        // Delete old tasks for this project
+        const { error: deleteError } = await supabase
+          .from('tasks')
+          .delete()
+          .eq('project_id', project.id);
+
+        if (deleteError) {
+          projectErrors.push(`${project.name}: Xóa data cũ thất bại - ${deleteError.message}`);
+          continue;
+        }
+
+        // Insert new tasks in batches
+        let insertedCount = 0;
+        let batchErrors = 0;
         const batchSize = 100;
+
         for (let i = 0; i < tasks.length; i += batchSize) {
           const batch = tasks.slice(i, i + batchSize);
           const { error: insertError } = await supabase.from('tasks').insert(batch);
 
           if (insertError) {
             console.error(`Error inserting batch for ${project.name}:`, insertError);
+            batchErrors++;
+            totalFailed += batch.length;
+          } else {
+            insertedCount += batch.length;
           }
         }
 
-        totalSynced += tasks.length;
+        totalSynced += insertedCount;
         projectsSynced++;
-        console.log(`Synced ${tasks.length} tasks for ${project.name}`);
+
+        if (batchErrors > 0) {
+          projectErrors.push(`${project.name}: ${insertedCount}/${tasks.length} tasks OK, ${batchErrors} batch lỗi`);
+        }
+        if (skippedRows > 0) {
+          console.log(`[SYNC] ${project.name}: ${skippedRows}/${totalRows} rows bỏ qua (thiếu title/keyword)`);
+        }
+
+        console.log(`Synced ${insertedCount} tasks for ${project.name}`);
       } catch (error) {
-        console.error(`Error syncing project ${project.name}:`, error);
+        const msg = error instanceof Error ? error.message : 'Unknown error';
+        projectErrors.push(`${project.name}: DB error - ${msg}`);
       }
     }
 
-    await updateSyncLog(logId, 'success', totalSynced, projectsSynced, undefined, startTime);
+    const hasErrors = projectErrors.length > 0;
+    const status = totalSynced > 0 ? 'success' : 'failed';
+    const errorSummary = hasErrors ? projectErrors.join('; ') : undefined;
+
+    await updateSyncLog(logId, status, totalSynced, projectsSynced, errorSummary, startTime);
 
     return NextResponse.json({
-      success: true,
+      success: totalSynced > 0,
       syncedCount: totalSynced,
       projectsSynced,
-      message: `Đồng bộ thành công ${totalSynced} tasks từ ${projectsSynced} dự án`,
+      failedCount: totalFailed,
+      skippedCount: totalSkipped,
+      message: `Đồng bộ ${totalSynced} tasks từ ${projectsSynced} dự án` +
+        (totalFailed > 0 ? `, ${totalFailed} tasks lỗi` : '') +
+        (totalSkipped > 0 ? `, ${totalSkipped} rows bỏ qua` : ''),
+      errors: hasErrors ? projectErrors : undefined,
       duration: Date.now() - startTime,
     });
   } catch (error) {
@@ -296,6 +343,5 @@ export async function POST() {
 // GET: For Vercel Cron or manual trigger
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function GET(_request: NextRequest) {
-  // For Vercel Cron, just run the sync
   return POST();
 }
