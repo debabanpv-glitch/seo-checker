@@ -33,6 +33,10 @@ export const strategyActions = sqliteTable('strategy_actions', {
   due_date: text('due_date'),
   completed_date: text('completed_date'),
   result: text('result'),
+  executor_type: text('executor_type').notNull().default('human'), // human | ai
+  ai_prompt: text('ai_prompt'), // prompt for AI to execute this action
+  platform_type: text('platform_type'), // wordpress | nextjs | custom | other
+  implementation_notes: text('implementation_notes'), // step-by-step instructions
   created_at: text('created_at').notNull().default(sql`(datetime('now'))`),
   updated_at: text('updated_at').notNull().default(sql`(datetime('now'))`),
 });

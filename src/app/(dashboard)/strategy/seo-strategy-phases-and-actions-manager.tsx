@@ -31,6 +31,9 @@ import {
   Square,
   ChevronUp,
   ArrowRight,
+  User,
+  Code,
+  Save,
 } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
@@ -62,6 +65,10 @@ interface StrategyAction {
   due_date?: string;
   priority: 'low' | 'medium' | 'high' | 'critical';
   created_at: string;
+  executor_type?: 'human' | 'ai';
+  ai_prompt?: string;
+  platform_type?: 'wordpress' | 'nextjs' | 'custom' | 'other';
+  implementation_notes?: string;
 }
 
 interface ObsidianAction {
@@ -376,105 +383,277 @@ function PhaseProgressBar({ actions }: { actions: StrategyAction[] }) {
   );
 }
 
+// ─── Technical categories that warrant platform selection ─────────────────────
+const TECHNICAL_CATEGORIES = new Set(['technical_seo', 'sxo', 'on_page', 'aio']);
+
 // ─── Action Row ───────────────────────────────────────────────────────────────
 
 function ActionRow({
   action,
   phaseId,
   onUpdateStatus,
+  onUpdateAction,
 }: {
   action: StrategyAction;
   phaseId: string;
   onUpdateStatus: (actionId: string, phaseId: string, status: StrategyAction['status']) => void;
+  onUpdateAction: (actionId: string, phaseId: string, data: Partial<StrategyAction>) => void;
 }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [executorType, setExecutorType] = useState<'human' | 'ai'>(action.executor_type ?? 'human');
+  const [platformType, setPlatformType] = useState<string>(action.platform_type ?? '');
+  const [aiPrompt, setAiPrompt] = useState(action.ai_prompt ?? '');
+  const [implNotes, setImplNotes] = useState(action.implementation_notes ?? '');
+
   const actionStatus = ACTION_STATUS_CONFIG[action.status] || ACTION_STATUS_CONFIG.todo;
   const priority = PRIORITY_CONFIG[action.priority] || PRIORITY_CONFIG.medium;
   const catCfg = getCategoryConfig(action.category);
   const isDone = action.status === 'done';
   const isBlocked = action.status === 'blocked';
+  const isTechnical = TECHNICAL_CATEGORIES.has(action.category?.toLowerCase().replace(/[\s\-]/g, '_') ?? '');
 
   const dateInfo = action.due_date ? getRelativeDate(action.due_date) : null;
 
+  const handleSaveDetail = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsSaving(true);
+    const data: Partial<StrategyAction> = {
+      executor_type: executorType,
+      platform_type: platformType as StrategyAction['platform_type'] || undefined,
+      ai_prompt: aiPrompt || undefined,
+      implementation_notes: implNotes || undefined,
+    };
+    try {
+      await fetch(`/api/v1/strategy/actions/${action.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      onUpdateAction(action.id, phaseId, data);
+    } catch (err) {
+      console.error('Failed to save action detail:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
-    <div
-      className={cn(
+    <div className={cn('transition-colors', isBlocked && 'bg-red-500/5')}>
+      {/* Main row */}
+      <div className={cn(
         'flex items-start gap-3 px-5 py-3 hover:bg-secondary/30 transition-colors group',
-        isBlocked && 'bg-red-500/5',
-      )}
-    >
-      {/* Priority dot + status selector */}
-      <div className="flex flex-col items-center gap-1.5 pt-0.5 flex-shrink-0">
-        <div className={cn('w-2 h-2 rounded-full ring-2 ring-offset-0 flex-shrink-0', priority.dot, priority.ring)} title={priority.label} />
-        <select
-          value={action.status}
-          onChange={(e) =>
-            onUpdateStatus(action.id, phaseId, e.target.value as StrategyAction['status'])
-          }
-          onClick={(e) => e.stopPropagation()}
-          className={cn(
-            'px-1.5 py-0.5 rounded text-[10px] font-medium border-0 cursor-pointer',
-            actionStatus.color,
-          )}
-        >
-          <option value="todo">Chờ làm</option>
-          <option value="doing">Đang làm</option>
-          <option value="done">Xong</option>
-          <option value="blocked">Bị chặn</option>
-        </select>
-      </div>
-
-      {/* Main content */}
-      <div className="flex-1 min-w-0">
-        <p
-          className={cn(
-            'text-sm font-medium leading-snug',
-            isDone ? 'text-[#8888a0] line-through' : 'text-[var(--text-primary)]',
-            isBlocked && 'text-red-400',
-          )}
-        >
-          {action.title}
-        </p>
-
-        {action.description && (
-          <p className="text-xs text-[#8888a0] mt-0.5 line-clamp-1">{action.description}</p>
-        )}
-
-        {/* Meta row */}
-        <div className="flex flex-wrap items-center gap-2 mt-1.5">
-          {/* Category badge */}
-          {catCfg && (
-            <span className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium', catCfg.bg, catCfg.color)}>
-              <catCfg.icon className="w-2.5 h-2.5" />
-              {catCfg.label}
-              {catCfg.layer && (
-                <span className="opacity-60">{catCfg.layer}</span>
-              )}
-            </span>
-          )}
-
-          {/* Assignee avatar */}
-          {action.assigned_to && (
-            <span className="inline-flex items-center gap-1 text-[10px] text-[#8888a0]">
-              <span className="w-4 h-4 rounded-full bg-accent/20 text-accent flex items-center justify-center text-[8px] font-bold flex-shrink-0">
-                {getAvatarInitials(action.assigned_to)}
-              </span>
-              {action.assigned_to}
-            </span>
-          )}
-
-          {/* Due date with relative time */}
-          {dateInfo && (
-            <span className={cn('inline-flex items-center gap-1 text-[10px]', dateInfo.color)}>
-              <Calendar className="w-2.5 h-2.5" />
-              {dateInfo.label}
-            </span>
-          )}
+        isExpanded && 'bg-secondary/20',
+      )}>
+        {/* Priority dot + status selector */}
+        <div className="flex flex-col items-center gap-1.5 pt-0.5 flex-shrink-0">
+          <div className={cn('w-2 h-2 rounded-full ring-2 ring-offset-0 flex-shrink-0', priority.dot, priority.ring)} title={priority.label} />
+          <select
+            value={action.status}
+            onChange={(e) =>
+              onUpdateStatus(action.id, phaseId, e.target.value as StrategyAction['status'])
+            }
+            onClick={(e) => e.stopPropagation()}
+            className={cn(
+              'px-1.5 py-0.5 rounded text-[10px] font-medium border-0 cursor-pointer',
+              actionStatus.color,
+            )}
+          >
+            <option value="todo">Chờ làm</option>
+            <option value="doing">Đang làm</option>
+            <option value="done">Xong</option>
+            <option value="blocked">Bị chặn</option>
+          </select>
         </div>
+
+        {/* Main content — clickable to expand */}
+        <div
+          className="flex-1 min-w-0 cursor-pointer"
+          onClick={() => setIsExpanded((v) => !v)}
+        >
+          <div className="flex items-center gap-1.5">
+            <p
+              className={cn(
+                'text-sm font-medium leading-snug',
+                isDone ? 'text-[#8888a0] line-through' : 'text-[var(--text-primary)]',
+                isBlocked && 'text-red-400',
+              )}
+            >
+              {action.title}
+            </p>
+            {/* Executor badge */}
+            {executorType === 'ai' ? (
+              <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-blue-500/15 border border-blue-500/30 text-blue-400 text-[9px] font-medium flex-shrink-0">
+                <Bot className="w-2.5 h-2.5" />AI
+              </span>
+            ) : null}
+            {/* Platform badge */}
+            {platformType && (
+              <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-purple-500/15 border border-purple-500/30 text-purple-400 text-[9px] font-medium flex-shrink-0">
+                <Code className="w-2.5 h-2.5" />
+                {platformType === 'wordpress' ? 'WP' : platformType === 'nextjs' ? 'Next' : platformType === 'custom' ? 'Custom' : 'Khác'}
+              </span>
+            )}
+            {/* Expand caret */}
+            <span className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-[#8888a0]">
+              {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </span>
+          </div>
+
+          {action.description && (
+            <p className="text-xs text-[#8888a0] mt-0.5 line-clamp-1">{action.description}</p>
+          )}
+
+          {/* Meta row */}
+          <div className="flex flex-wrap items-center gap-2 mt-1.5">
+            {catCfg && (
+              <span className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium', catCfg.bg, catCfg.color)}>
+                <catCfg.icon className="w-2.5 h-2.5" />
+                {catCfg.label}
+                {catCfg.layer && <span className="opacity-60">{catCfg.layer}</span>}
+              </span>
+            )}
+            {action.assigned_to && (
+              <span className="inline-flex items-center gap-1 text-[10px] text-[#8888a0]">
+                <span className="w-4 h-4 rounded-full bg-accent/20 text-accent flex items-center justify-center text-[8px] font-bold flex-shrink-0">
+                  {getAvatarInitials(action.assigned_to)}
+                </span>
+                {action.assigned_to}
+              </span>
+            )}
+            {dateInfo && (
+              <span className={cn('inline-flex items-center gap-1 text-[10px]', dateInfo.color)}>
+                <Calendar className="w-2.5 h-2.5" />
+                {dateInfo.label}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Blocked icon */}
+        {isBlocked && (
+          <XCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+        )}
       </div>
 
-      {/* Blocked icon */}
-      {isBlocked && (
-        <XCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+      {/* Expanded detail panel */}
+      {isExpanded && (
+        <div className={cn(
+          'mx-5 mb-3 rounded-lg border p-3 space-y-3',
+          executorType === 'ai'
+            ? 'bg-blue-500/5 border-blue-500/20'
+            : 'bg-secondary/30 border-border',
+        )}>
+          <div className="flex flex-wrap gap-4">
+            {/* Executor type */}
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-medium text-[#8888a0] uppercase tracking-wide">Ai thực hiện</p>
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="radio"
+                    name={`executor-${action.id}`}
+                    value="human"
+                    checked={executorType === 'human'}
+                    onChange={() => setExecutorType('human')}
+                    className="w-3 h-3 accent-orange-400"
+                  />
+                  <User className="w-3 h-3 text-[#8888a0]" />
+                  <span className="text-xs text-[var(--text-primary)]">Nhân sự</span>
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="radio"
+                    name={`executor-${action.id}`}
+                    value="ai"
+                    checked={executorType === 'ai'}
+                    onChange={() => setExecutorType('ai')}
+                    className="w-3 h-3 accent-blue-400"
+                  />
+                  <Bot className="w-3 h-3 text-blue-400" />
+                  <span className="text-xs text-blue-400">AI (Claude)</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Platform type — only for technical categories */}
+            {isTechnical && (
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-medium text-[#8888a0] uppercase tracking-wide">Platform</p>
+                <div className="flex flex-wrap items-center gap-3">
+                  {(['wordpress', 'nextjs', 'custom', 'other'] as const).map((p) => (
+                    <label key={p} className="flex items-center gap-1 cursor-pointer">
+                      <input
+                        type="radio"
+                        name={`platform-${action.id}`}
+                        value={p}
+                        checked={platformType === p}
+                        onChange={() => setPlatformType(p)}
+                        className="w-3 h-3 accent-purple-400"
+                      />
+                      <span className="text-xs text-[var(--text-primary)]">
+                        {p === 'wordpress' ? 'WordPress' : p === 'nextjs' ? 'NextJS' : p === 'custom' ? 'Custom' : 'Khác'}
+                      </span>
+                    </label>
+                  ))}
+                  {platformType && (
+                    <button
+                      type="button"
+                      onClick={() => setPlatformType('')}
+                      className="text-[10px] text-[#8888a0] hover:text-red-400 transition-colors"
+                    >
+                      Xóa
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* AI Prompt — only when executor is ai */}
+          {executorType === 'ai' && (
+            <div className="space-y-1">
+              <label className="text-[10px] font-medium text-blue-400 uppercase tracking-wide flex items-center gap-1">
+                <Bot className="w-3 h-3" />
+                AI Prompt
+              </label>
+              <textarea
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                placeholder="Prompt để AI triển khai action này..."
+                rows={3}
+                className="w-full text-xs bg-blue-500/10 border border-blue-500/30 rounded-md px-2.5 py-2 text-[var(--text-primary)] placeholder:text-[#8888a0]/60 resize-none focus:outline-none focus:border-blue-500/60"
+              />
+            </div>
+          )}
+
+          {/* Implementation notes */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-medium text-[#8888a0] uppercase tracking-wide flex items-center gap-1">
+              <FileText className="w-3 h-3" />
+              Ghi chú triển khai
+            </label>
+            <textarea
+              value={implNotes}
+              onChange={(e) => setImplNotes(e.target.value)}
+              placeholder="Hướng dẫn xử lý từng bước..."
+              rows={3}
+              className="w-full text-xs bg-secondary/50 border border-border rounded-md px-2.5 py-2 text-[var(--text-primary)] placeholder:text-[#8888a0]/60 resize-none focus:outline-none focus:border-accent/50"
+            />
+          </div>
+
+          {/* Save button */}
+          <div className="flex justify-end">
+            <button
+              onClick={handleSaveDetail}
+              disabled={isSaving}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent/90 disabled:opacity-60 rounded-md text-white text-xs font-medium transition-colors"
+            >
+              {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+              Lưu
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

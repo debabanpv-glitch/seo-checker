@@ -108,6 +108,10 @@ export function createAction(data: {
   status?: string;
   due_date?: string;
   result?: string;
+  executor_type?: string;
+  ai_prompt?: string;
+  platform_type?: string;
+  implementation_notes?: string;
 }) {
   return db.insert(strategyActions).values({
     phase_id: data.phase_id,
@@ -120,6 +124,10 @@ export function createAction(data: {
     status: data.status ?? 'todo',
     due_date: data.due_date ?? null,
     result: data.result ?? null,
+    executor_type: data.executor_type ?? 'human',
+    ai_prompt: data.ai_prompt ?? null,
+    platform_type: data.platform_type ?? null,
+    implementation_notes: data.implementation_notes ?? null,
   }).returning().get();
 }
 

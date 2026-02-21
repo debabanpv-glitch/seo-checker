@@ -18,6 +18,7 @@ interface CrawlFolder {
   date: string;
   csvCount: number;
   path: string;
+  project: string;
 }
 
 interface AuditSummary {
@@ -139,7 +140,9 @@ export default function CrawlImportTab() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleImport = async (folder: string) => {
-    const parts = folder.split('.');
+    // Extract date-named part (handle project prefix like "mangthanhcong/2026.01.31...")
+    const folderName = folder.includes('/') ? folder.split('/').pop()! : folder;
+    const parts = folderName.split('.');
     const dateLabel = `${parts[0]}-${parts[1]}-${parts[2]}`;
     if (audits.some(a => a.audit_date === dateLabel)) {
       showAlert(false, `Crawl ${dateLabel} đã được import rồi`);
@@ -212,7 +215,10 @@ export default function CrawlImportTab() {
                 <h2 className="text-lg font-semibold text-[var(--text-primary)]">Crawl mới nhất: {latestCrawl.date}</h2>
                 {latestAlreadyImported && <span className="px-2 py-0.5 bg-success/10 text-success rounded text-xs font-medium">Đã import</span>}
               </div>
-              <p className="text-sm text-[#8888a0]">{latestCrawl.csvCount} files CSV • Folder: {latestCrawl.folder}</p>
+              <p className="text-sm text-[#8888a0]">
+                {latestCrawl.project && <span className="text-accent font-medium">{latestCrawl.project} • </span>}
+                {latestCrawl.csvCount} files CSV • Folder: {latestCrawl.folder}
+              </p>
             </div>
             {!latestAlreadyImported ? (
               <button onClick={() => handleImport(latestCrawl.folder)} disabled={importing === latestCrawl.folder}
@@ -253,6 +259,7 @@ export default function CrawlImportTab() {
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-accent" />
                       <span className="font-semibold text-[var(--text-primary)]">{c.date}</span>
+                      {c.project && <span className="text-[10px] px-1.5 py-0.5 bg-accent/10 text-accent rounded">{c.project}</span>}
                     </div>
                     <div className="flex items-center gap-1">
                       {isLatest && <span className="px-1.5 py-0.5 bg-accent/10 text-accent rounded text-[10px] font-medium">Mới nhất</span>}

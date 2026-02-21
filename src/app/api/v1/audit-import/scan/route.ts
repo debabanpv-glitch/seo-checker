@@ -30,7 +30,7 @@ export function GET() {
           const parts = e.name.split('.');
           const dateLabel = `${parts[0]}-${parts[1]}-${parts[2]}`;
           crawls.push({
-            folder: e.name,
+            folder: projectLabel ? `${projectLabel}/${e.name}` : e.name,
             date: dateLabel,
             csvCount: csvFiles.length,
             path: fullPath,
