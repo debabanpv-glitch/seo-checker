@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
 
 interface ClaudeLogEntry {
   id: string;
-  activity_type: 'content_draft' | 'seo_audit' | 'analysis' | 'technical_fix' | 'general';
+  activity_type: 'content_draft' | 'seo_audit' | 'analysis' | 'technical_fix' | 'keyword_research' | 'general';
   title: string;
   description?: string;
   project_slug?: string;
@@ -36,6 +36,7 @@ const ACTIVITY_TYPE_CONFIG: Record<
   seo_audit: { label: 'SEO Audit', icon: Search, color: 'text-purple-400', bg: 'bg-purple-500/10' },
   analysis: { label: 'Phân tích', icon: BarChart2, color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
   technical_fix: { label: 'Technical Fix', icon: Wrench, color: 'text-red-400', bg: 'bg-red-500/10' },
+  keyword_research: { label: 'Keyword Research', icon: Search, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
   general: { label: 'Chung', icon: MessageSquare, color: 'text-green-400', bg: 'bg-green-500/10' },
 };
 
