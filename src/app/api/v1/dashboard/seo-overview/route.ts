@@ -38,8 +38,9 @@ export function GET() {
       // Avg SEO score from seo_results for URLs matching project domain
       let avgScore = 0;
       let checkedPages = 0;
-      if (project.domain) {
-        const domainPattern = `%${project.domain}%`;
+      const domainValue = project.domain || project.website;
+      if (domainValue) {
+        const domainPattern = `%${domainValue}%`;
         const seoStats = db.select({
           avgScore: sql<number>`AVG(score)`,
           count: sql<number>`COUNT(*)`,
