@@ -45,8 +45,10 @@ interface AuditRecord {
 function CrawlComparison({ audits }: { audits: AuditRecord[] }) {
   if (audits.length < 2) return null;
 
-  const latest = audits[0];
-  const previous = audits[1];
+  // Sort by audit_date DESC so newest crawl is first (not by created_at)
+  const sorted = [...audits].sort((a, b) => b.audit_date.localeCompare(a.audit_date));
+  const latest = sorted[0];
+  const previous = sorted[1];
   const ls = latest.summary;
   const ps = previous.summary;
   if (!ls || !ps) return null;
@@ -69,7 +71,7 @@ function CrawlComparison({ audits }: { audits: AuditRecord[] }) {
         So sánh Crawl-over-Crawl
       </h2>
       <p className="text-xs text-[#8888a0] mb-4">
-        {previous.audit_date} → {latest.audit_date}
+        {previous.audit_date} → {latest.audit_date} (mới nhất)
       </p>
 
       <div className="grid grid-cols-5 gap-3">
