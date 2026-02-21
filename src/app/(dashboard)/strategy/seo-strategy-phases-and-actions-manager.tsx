@@ -23,6 +23,14 @@ import {
   Search,
   FileText,
   Link2,
+  List,
+  GitBranch,
+  Upload,
+  LayoutList,
+  CheckSquare,
+  Square,
+  ChevronUp,
+  ArrowRight,
 } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
@@ -54,6 +62,24 @@ interface StrategyAction {
   due_date?: string;
   priority: 'low' | 'medium' | 'high' | 'critical';
   created_at: string;
+}
+
+interface ObsidianAction {
+  title: string;
+  category?: string;
+  priority?: string;
+  owner?: string;
+  selected: boolean;
+}
+
+interface ObsidianPhase {
+  name: string;
+  description?: string;
+  timeline?: string;
+  order?: number;
+  actions: ObsidianAction[];
+  selected: boolean;
+  expanded: boolean;
 }
 
 // ─── SEO 2026 Category Config ─────────────────────────────────────────────────
@@ -135,10 +161,10 @@ const LAYER_CONFIG: Record<string, { label: string; color: string; bg: string; d
 // ─── Status / Priority Config ─────────────────────────────────────────────────
 
 const PHASE_STATUS_CONFIG = {
-  planned: { label: 'Kế hoạch', color: 'bg-gray-500/20 text-gray-400 border border-gray-500/30', icon: Clock },
-  in_progress: { label: 'Đang thực hiện', color: 'bg-blue-500/20 text-blue-400 border border-blue-500/30', icon: Activity },
-  completed: { label: 'Hoàn thành', color: 'bg-green-500/20 text-green-400 border border-green-500/30', icon: CheckCircle2 },
-  blocked: { label: 'Bị chặn', color: 'bg-red-500/20 text-red-400 border border-red-500/30', icon: XCircle },
+  planned: { label: 'Kế hoạch', color: 'bg-gray-500/20 text-gray-400 border border-gray-500/30', icon: Clock, nodeColor: 'border-gray-500 bg-gray-500/10' },
+  in_progress: { label: 'Đang thực hiện', color: 'bg-blue-500/20 text-blue-400 border border-blue-500/30', icon: Activity, nodeColor: 'border-blue-500 bg-blue-500/10' },
+  completed: { label: 'Hoàn thành', color: 'bg-green-500/20 text-green-400 border border-green-500/30', icon: CheckCircle2, nodeColor: 'border-green-500 bg-green-500/10' },
+  blocked: { label: 'Bị chặn', color: 'bg-red-500/20 text-red-400 border border-red-500/30', icon: XCircle, nodeColor: 'border-red-500 bg-red-500/10' },
 };
 
 const ACTION_STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
@@ -154,6 +180,18 @@ const PRIORITY_CONFIG: Record<string, { label: string; dot: string; ring: string
   high: { label: 'Cao', dot: 'bg-orange-400', ring: 'ring-orange-400/40' },
   critical: { label: 'Khẩn', dot: 'bg-red-500', ring: 'ring-red-500/40' },
 };
+
+const SEO_CATEGORIES = [
+  { value: 'technical_seo', label: 'Technical SEO (SXO)' },
+  { value: 'sxo', label: 'SXO / UX Optimization' },
+  { value: 'on_page', label: 'On-Page SEO (SXO)' },
+  { value: 'content', label: 'Content Strategy (AIO)' },
+  { value: 'aio', label: 'AIO / AI Tools' },
+  { value: 'geo', label: 'GEO / AI Search Optimization' },
+  { value: 'aeo', label: 'AEO / Answer Engine' },
+  { value: 'eeat', label: 'E-E-A-T Building' },
+  { value: 'off_page', label: 'Off-Page / Link Building' },
+];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -442,27 +480,184 @@ function ActionRow({
   );
 }
 
-// ─── Phase Card ───────────────────────────────────────────────────────────────
+// ─── Timeline View ────────────────────────────────────────────────────────────
+
+function TimelineView({
+  phases,
+  actions,
+  onPhaseClick,
+}: {
+  phases: StrategyPhase[];
+  actions: Record<string, StrategyAction[]>;
+  onPhaseClick: (phaseId: string) => void;
+}) {
+  if (phases.length === 0) return null;
+
+  const sortedPhases = [...phases].sort((a, b) => a.order_index - b.order_index);
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-6">
+      <div className="flex items-center gap-2 mb-6">
+        <GitBranch className="w-4 h-4 text-accent" />
+        <h3 className="text-sm font-semibold text-[var(--text-primary)]">Lộ trình dự án</h3>
+        <span className="text-xs text-[#8888a0]">— Nhấn vào phase để xem chi tiết</span>
+      </div>
+
+      {/* Horizontal timeline scroll */}
+      <div className="overflow-x-auto pb-4">
+        <div className="flex items-start gap-0 min-w-max">
+          {sortedPhases.map((phase, idx) => {
+            const statusConfig = PHASE_STATUS_CONFIG[phase.status] || PHASE_STATUS_CONFIG.planned;
+            const StatusIcon = statusConfig.icon;
+            const phaseActions = actions[phase.id] || [];
+            const total = phaseActions.length;
+            const done = phaseActions.filter((a) => a.status === 'done').length;
+            const donePct = total > 0 ? Math.round((done / total) * 100) : 0;
+            const isActive = phase.status === 'in_progress';
+
+            return (
+              <div key={phase.id} className="flex items-start">
+                {/* Phase Node */}
+                <div
+                  className={cn(
+                    'flex flex-col items-center w-44 cursor-pointer group',
+                  )}
+                  onClick={() => onPhaseClick(phase.id)}
+                >
+                  {/* Circle node */}
+                  <div className="relative flex flex-col items-center">
+                    <div
+                      className={cn(
+                        'w-10 h-10 rounded-full border-2 flex items-center justify-center text-sm font-bold transition-all',
+                        statusConfig.nodeColor,
+                        isActive && 'shadow-[0_0_0_4px_rgba(59,130,246,0.2)]',
+                        'group-hover:scale-110',
+                      )}
+                    >
+                      <span className={cn(
+                        'text-xs font-bold',
+                        phase.status === 'completed' ? 'text-green-400' :
+                        phase.status === 'in_progress' ? 'text-blue-400' :
+                        phase.status === 'blocked' ? 'text-red-400' :
+                        'text-gray-400'
+                      )}>
+                        {idx + 1}
+                      </span>
+                    </div>
+                    {isActive && (
+                      <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-blue-500 animate-pulse" />
+                    )}
+                  </div>
+
+                  {/* Phase info card */}
+                  <div className={cn(
+                    'mt-3 w-40 rounded-lg border p-3 transition-all group-hover:border-accent/50',
+                    'bg-secondary/50 border-border',
+                  )}>
+                    {/* Status badge */}
+                    <div className="flex items-center gap-1 mb-1.5">
+                      <StatusIcon className={cn('w-3 h-3',
+                        phase.status === 'completed' ? 'text-green-400' :
+                        phase.status === 'in_progress' ? 'text-blue-400' :
+                        phase.status === 'blocked' ? 'text-red-400' :
+                        'text-gray-400'
+                      )} />
+                      <span className="text-[10px] text-[#8888a0]">{statusConfig.label}</span>
+                    </div>
+
+                    <p className="text-xs font-semibold text-[var(--text-primary)] leading-tight mb-2 line-clamp-2">
+                      {phase.name}
+                    </p>
+
+                    {/* Date range */}
+                    {(phase.start_date || phase.end_date) && (
+                      <p className="text-[10px] text-[#8888a0] mb-2 flex items-center gap-1">
+                        <Calendar className="w-2.5 h-2.5 flex-shrink-0" />
+                        {phase.start_date && new Date(phase.start_date).toLocaleDateString('vi-VN', { month: '2-digit', year: 'numeric' })}
+                        {phase.end_date && ` – ${new Date(phase.end_date).toLocaleDateString('vi-VN', { month: '2-digit', year: 'numeric' })}`}
+                      </p>
+                    )}
+
+                    {/* Mini progress bar */}
+                    <div className="w-full h-1 bg-border rounded-full overflow-hidden mb-1">
+                      <div
+                        className={cn(
+                          'h-full rounded-full transition-all',
+                          phase.status === 'completed' ? 'bg-green-500' :
+                          phase.status === 'in_progress' ? 'bg-blue-500' :
+                          phase.status === 'blocked' ? 'bg-red-500' :
+                          'bg-gray-500'
+                        )}
+                        style={{ width: `${donePct}%` }}
+                      />
+                    </div>
+                    <p className="text-[10px] text-[#8888a0]">
+                      {total > 0 ? `${done}/${total} actions · ${donePct}%` : 'Chưa có action'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Connector arrow between phases */}
+                {idx < sortedPhases.length - 1 && (
+                  <div className="flex items-center mt-5 mx-1 flex-shrink-0">
+                    <div className="w-6 h-px bg-border" />
+                    <ArrowRight className="w-3 h-3 text-[#8888a0] flex-shrink-0" />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="flex flex-wrap items-center gap-4 mt-4 pt-4 border-t border-border">
+        {Object.entries(PHASE_STATUS_CONFIG).map(([key, cfg]) => {
+          const Icon = cfg.icon;
+          return (
+            <div key={key} className="flex items-center gap-1.5">
+              <Icon className={cn('w-3 h-3',
+                key === 'completed' ? 'text-green-400' :
+                key === 'in_progress' ? 'text-blue-400' :
+                key === 'blocked' ? 'text-red-400' : 'text-gray-400'
+              )} />
+              <span className="text-[10px] text-[#8888a0]">{cfg.label}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Phase Card (List View) ───────────────────────────────────────────────────
 
 function PhaseCard({
   phase,
+  phaseIndex,
+  totalPhases,
   isExpanded,
   isLoadingActions,
   phaseActions,
   onToggle,
   onAddAction,
+  onBulkAddAction,
   onUpdateActionStatus,
 }: {
   phase: StrategyPhase;
+  phaseIndex: number;
+  totalPhases: number;
   isExpanded: boolean;
   isLoadingActions: boolean;
   phaseActions: StrategyAction[];
   onToggle: () => void;
   onAddAction: () => void;
+  onBulkAddAction: () => void;
   onUpdateActionStatus: (actionId: string, phaseId: string, status: StrategyAction['status']) => void;
 }) {
   const statusConfig = PHASE_STATUS_CONFIG[phase.status] || PHASE_STATUS_CONFIG.planned;
   const StatusIcon = statusConfig.icon;
+  const isLast = phaseIndex === totalPhases - 1;
 
   // Category distribution for this phase (only when loaded)
   const categoryDist = useMemo(() => {
@@ -478,115 +673,155 @@ function PhaseCard({
   const hasActions = phaseActions.length > 0;
 
   return (
-    <div className="bg-card border border-border rounded-xl overflow-hidden">
-      {/* Phase Header */}
-      <div
-        className="flex items-start gap-3 p-4 cursor-pointer hover:bg-secondary/30 transition-colors"
-        onClick={onToggle}
-      >
-        <span className="text-[#8888a0] flex-shrink-0 mt-0.5">
-          {isExpanded ? (
-            <ChevronDown className="w-4 h-4" />
-          ) : (
-            <ChevronRight className="w-4 h-4" />
-          )}
-        </span>
-
-        <div className="flex-1 min-w-0">
-          {/* Title row */}
-          <div className="flex flex-wrap items-center gap-2 mb-1.5">
-            <h3 className="font-semibold text-[var(--text-primary)]">{phase.name}</h3>
-            <span className={cn('px-2 py-0.5 rounded-md text-[10px] font-medium flex items-center gap-1', statusConfig.color)}>
-              <StatusIcon className="w-3 h-3" />
-              {statusConfig.label}
-            </span>
-          </div>
-
-          {/* Date range */}
-          {(phase.start_date || phase.end_date) && (
-            <div className="flex items-center gap-1 text-[11px] text-[#8888a0] mb-2">
-              <Calendar className="w-3 h-3" />
-              {phase.start_date && new Date(phase.start_date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-              {phase.end_date && ` → ${new Date(phase.end_date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}`}
-            </div>
-          )}
-
-          {/* Description */}
-          {phase.description && !isExpanded && (
-            <p className="text-xs text-[#8888a0] line-clamp-1 mb-2">{phase.description}</p>
-          )}
-
-          {/* Progress bar — always visible when actions loaded */}
-          {hasActions && <PhaseProgressBar actions={phaseActions} />}
-
-          {/* Category distribution chips */}
-          {isExpanded && categoryDist.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {categoryDist.map(([cat, count]) => {
-                const cfg = getCategoryConfig(cat);
-                if (!cfg) return null;
-                return (
-                  <span key={cat} className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]', cfg.bg, cfg.color)}>
-                    <cfg.icon className="w-2.5 h-2.5" />
-                    {cfg.label} ({count})
-                  </span>
-                );
-              })}
-            </div>
-          )}
+    <div className="flex gap-0">
+      {/* Left timeline connector */}
+      <div className="flex flex-col items-center flex-shrink-0 mr-4">
+        {/* Order badge */}
+        <div className={cn(
+          'w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold flex-shrink-0 z-10',
+          statusConfig.nodeColor,
+          phase.status === 'completed' ? 'text-green-400' :
+          phase.status === 'in_progress' ? 'text-blue-400' :
+          phase.status === 'blocked' ? 'text-red-400' :
+          'text-gray-400',
+        )}>
+          {phaseIndex + 1}
         </div>
-
-        {/* Action count badge */}
-        <div className="flex-shrink-0 text-right">
-          <span className="text-[11px] text-[#8888a0] bg-secondary px-2 py-0.5 rounded-full">
-            {phaseActions.length > 0 ? `${phaseActions.length} actions` : '—'}
-          </span>
-        </div>
+        {/* Vertical connector line */}
+        {!isLast && (
+          <div className="w-px flex-1 mt-1 bg-border min-h-[2rem]" />
+        )}
       </div>
 
-      {/* Expanded Actions */}
-      {isExpanded && (
-        <div className="border-t border-border">
-          {isLoadingActions ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-5 h-5 text-accent animate-spin" />
-            </div>
-          ) : (
-            <>
-              {phaseActions.length > 0 ? (
-                <div className="divide-y divide-border/60">
-                  {phaseActions.map((action) => (
-                    <ActionRow
-                      key={action.id}
-                      action={action}
-                      phaseId={phase.id}
-                      onUpdateStatus={onUpdateActionStatus}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="py-8 text-center text-sm text-[#8888a0]">
-                  Chưa có action nào trong phase này
-                </div>
-              )}
+      {/* Phase card */}
+      <div className="flex-1 bg-card border border-border rounded-xl overflow-hidden mb-3">
+        {/* Phase Header */}
+        <div
+          className="flex items-start gap-3 p-4 cursor-pointer hover:bg-secondary/30 transition-colors"
+          onClick={onToggle}
+        >
+          <span className="text-[#8888a0] flex-shrink-0 mt-0.5">
+            {isExpanded ? (
+              <ChevronDown className="w-4 h-4" />
+            ) : (
+              <ChevronRight className="w-4 h-4" />
+            )}
+          </span>
 
-              {/* Add action button */}
-              <div className="px-5 py-3 border-t border-border/60 bg-secondary/20">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onAddAction();
-                  }}
-                  className="flex items-center gap-1.5 text-sm text-accent hover:text-accent/80 transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  Thêm action
-                </button>
+          <div className="flex-1 min-w-0">
+            {/* Title row */}
+            <div className="flex flex-wrap items-center gap-2 mb-1.5">
+              <h3 className="font-semibold text-[var(--text-primary)]">{phase.name}</h3>
+              <span className={cn('px-2 py-0.5 rounded-md text-[10px] font-medium flex items-center gap-1', statusConfig.color)}>
+                <StatusIcon className="w-3 h-3" />
+                {statusConfig.label}
+              </span>
+            </div>
+
+            {/* Date range */}
+            {(phase.start_date || phase.end_date) && (
+              <div className="flex items-center gap-1 text-[11px] text-[#8888a0] mb-2">
+                <Calendar className="w-3 h-3" />
+                {phase.start_date && new Date(phase.start_date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                {phase.end_date && ` → ${new Date(phase.end_date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}`}
               </div>
-            </>
-          )}
+            )}
+
+            {/* Description */}
+            {phase.description && !isExpanded && (
+              <p className="text-xs text-[#8888a0] line-clamp-1 mb-2">{phase.description}</p>
+            )}
+
+            {/* Dependency hint */}
+            {phaseIndex > 0 && (
+              <p className="text-[10px] text-[#8888a0] mb-1.5 flex items-center gap-1">
+                <ArrowRight className="w-2.5 h-2.5" />
+                Yêu cầu: Phase {phaseIndex} hoàn thành
+              </p>
+            )}
+
+            {/* Progress bar — always visible when actions loaded */}
+            {hasActions && <PhaseProgressBar actions={phaseActions} />}
+
+            {/* Category distribution chips */}
+            {isExpanded && categoryDist.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {categoryDist.map(([cat, count]) => {
+                  const cfg = getCategoryConfig(cat);
+                  if (!cfg) return null;
+                  return (
+                    <span key={cat} className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]', cfg.bg, cfg.color)}>
+                      <cfg.icon className="w-2.5 h-2.5" />
+                      {cfg.label} ({count})
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Action count badge */}
+          <div className="flex-shrink-0 text-right">
+            <span className="text-[11px] text-[#8888a0] bg-secondary px-2 py-0.5 rounded-full">
+              {phaseActions.length > 0 ? `${phaseActions.length} actions` : '—'}
+            </span>
+          </div>
         </div>
-      )}
+
+        {/* Expanded Actions */}
+        {isExpanded && (
+          <div className="border-t border-border">
+            {isLoadingActions ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-5 h-5 text-accent animate-spin" />
+              </div>
+            ) : (
+              <>
+                {phaseActions.length > 0 ? (
+                  <div className="divide-y divide-border/60">
+                    {phaseActions.map((action) => (
+                      <ActionRow
+                        key={action.id}
+                        action={action}
+                        phaseId={phase.id}
+                        onUpdateStatus={onUpdateActionStatus}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-8 text-center text-sm text-[#8888a0]">
+                    Chưa có action nào trong phase này
+                  </div>
+                )}
+
+                {/* Add action buttons */}
+                <div className="px-5 py-3 border-t border-border/60 bg-secondary/20 flex items-center gap-4">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddAction();
+                    }}
+                    className="flex items-center gap-1.5 text-sm text-accent hover:text-accent/80 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Thêm action
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onBulkAddAction();
+                    }}
+                    className="flex items-center gap-1.5 text-sm text-[#8888a0] hover:text-[var(--text-primary)] transition-colors"
+                  >
+                    <LayoutList className="w-4 h-4" />
+                    Thêm nhiều
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -601,8 +836,11 @@ export default function SeoStrategyPhasesAndActionsManager() {
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
   const [loadingPhases, setLoadingPhases] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list');
   const [showAddPhase, setShowAddPhase] = useState(false);
   const [showAddAction, setShowAddAction] = useState<string | null>(null);
+  const [showBulkAddAction, setShowBulkAddAction] = useState<string | null>(null);
+  const [showImportObsidian, setShowImportObsidian] = useState(false);
 
   useEffect(() => {
     fetchProjects();
@@ -675,6 +913,20 @@ export default function SeoStrategyPhasesAndActionsManager() {
     setExpandedPhases(next);
   }, [expandedPhases, fetchActions]);
 
+  // When timeline phase node clicked, switch to list and expand
+  const handleTimelinePhaseClick = useCallback((phaseId: string) => {
+    setViewMode('list');
+    const next = new Set(expandedPhases);
+    next.add(phaseId);
+    setExpandedPhases(next);
+    fetchActions(phaseId);
+    // Scroll after a tick
+    setTimeout(() => {
+      const el = document.getElementById(`phase-card-${phaseId}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+  }, [expandedPhases, fetchActions]);
+
   const handleUpdateActionStatus = useCallback(async (
     actionId: string,
     phaseId: string,
@@ -697,6 +949,8 @@ export default function SeoStrategyPhasesAndActionsManager() {
     }
   }, []);
 
+  const sortedPhases = useMemo(() => [...phases].sort((a, b) => a.order_index - b.order_index), [phases]);
+
   if (isLoading && projects.length === 0) return <PageLoading />;
 
   return (
@@ -707,7 +961,7 @@ export default function SeoStrategyPhasesAndActionsManager() {
           <h1 className="text-xl font-bold text-[var(--text-primary)]">Chiến lược SEO</h1>
           <p className="text-xs text-[#8888a0] mt-0.5">Quản lý theo Framework SEO 2026 - 4 Tầng</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <select
             value={selectedProjectId}
             onChange={(e) => setSelectedProjectId(e.target.value)}
@@ -717,6 +971,16 @@ export default function SeoStrategyPhasesAndActionsManager() {
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
+
+          {/* Import from Obsidian */}
+          <button
+            onClick={() => setShowImportObsidian(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary hover:bg-border border border-border rounded-lg text-[var(--text-primary)] text-sm font-medium transition-colors"
+          >
+            <Upload className="w-4 h-4 text-[#8888a0]" />
+            Import từ Obsidian
+          </button>
+
           <button
             onClick={() => setShowAddPhase(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent/90 rounded-lg text-white text-sm font-medium transition-colors"
@@ -730,12 +994,51 @@ export default function SeoStrategyPhasesAndActionsManager() {
       {/* Framework Banner */}
       <FrameworkBanner />
 
+      {/* View Mode Toggle */}
+      {phases.length > 0 && (
+        <div className="flex items-center gap-1 p-1 bg-secondary rounded-lg w-fit">
+          <button
+            onClick={() => setViewMode('list')}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
+              viewMode === 'list'
+                ? 'bg-card text-[var(--text-primary)] shadow-sm'
+                : 'text-[#8888a0] hover:text-[var(--text-primary)]',
+            )}
+          >
+            <List className="w-4 h-4" />
+            Danh sách
+          </button>
+          <button
+            onClick={() => setViewMode('timeline')}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
+              viewMode === 'timeline'
+                ? 'bg-card text-[var(--text-primary)] shadow-sm'
+                : 'text-[#8888a0] hover:text-[var(--text-primary)]',
+            )}
+          >
+            <GitBranch className="w-4 h-4" />
+            Timeline
+          </button>
+        </div>
+      )}
+
       {/* Summary Cards */}
       {phases.length > 0 && (
         <SummaryCards phases={phases} actions={actions} />
       )}
 
-      {/* Phases */}
+      {/* Timeline View */}
+      {viewMode === 'timeline' && phases.length > 0 && (
+        <TimelineView
+          phases={sortedPhases}
+          actions={actions}
+          onPhaseClick={handleTimelinePhaseClick}
+        />
+      )}
+
+      {/* List View */}
       {isLoading ? (
         <PageLoading />
       ) : phases.length === 0 ? (
@@ -753,22 +1056,26 @@ export default function SeoStrategyPhasesAndActionsManager() {
             </button>
           }
         />
-      ) : (
-        <div className="space-y-3">
-          {phases.map((phase) => (
-            <PhaseCard
-              key={phase.id}
-              phase={phase}
-              isExpanded={expandedPhases.has(phase.id)}
-              isLoadingActions={loadingPhases.has(phase.id)}
-              phaseActions={actions[phase.id] || []}
-              onToggle={() => togglePhase(phase.id)}
-              onAddAction={() => setShowAddAction(phase.id)}
-              onUpdateActionStatus={handleUpdateActionStatus}
-            />
+      ) : viewMode === 'list' ? (
+        <div className="space-y-0">
+          {sortedPhases.map((phase, idx) => (
+            <div key={phase.id} id={`phase-card-${phase.id}`}>
+              <PhaseCard
+                phase={phase}
+                phaseIndex={idx}
+                totalPhases={sortedPhases.length}
+                isExpanded={expandedPhases.has(phase.id)}
+                isLoadingActions={loadingPhases.has(phase.id)}
+                phaseActions={actions[phase.id] || []}
+                onToggle={() => togglePhase(phase.id)}
+                onAddAction={() => setShowAddAction(phase.id)}
+                onBulkAddAction={() => setShowBulkAddAction(phase.id)}
+                onUpdateActionStatus={handleUpdateActionStatus}
+              />
+            </div>
           ))}
         </div>
-      )}
+      ) : null}
 
       {/* Modals */}
       {showAddPhase && (
@@ -795,6 +1102,35 @@ export default function SeoStrategyPhasesAndActionsManager() {
               return next;
             });
             fetchActions(phaseId);
+          }}
+        />
+      )}
+
+      {showBulkAddAction && (
+        <BulkAddActionsModal
+          phaseId={showBulkAddAction}
+          projectId={selectedProjectId}
+          onClose={() => setShowBulkAddAction(null)}
+          onSaved={() => {
+            const phaseId = showBulkAddAction;
+            setShowBulkAddAction(null);
+            setActions((prev) => {
+              const next = { ...prev };
+              delete next[phaseId];
+              return next;
+            });
+            fetchActions(phaseId);
+          }}
+        />
+      )}
+
+      {showImportObsidian && (
+        <ImportObsidianModal
+          projectId={selectedProjectId}
+          onClose={() => setShowImportObsidian(false)}
+          onSaved={() => {
+            setShowImportObsidian(false);
+            fetchPhases(selectedProjectId);
           }}
         />
       )}
@@ -921,18 +1257,6 @@ function AddPhaseModal({
 }
 
 // ─── Add Action Modal ─────────────────────────────────────────────────────────
-
-const SEO_CATEGORIES = [
-  { value: 'technical_seo', label: 'Technical SEO (SXO)' },
-  { value: 'sxo', label: 'SXO / UX Optimization' },
-  { value: 'on_page', label: 'On-Page SEO (SXO)' },
-  { value: 'content', label: 'Content Strategy (AIO)' },
-  { value: 'aio', label: 'AIO / AI Tools' },
-  { value: 'geo', label: 'GEO / AI Search Optimization' },
-  { value: 'aeo', label: 'AEO / Answer Engine' },
-  { value: 'eeat', label: 'E-E-A-T Building' },
-  { value: 'off_page', label: 'Off-Page / Link Building' },
-];
 
 function AddActionModal({
   phaseId,
@@ -1061,6 +1385,453 @@ function AddActionModal({
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Bulk Add Actions Modal ───────────────────────────────────────────────────
+
+function BulkAddActionsModal({
+  phaseId,
+  projectId,
+  onClose,
+  onSaved,
+}: {
+  phaseId: string;
+  projectId: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [rawText, setRawText] = useState('');
+  const [category, setCategory] = useState('');
+  const [priority, setPriority] = useState<StrategyAction['priority']>('medium');
+  const [saving, setSaving] = useState(false);
+
+  const parsedLines = useMemo(() => {
+    return rawText
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+  }, [rawText]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (parsedLines.length === 0) return;
+    setSaving(true);
+    try {
+      const actionItems = parsedLines.map((title) => ({ title, category, priority }));
+      await fetch('/api/v1/strategy/bulk-create-actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phase_id: phaseId, project_id: projectId, actions: actionItems }),
+      });
+      onSaved();
+    } catch (err) {
+      console.error('Failed to bulk create actions:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-card border border-border rounded-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-bold text-[var(--text-primary)]">Thêm nhiều Actions</h2>
+          <span className="text-xs text-[#8888a0] bg-secondary px-2 py-1 rounded-full">
+            Mỗi dòng = 1 action
+          </span>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Textarea */}
+          <div>
+            <label className="block text-sm text-[#8888a0] mb-1.5">
+              Danh sách actions <span className="text-[10px]">(mỗi dòng 1 action)</span>
+            </label>
+            <textarea
+              value={rawText}
+              onChange={(e) => setRawText(e.target.value)}
+              rows={8}
+              placeholder={`Audit Core Web Vitals\nTối ưu tốc độ trang\nCài đặt Schema Markup\nSubmit Sitemap lên GSC\nKiểm tra robots.txt`}
+              className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] placeholder-[#8888a0] text-sm font-mono resize-none"
+              required
+            />
+          </div>
+
+          {/* Shared category + priority */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm text-[#8888a0] mb-1.5">Danh mục (áp dụng tất cả)</label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm"
+              >
+                <option value="">-- Chọn danh mục --</option>
+                {SEO_CATEGORIES.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm text-[#8888a0] mb-1.5">Độ ưu tiên (áp dụng tất cả)</label>
+              <select
+                value={priority}
+                onChange={(e) => setPriority(e.target.value as StrategyAction['priority'])}
+                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm"
+              >
+                <option value="low">Thấp</option>
+                <option value="medium">Trung bình</option>
+                <option value="high">Cao</option>
+                <option value="critical">Khẩn cấp</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Preview */}
+          {parsedLines.length > 0 && (
+            <div className="bg-secondary/50 border border-border rounded-lg p-3">
+              <p className="text-xs text-[#8888a0] mb-2 font-medium">
+                Xem trước — {parsedLines.length} actions sẽ được thêm
+              </p>
+              <div className="space-y-1 max-h-32 overflow-y-auto">
+                {parsedLines.map((line, idx) => (
+                  <div key={idx} className="flex items-center gap-2 text-xs text-[var(--text-primary)]">
+                    <span className="w-4 h-4 rounded-full bg-accent/20 text-accent flex items-center justify-center text-[8px] font-bold flex-shrink-0">
+                      {idx + 1}
+                    </span>
+                    {line}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2.5 bg-secondary hover:bg-border rounded-lg text-[var(--text-primary)] text-sm font-medium transition-colors"
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              disabled={saving || parsedLines.length === 0}
+              className="flex-1 py-2.5 bg-accent hover:bg-accent/90 disabled:opacity-50 rounded-lg text-white text-sm font-medium transition-colors"
+            >
+              {saving ? 'Đang lưu...' : `Thêm ${parsedLines.length} actions`}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Import Obsidian Modal ────────────────────────────────────────────────────
+
+function ImportObsidianModal({
+  projectId,
+  onClose,
+  onSaved,
+}: {
+  projectId: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [step, setStep] = useState<'loading' | 'preview' | 'importing' | 'done' | 'error'>('loading');
+  const [obsidianPhases, setObsidianPhases] = useState<ObsidianPhase[]>([]);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [importing, setImporting] = useState(false);
+
+  useEffect(() => {
+    loadObsidianData();
+  }, []);
+
+  const loadObsidianData = async () => {
+    setStep('loading');
+    try {
+      const res = await fetch('/api/v1/strategy/import-obsidian');
+      if (!res.ok) throw new Error('Không thể kết nối Obsidian vault');
+      const data = await res.json();
+      const phasesRaw = data.phases || [];
+      setObsidianPhases(
+        phasesRaw.map((p: Omit<ObsidianPhase, 'selected' | 'expanded'> & { actions: Omit<ObsidianAction, 'selected'>[] }) => ({
+          ...p,
+          selected: true,
+          expanded: false,
+          actions: (p.actions || []).map((a: Omit<ObsidianAction, 'selected'>) => ({ ...a, selected: true })),
+        }))
+      );
+      setStep('preview');
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Lỗi không xác định');
+      setStep('error');
+    }
+  };
+
+  const togglePhase = (idx: number) => {
+    setObsidianPhases((prev) =>
+      prev.map((p, i) => (i === idx ? { ...p, selected: !p.selected } : p))
+    );
+  };
+
+  const togglePhaseExpand = (idx: number) => {
+    setObsidianPhases((prev) =>
+      prev.map((p, i) => (i === idx ? { ...p, expanded: !p.expanded } : p))
+    );
+  };
+
+  const toggleAction = (phaseIdx: number, actionIdx: number) => {
+    setObsidianPhases((prev) =>
+      prev.map((p, i) =>
+        i === phaseIdx
+          ? {
+              ...p,
+              actions: p.actions.map((a, j) =>
+                j === actionIdx ? { ...a, selected: !a.selected } : a
+              ),
+            }
+          : p
+      )
+    );
+  };
+
+  const toggleSelectAll = () => {
+    const allSelected = obsidianPhases.every((p) => p.selected && p.actions.every((a) => a.selected));
+    setObsidianPhases((prev) =>
+      prev.map((p) => ({
+        ...p,
+        selected: !allSelected,
+        actions: p.actions.map((a) => ({ ...a, selected: !allSelected })),
+      }))
+    );
+  };
+
+  const selectedPhasesCount = obsidianPhases.filter((p) => p.selected).length;
+  const selectedActionsCount = obsidianPhases.reduce(
+    (sum, p) => sum + p.actions.filter((a) => a.selected && p.selected).length,
+    0
+  );
+  const allSelected = obsidianPhases.length > 0 && obsidianPhases.every((p) => p.selected && p.actions.every((a) => a.selected));
+
+  const handleImport = async () => {
+    setImporting(true);
+    try {
+      await fetch('/api/v1/strategy/import-obsidian', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: projectId,
+          phases: obsidianPhases,
+        }),
+      });
+      setStep('done');
+      setTimeout(() => {
+        onSaved();
+      }, 1200);
+    } catch (err) {
+      console.error('Import failed:', err);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-card border border-border rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-border flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
+              <Upload className="w-4 h-4 text-purple-400" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-[var(--text-primary)]">Import từ Obsidian</h2>
+              <p className="text-xs text-[#8888a0]">Quét vault và chọn phases cần import</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-[#8888a0] hover:text-[var(--text-primary)] transition-colors p-1"
+          >
+            <XCircle className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto">
+          {step === 'loading' && (
+            <div className="flex flex-col items-center justify-center py-16 gap-3">
+              <Loader2 className="w-8 h-8 text-accent animate-spin" />
+              <p className="text-sm text-[#8888a0]">Đang quét Obsidian vault...</p>
+            </div>
+          )}
+
+          {step === 'error' && (
+            <div className="flex flex-col items-center justify-center py-16 gap-3">
+              <AlertTriangle className="w-8 h-8 text-red-400" />
+              <p className="text-sm text-red-400">{errorMsg}</p>
+              <button
+                onClick={loadObsidianData}
+                className="px-4 py-2 bg-secondary hover:bg-border rounded-lg text-sm text-[var(--text-primary)] transition-colors"
+              >
+                Thử lại
+              </button>
+            </div>
+          )}
+
+          {step === 'done' && (
+            <div className="flex flex-col items-center justify-center py-16 gap-3">
+              <CheckCircle2 className="w-8 h-8 text-green-400" />
+              <p className="text-sm text-green-400">Import thành công!</p>
+            </div>
+          )}
+
+          {step === 'preview' && (
+            <div className="p-4 space-y-3">
+              {/* Select all toggle */}
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={toggleSelectAll}
+                  className="flex items-center gap-2 text-sm text-[#8888a0] hover:text-[var(--text-primary)] transition-colors"
+                >
+                  {allSelected ? (
+                    <CheckSquare className="w-4 h-4 text-accent" />
+                  ) : (
+                    <Square className="w-4 h-4" />
+                  )}
+                  {allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                </button>
+                <span className="text-xs text-[#8888a0]">
+                  {obsidianPhases.length} phases tìm thấy
+                </span>
+              </div>
+
+              {/* Phase list */}
+              {obsidianPhases.map((phase, phaseIdx) => (
+                <div key={phaseIdx} className="border border-border rounded-xl overflow-hidden">
+                  {/* Phase header */}
+                  <div className="flex items-center gap-3 p-3 bg-secondary/30">
+                    <button
+                      onClick={() => togglePhase(phaseIdx)}
+                      className="flex-shrink-0"
+                    >
+                      {phase.selected ? (
+                        <CheckSquare className="w-4 h-4 text-accent" />
+                      ) : (
+                        <Square className="w-4 h-4 text-[#8888a0]" />
+                      )}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-[var(--text-primary)]">{phase.name}</p>
+                      {phase.timeline && (
+                        <p className="text-xs text-[#8888a0]">{phase.timeline}</p>
+                      )}
+                    </div>
+                    <span className="text-xs text-[#8888a0] flex-shrink-0">
+                      {phase.actions.length} actions
+                    </span>
+                    <button
+                      onClick={() => togglePhaseExpand(phaseIdx)}
+                      className="text-[#8888a0] hover:text-[var(--text-primary)] transition-colors flex-shrink-0"
+                    >
+                      {phase.expanded ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Actions list (expanded) */}
+                  {phase.expanded && phase.actions.length > 0 && (
+                    <div className="divide-y divide-border/40">
+                      {phase.actions.map((action, actionIdx) => (
+                        <div
+                          key={actionIdx}
+                          className="flex items-center gap-3 px-4 py-2 hover:bg-secondary/20 transition-colors"
+                        >
+                          <button
+                            onClick={() => toggleAction(phaseIdx, actionIdx)}
+                            className="flex-shrink-0"
+                          >
+                            {action.selected ? (
+                              <CheckSquare className="w-3.5 h-3.5 text-accent" />
+                            ) : (
+                              <Square className="w-3.5 h-3.5 text-[#8888a0]" />
+                            )}
+                          </button>
+                          <span className="text-xs text-[var(--text-primary)] flex-1 min-w-0 truncate">
+                            {action.title}
+                          </span>
+                          {action.category && (
+                            <span className="text-[10px] text-[#8888a0] flex-shrink-0 bg-secondary px-1.5 py-0.5 rounded">
+                              {action.category}
+                            </span>
+                          )}
+                          {action.priority && (
+                            <span className={cn(
+                              'text-[10px] flex-shrink-0 px-1.5 py-0.5 rounded',
+                              action.priority === 'critical' ? 'text-red-400 bg-red-500/10' :
+                              action.priority === 'high' ? 'text-orange-400 bg-orange-500/10' :
+                              action.priority === 'medium' ? 'text-yellow-400 bg-yellow-500/10' :
+                              'text-gray-400 bg-gray-500/10'
+                            )}>
+                              {action.priority === 'critical' ? 'Khẩn' :
+                               action.priority === 'high' ? 'Cao' :
+                               action.priority === 'medium' ? 'TB' : 'Thấp'}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        {step === 'preview' && (
+          <div className="flex items-center justify-between p-6 border-t border-border flex-shrink-0">
+            <div className="text-sm text-[#8888a0]">
+              <span className="text-[var(--text-primary)] font-medium">{selectedPhasesCount} phases</span>
+              {', '}
+              <span className="text-[var(--text-primary)] font-medium">{selectedActionsCount} actions</span>
+              {' sẽ được import'}
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 bg-secondary hover:bg-border rounded-lg text-[var(--text-primary)] text-sm font-medium transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleImport}
+                disabled={importing || selectedPhasesCount === 0}
+                className="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent/90 disabled:opacity-50 rounded-lg text-white text-sm font-medium transition-colors"
+              >
+                {importing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Đang import...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    Import
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

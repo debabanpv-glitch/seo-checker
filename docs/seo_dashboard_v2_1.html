@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SEO Master Dashboard - mangthanhcong.vn</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #f8f9fb;
+  --surface: #ffffff;
+  --surface2: #f1f5f9;
+  --border: #e2e8f0;
+  --text: #1e293b;
+  --text2: #64748b;
+  --accent: #2563eb;
+  --accent2: #0891b2;
+  --green: #059669;
+  --green-bg: #ecfdf5;
+  --yellow: #d97706;
+  --yellow-bg: #fffbeb;
+  --red: #dc2626;
+  --red-bg: #fef2f2;
+  --orange: #ea580c;
+  --purple: #7c3aed;
+  --pink: #db2777;
+  --blue-bg: #eff6ff;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+.mono { font-family:'JetBrains Mono',monospace; }
+
+.header { padding:20px 32px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; background:var(--surface); }
+.header h1 { font-size:20px; font-weight:700; }
+.header h1 span { color:var(--accent); }
+.header-meta { display:flex; gap:24px; font-size:13px; color:var(--text2); }
+.header-meta .dot { width:8px; height:8px; border-radius:50%; background:var(--green); display:inline-block; margin-right:6px; }
+
+.tabs { display:flex; gap:0; padding:0 32px; background:var(--surface); border-bottom:1px solid var(--border); overflow-x:auto; }
+.tab { padding:14px 20px; font-size:13px; font-weight:500; color:var(--text2); cursor:pointer; border-bottom:2px solid transparent; transition:all .2s; white-space:nowrap; }
+.tab:hover { color:var(--text); background:#f8fafc; }
+.tab.active { color:var(--accent); border-bottom-color:var(--accent); font-weight:600; }
+
+.content { padding:24px 32px; max-width:1440px; margin:0 auto; }
+.tab-content { display:none; }
+.tab-content.active { display:block; }
+
+.score-section { display:flex; gap:32px; align-items:center; margin-bottom:32px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:28px; }
+.score-ring { position:relative; width:160px; height:160px; flex-shrink:0; }
+.score-ring svg { transform:rotate(-90deg); }
+.score-ring .value { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; }
+.score-ring .value .num { font-size:44px; font-weight:700; color:var(--yellow); }
+.score-ring .value .label { font-size:13px; color:var(--text2); }
+
+.cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; margin-bottom:24px; }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px; }
+.card .card-label { font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:.8px; margin-bottom:6px; font-weight:500; }
+.card .card-value { font-size:26px; font-weight:700; }
+.card .card-sub { font-size:11px; margin-top:4px; font-weight:500; }
+.card .card-sub.up { color:var(--green); }
+.card .card-sub.down { color:var(--red); }
+
+.chart-box { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:20px; }
+.chart-box h3 { font-size:14px; font-weight:600; margin-bottom:16px; }
+.grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:24px; }
+.grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; margin-bottom:24px; }
+
+.table-box { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:20px; margin-bottom:20px; overflow-x:auto; }
+.table-box h3 { font-size:14px; font-weight:600; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; }
+.export-btn { font-size:11px; padding:5px 12px; background:var(--surface2); border:1px solid var(--border); color:var(--text2); border-radius:6px; cursor:pointer; font-weight:500; }
+.export-btn:hover { background:var(--accent); color:white; border-color:var(--accent); }
+table { width:100%; border-collapse:collapse; font-size:13px; }
+th { text-align:left; padding:10px 12px; border-bottom:2px solid var(--border); color:var(--text2); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.5px; background:var(--surface2); }
+td { padding:10px 12px; border-bottom:1px solid var(--border); }
+tr:hover { background:var(--surface2); }
+.url-cell { max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--accent2); font-size:12px; }
+
+.tag { display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; }
+.tag-red { background:var(--red-bg); color:var(--red); }
+.tag-yellow { background:var(--yellow-bg); color:var(--yellow); }
+.tag-green { background:var(--green-bg); color:var(--green); }
+.tag-blue { background:var(--blue-bg); color:var(--accent); }
+.tag-purple { background:#f5f3ff; color:var(--purple); }
+
+.issue { display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); align-items:flex-start; }
+.issue:last-child { border-bottom:none; }
+.issue-icon { width:28px; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; font-weight:700; }
+.issue-critical { background:var(--red-bg); color:var(--red); }
+.issue-warning { background:var(--yellow-bg); color:var(--yellow); }
+.issue-info { background:var(--blue-bg); color:var(--accent); }
+.issue-text { font-size:13px; line-height:1.6; }
+.issue-text .issue-page { font-size:11px; color:var(--text2); margin-top:2px; }
+
+.cluster { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+.cluster-item { padding:5px 14px; border-radius:20px; font-size:12px; border:1px solid var(--border); background:var(--surface); }
+.cluster-pillar { background:var(--accent); color:white; border-color:var(--accent); font-weight:600; }
+
+.heatmap { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:6px; }
+.heat-cell { padding:14px 8px; border-radius:8px; text-align:center; font-size:11px; font-weight:600; }
+.heat-red { background:#fee2e2; color:var(--red); }
+.heat-yellow { background:#fef3c7; color:var(--yellow); }
+.heat-green { background:#d1fae5; color:var(--green); }
+
+/* Action items - copy-paste ready */
+.action-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:20px; margin-bottom:16px; }
+.action-card.priority-high { border-left:4px solid var(--red); }
+.action-card.priority-med { border-left:4px solid var(--yellow); }
+.action-card.priority-low { border-left:4px solid var(--green); }
+.action-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.action-title { font-size:15px; font-weight:700; }
+.action-time { font-size:12px; color:var(--text2); background:var(--surface2); padding:4px 10px; border-radius:12px; }
+.action-detail { font-size:13px; line-height:1.8; color:var(--text2); }
+.action-detail strong { color:var(--text); }
+.code-block { background:#f1f5f9; border:1px solid var(--border); border-radius:8px; padding:14px 16px; margin:10px 0; font-family:'JetBrains Mono',monospace; font-size:12px; line-height:1.7; color:var(--text); white-space:pre-wrap; word-break:break-all; }
+.copy-btn { font-size:11px; padding:4px 10px; background:var(--accent); color:white; border:none; border-radius:4px; cursor:pointer; float:right; font-weight:500; }
+.copy-btn:hover { background:#1d4ed8; }
+.action-result { background:var(--green-bg); border:1px solid #a7f3d0; border-radius:8px; padding:10px 14px; margin-top:10px; font-size:12px; color:var(--green); }
+.action-risk { background:var(--yellow-bg); border:1px solid #fde68a; border-radius:8px; padding:10px 14px; margin-top:10px; font-size:12px; color:var(--yellow); }
+
+/* Phase cards */
+.phase-card { border-radius:12px; padding:24px; border:1px solid var(--border); }
+.phase-1 { background:linear-gradient(135deg,#fef2f2,#fff); border-color:#fecaca; }
+.phase-2 { background:linear-gradient(135deg,#fffbeb,#fff); border-color:#fde68a; }
+.phase-3 { background:linear-gradient(135deg,#ecfdf5,#fff); border-color:#a7f3d0; }
+.phase-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; margin-bottom:6px; }
+.phase-title { font-size:20px; font-weight:700; margin-bottom:12px; }
+
+@media(max-width:768px) {
+  .grid-2,.grid-3 { grid-template-columns:1fr; }
+  .score-section { flex-direction:column; text-align:center; }
+  .tabs { overflow-x:auto; }
+  .content { padding:16px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🔍 SEO Master <span>Dashboard</span></h1>
+  <div class="header-meta">
+    <div><span class="dot"></span>mangthanhcong.vn</div>
+    <div>📅 12/02/2026</div>
+    <div>📄 5,314 trang</div>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('overview')">📊 Overview</div>
+  <div class="tab" onclick="switchTab('links')">🔗 Links</div>
+  <div class="tab" onclick="switchTab('content')">📝 Content</div>
+  <div class="tab" onclick="switchTab('technical')">⚙️ Technical</div>
+  <div class="tab" onclick="switchTab('opportunities')">💡 Opportunities</div>
+  <div class="tab" onclick="switchTab('actionplan')">🎯 Action Plan</div>
+</div>
+
+<div class="content">
+
+<!-- ═══ OVERVIEW ═══ -->
+<div id="tab-overview" class="tab-content active">
+  <div class="score-section">
+    <div class="score-ring">
+      <svg width="160" height="160" viewBox="0 0 160 160">
+        <circle cx="80" cy="80" r="68" fill="none" stroke="#e2e8f0" stroke-width="12"/>
+        <circle cx="80" cy="80" r="68" fill="none" stroke="#d97706" stroke-width="12" stroke-dasharray="427" stroke-dashoffset="154" stroke-linecap="round"/>
+      </svg>
+      <div class="value"><div class="num">64</div><div class="label">/ 100</div></div>
+    </div>
+    <div>
+      <h2 style="font-size:22px;margin-bottom:6px;">Xếp hạng: Trung Bình</h2>
+      <p style="color:var(--text2);line-height:1.7;font-size:14px;">
+        Site có nền tảng cơ bản nhưng cần cải thiện nhiều yếu tố. <strong>9 lỗi critical, 276 cảnh báo.</strong><br>
+        Ưu tiên fix: page speed, security headers, thin content, internal linking.
+      </p>
+    </div>
+  </div>
+
+  <div class="cards">
+    <div class="card"><div class="card-label">Tổng trang</div><div class="card-value">5,314</div><div class="card-sub">+214 drafts</div></div>
+    <div class="card"><div class="card-label">Status 200</div><div class="card-value" style="color:var(--green)">5,148</div><div class="card-sub up">96.9%</div></div>
+    <div class="card"><div class="card-label">Redirect 301</div><div class="card-value" style="color:var(--yellow)">127</div><div class="card-sub">2.4%</div></div>
+    <div class="card"><div class="card-label">Lỗi 404</div><div class="card-value" style="color:var(--red)">39</div><div class="card-sub down">0.7%</div></div>
+    <div class="card"><div class="card-label">Tốc độ TB</div><div class="card-value" style="color:var(--orange)">18.6s</div><div class="card-sub down">Quá chậm</div></div>
+    <div class="card"><div class="card-label">Orphan Pages</div><div class="card-value" style="color:var(--red)">342</div><div class="card-sub down">6.4%</div></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="chart-box">
+      <h3>Điểm theo hạng mục</h3>
+      <canvas id="radarChart" height="280"></canvas>
+    </div>
+    <div class="chart-box">
+      <h3>🔴 Top Issues Cần Fix Gấp</h3>
+      <div class="issue"><div class="issue-icon issue-critical">!</div><div class="issue-text"><strong>Security headers thiếu</strong>: X-XSS-Protection, CSP<div class="issue-page">→ Tab Action Plan #1</div></div></div>
+      <div class="issue"><div class="issue-icon issue-critical">!</div><div class="issue-text"><strong>4 trang keyword stuffing</strong> >2.5% density<div class="issue-page">→ Tab Action Plan #3</div></div></div>
+      <div class="issue"><div class="issue-icon issue-critical">!</div><div class="issue-text"><strong>2 trang load >15 giây</strong><div class="issue-page">→ Tab Action Plan #4</div></div></div>
+      <div class="issue"><div class="issue-icon issue-warning">⚠</div><div class="issue-text"><strong>342 orphan pages</strong> không có internal link nào<div class="issue-page">→ Tab Links</div></div></div>
+      <div class="issue"><div class="issue-icon issue-warning">⚠</div><div class="issue-text"><strong>1,847 trang thin content</strong> <300 từ (34.7%)<div class="issue-page">→ Tab Content</div></div></div>
+      <div class="issue"><div class="issue-icon issue-warning">⚠</div><div class="issue-text"><strong>Homepage thiếu H1</strong><div class="issue-page">→ Tab Action Plan #2</div></div></div>
+      <div class="issue"><div class="issue-icon issue-info">i</div><div class="issue-text"><strong>0 FAQ schema</strong> trên toàn site<div class="issue-page">→ Tab Action Plan Phase 2</div></div></div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="chart-box"><h3>Phân bố Status Code</h3><canvas id="statusChart" height="220"></canvas></div>
+    <div class="chart-box"><h3>Phân bố Content Type</h3><canvas id="contentTypeChart" height="220"></canvas></div>
+  </div>
+</div>
+
+<!-- ═══ LINKS ═══ -->
+<div id="tab-links" class="tab-content">
+  <div class="cards">
+    <div class="card"><div class="card-label">Tổng Internal Links</div><div class="card-value">87,432</div></div>
+    <div class="card"><div class="card-label">TB Links/Trang</div><div class="card-value">16.4</div></div>
+    <div class="card"><div class="card-label">Orphan Pages</div><div class="card-value" style="color:var(--red)">342</div></div>
+    <div class="card"><div class="card-label">Broken Links</div><div class="card-value" style="color:var(--red)">89</div></div>
+    <div class="card"><div class="card-label">Redirect Chains</div><div class="card-value" style="color:var(--yellow)">23</div></div>
+  </div>
+  <div class="grid-2">
+    <div class="table-box">
+      <h3>Top 10 Trang Nhận Nhiều Link <button class="export-btn">CSV</button></h3>
+      <table>
+        <tr><th>#</th><th>URL</th><th>Inlinks</th><th>Type</th></tr>
+        <tr><td>1</td><td class="url-cell">/</td><td><strong>4,892</strong></td><td><span class="tag tag-blue">Home</span></td></tr>
+        <tr><td>2</td><td class="url-cell">/danh-muc/cap-quang/</td><td>1,247</td><td><span class="tag tag-green">Cat</span></td></tr>
+        <tr><td>3</td><td class="url-cell">/danh-muc/thiet-bi-mang/</td><td>1,089</td><td><span class="tag tag-green">Cat</span></td></tr>
+        <tr><td>4</td><td class="url-cell">/danh-muc/tu-rack/</td><td>834</td><td><span class="tag tag-green">Cat</span></td></tr>
+        <tr><td>5</td><td class="url-cell">/danh-muc/switch/</td><td>756</td><td><span class="tag tag-green">Cat</span></td></tr>
+      </table>
+    </div>
+    <div class="table-box">
+      <h3>Orphan Pages (mẫu) <button class="export-btn">CSV</button></h3>
+      <table>
+        <tr><th>URL</th><th>Words</th><th>Type</th></tr>
+        <tr><td class="url-cell">/san-pham/patch-cord-cat5e-amp-3m/</td><td>145</td><td><span class="tag tag-red">Product</span></td></tr>
+        <tr><td class="url-cell">/san-pham/day-nhay-quang-sc-lc/</td><td>203</td><td><span class="tag tag-red">Product</span></td></tr>
+        <tr><td class="url-cell">/san-pham/odf-12fo-rack-mount/</td><td>178</td><td><span class="tag tag-red">Product</span></td></tr>
+        <tr><td class="url-cell">/blogs/huong-dan-han-cap-quang/</td><td>892</td><td><span class="tag tag-yellow">Blog</span></td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="chart-box" style="margin-bottom:20px;"><h3>Crawl Depth Distribution</h3><canvas id="depthChart" height="180"></canvas></div>
+  <div class="table-box">
+    <h3>Đề Xuất Internal Link Mới (mẫu) <button class="export-btn">CSV</button></h3>
+    <table>
+      <tr><th>Source</th><th></th><th>Target</th><th>Anchor Text gợi ý</th><th>Ưu tiên</th></tr>
+      <tr><td class="url-cell">/blogs/cap-quang-4fo-8fo-12fo/</td><td>→</td><td class="url-cell">/san-pham/cap-quang-4fo-om3/</td><td>cáp quang 4FO OM3</td><td><span class="tag tag-red">Cao</span></td></tr>
+      <tr><td class="url-cell">/blogs/om2-om3-om4-la-gi/</td><td>→</td><td class="url-cell">/danh-muc/cap-quang-multimode/</td><td>cáp quang multimode</td><td><span class="tag tag-red">Cao</span></td></tr>
+      <tr><td class="url-cell">/danh-muc/tu-rack/</td><td>→</td><td class="url-cell">/blogs/cach-chon-tu-rack/</td><td>hướng dẫn chọn tủ rack</td><td><span class="tag tag-yellow">TB</span></td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ═══ CONTENT ═══ -->
+<div id="tab-content" class="tab-content">
+  <div class="cards">
+    <div class="card"><div class="card-label">Thin Content (&lt;300)</div><div class="card-value" style="color:var(--red)">1,847</div><div class="card-sub">34.7%</div></div>
+    <div class="card"><div class="card-label">TB Word Count</div><div class="card-value">478</div></div>
+    <div class="card"><div class="card-label">Duplicate Content</div><div class="card-value" style="color:var(--orange)">156</div></div>
+    <div class="card"><div class="card-label">Cannibalization</div><div class="card-value" style="color:var(--yellow)">43</div><div class="card-sub">nhóm trùng</div></div>
+    <div class="card"><div class="card-label">Content Decay</div><div class="card-value" style="color:var(--orange)">289</div><div class="card-sub">>6 tháng</div></div>
+  </div>
+  <div class="chart-box" style="margin-bottom:20px;">
+    <h3>Thin Content Heatmap theo Category</h3>
+    <div class="heatmap">
+      <div class="heat-cell heat-red">Cáp quang<br><strong>67%</strong></div>
+      <div class="heat-cell heat-red">Phụ kiện<br><strong>72%</strong></div>
+      <div class="heat-cell heat-yellow">Switch<br><strong>45%</strong></div>
+      <div class="heat-cell heat-yellow">Tủ rack<br><strong>38%</strong></div>
+      <div class="heat-cell heat-yellow">Module SFP<br><strong>51%</strong></div>
+      <div class="heat-cell heat-green">Media Conv.<br><strong>23%</strong></div>
+      <div class="heat-cell heat-green">Tủ điện<br><strong>19%</strong></div>
+      <div class="heat-cell heat-red">ODF/Patch<br><strong>78%</strong></div>
+      <div class="heat-cell heat-yellow">Router<br><strong>42%</strong></div>
+      <div class="heat-cell heat-green">Blog<br><strong>12%</strong></div>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="chart-box"><h3>Word Count Distribution</h3><canvas id="wordCountChart" height="250"></canvas></div>
+    <div class="table-box">
+      <h3>Keyword Cannibalization (mẫu) <button class="export-btn">CSV</button></h3>
+      <table>
+        <tr><th>Keyword</th><th>Trùng</th><th>Giữ</th><th>Action</th></tr>
+        <tr><td>cáp quang 4fo</td><td><span class="tag tag-red">4</span></td><td class="url-cell">/san-pham/cap-quang-4fo-om3/</td><td>Merge 3 trang</td></tr>
+        <tr><td>module sfp</td><td><span class="tag tag-yellow">3</span></td><td class="url-cell">/danh-muc/module-sfp/</td><td>Redirect 2</td></tr>
+        <tr><td>media converter</td><td><span class="tag tag-red">5</span></td><td class="url-cell">/danh-muc/media-converter/</td><td>Đổi KW 4 trang</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ TECHNICAL ═══ -->
+<div id="tab-technical" class="tab-content">
+  <div class="cards">
+    <div class="card"><div class="card-label">Tốc độ TB</div><div class="card-value" style="color:var(--red)">18.6s</div></div>
+    <div class="card"><div class="card-label">Security Headers</div><div class="card-value" style="color:var(--red)">2/4</div></div>
+    <div class="card"><div class="card-label">Schema Coverage</div><div class="card-value">64%</div></div>
+    <div class="card"><div class="card-label">Thiếu Schema</div><div class="card-value" style="color:var(--yellow)">1,902</div></div>
+    <div class="card"><div class="card-label">Redirect Chains</div><div class="card-value" style="color:var(--yellow)">23</div></div>
+  </div>
+  <div class="grid-2">
+    <div class="chart-box"><h3>Response Time Distribution</h3><canvas id="speedChart" height="250"></canvas></div>
+    <div class="table-box">
+      <h3>Top Trang Chậm Nhất</h3>
+      <table>
+        <tr><th>URL</th><th>Time</th></tr>
+        <tr><td class="url-cell">/blogs/connector-apc-vs-upc/</td><td style="color:var(--red)"><strong>25.4s</strong></td></tr>
+        <tr><td class="url-cell">/blogs/lap-dat-mang-cap-quang/</td><td style="color:var(--red)"><strong>15.4s</strong></td></tr>
+        <tr><td class="url-cell">/danh-muc/cap-quang/?page=12</td><td style="color:var(--orange)">12.8s</td></tr>
+        <tr><td class="url-cell">/san-pham/tu-rack-42u/</td><td style="color:var(--orange)">11.2s</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="table-box">
+      <h3>Security Headers</h3>
+      <table>
+        <tr><th>Header</th><th>Status</th></tr>
+        <tr><td>X-Frame-Options</td><td><span class="tag tag-green">✅ Có</span></td></tr>
+        <tr><td>X-Content-Type-Options</td><td><span class="tag tag-green">✅ Có</span></td></tr>
+        <tr><td>X-XSS-Protection</td><td><span class="tag tag-red">❌ Thiếu</span></td></tr>
+        <tr><td>Content-Security-Policy</td><td><span class="tag tag-red">❌ Thiếu</span></td></tr>
+      </table>
+    </div>
+    <div class="table-box">
+      <h3>Schema Coverage</h3>
+      <table>
+        <tr><th>Type</th><th>Có</th><th>Thiếu</th></tr>
+        <tr><td>Product</td><td>2,890</td><td style="color:var(--yellow)">423</td></tr>
+        <tr><td>Article</td><td>34</td><td style="color:var(--red)">89</td></tr>
+        <tr><td>FAQPage</td><td style="color:var(--red)">0</td><td style="color:var(--red)">45</td></tr>
+        <tr><td>LocalBusiness</td><td style="color:var(--red)">0</td><td style="color:var(--red)">1</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ OPPORTUNITIES ═══ -->
+<div id="tab-opportunities" class="tab-content">
+  <div class="cards">
+    <div class="card"><div class="card-label">Bài viết mới đề xuất</div><div class="card-value" style="color:var(--green)">50</div></div>
+    <div class="card"><div class="card-label">Link mới đề xuất</div><div class="card-value" style="color:var(--accent)">234</div></div>
+    <div class="card"><div class="card-label">Revenue Pages cần fix</div><div class="card-value" style="color:var(--yellow)">47</div></div>
+    <div class="card"><div class="card-label">Quick Wins</div><div class="card-value" style="color:var(--green)">18</div></div>
+  </div>
+  <div class="table-box">
+    <h3>Content Opportunities — Bài Viết Mới <button class="export-btn">CSV</button></h3>
+    <table>
+      <tr><th>Title</th><th>Keyword</th><th>Type</th><th>Category</th><th>Priority</th></tr>
+      <tr><td>Cách chọn tủ rack phù hợp cho phòng server</td><td>cách chọn tủ rack</td><td><span class="tag tag-yellow">Blog</span></td><td>Tủ rack</td><td><span class="tag tag-red">Cao</span></td></tr>
+      <tr><td>So sánh cáp quang single mode vs multimode</td><td>single mode vs multimode</td><td><span class="tag tag-yellow">Blog</span></td><td>Cáp quang</td><td><span class="tag tag-red">Cao</span></td></tr>
+      <tr><td>Top 10 switch PoE tốt nhất 2026</td><td>switch poe tốt nhất</td><td><span class="tag tag-yellow">Blog</span></td><td>Switch</td><td><span class="tag tag-red">Cao</span></td></tr>
+      <tr><td>Media converter là gì? Cách chọn mua</td><td>media converter là gì</td><td><span class="tag tag-yellow">Blog</span></td><td>Media Conv.</td><td><span class="tag tag-yellow">TB</span></td></tr>
+      <tr><td>ODF là gì? Cấu tạo và ứng dụng</td><td>odf là gì</td><td><span class="tag tag-yellow">Blog</span></td><td>ODF</td><td><span class="tag tag-yellow">TB</span></td></tr>
+    </table>
+  </div>
+  <div class="table-box">
+    <h3>Revenue Pages Priority <button class="export-btn">CSV</button></h3>
+    <table>
+      <tr><th>#</th><th>URL</th><th>Score</th><th>Issues</th><th>Fix gì</th></tr>
+      <tr><td>1</td><td class="url-cell">/danh-muc/cap-quang/</td><td><strong>78</strong></td><td><span class="tag tag-yellow">2</span></td><td>Thêm FAQ schema, expand content 2000+ từ</td></tr>
+      <tr><td>2</td><td class="url-cell">/danh-muc/tu-rack/</td><td><strong>65</strong></td><td><span class="tag tag-yellow">3</span></td><td>Thêm internal links từ blog, fix speed</td></tr>
+      <tr><td>3</td><td class="url-cell">/danh-muc/switch/</td><td><strong>72</strong></td><td><span class="tag tag-yellow">2</span></td><td>Thêm bảng so sánh sản phẩm, expand desc</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ═══ ACTION PLAN ═══ -->
+<div id="tab-actionplan" class="tab-content">
+
+  <div style="margin-bottom:28px;">
+    <h2 style="font-size:22px;margin-bottom:6px;">🎯 Action Plan — Copy & Chạy Luôn</h2>
+    <p style="color:var(--text2);font-size:14px;">Mỗi action có hướng dẫn chi tiết, code copy-paste, kết quả expect. Giao cho dev/SEO chạy từng bước.</p>
+  </div>
+
+  <!-- TIMELINE -->
+  <div class="grid-3" style="margin-bottom:28px;">
+    <div class="phase-card phase-1">
+      <div class="phase-label" style="color:var(--red);">Phase 1 — Tuần 1-4</div>
+      <div class="phase-title">🔥 Fix Critical</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.8;">8 action items bên dưới<br>Score: 64 → 72<br>Rủi ro Google: <strong style="color:var(--green)">THẤP</strong></div>
+    </div>
+    <div class="phase-card phase-2">
+      <div class="phase-label" style="color:var(--yellow);">Phase 2 — Tuần 5-8</div>
+      <div class="phase-title">📝 Content Build</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.8;">Viết 8 bài pillar + expand thin<br>Score: 72 → 78<br>Rủi ro Google: <strong style="color:var(--yellow)">TRUNG BÌNH</strong></div>
+    </div>
+    <div class="phase-card phase-3">
+      <div class="phase-label" style="color:var(--green);">Phase 3 — Tuần 9-12</div>
+      <div class="phase-title">🚀 Scale</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.8;">16 bài supporting + optimize<br>Score: 78 → 82+<br>Rủi ro Google: <strong style="color:var(--green)">THẤP</strong></div>
+    </div>
+  </div>
+
+  <h3 style="font-size:16px;margin-bottom:16px;">🔥 Phase 1 — Fix Critical (Chi tiết từng bước)</h3>
+
+  <!-- ACTION 1 -->
+  <div class="action-card priority-high">
+    <div class="action-header">
+      <div class="action-title">#1 — Thêm Security Headers</div>
+      <div class="action-time">⏱ 15 phút &nbsp;|&nbsp; 👤 Dev</div>
+    </div>
+    <div class="action-detail">
+      <strong>Vấn đề:</strong> Thiếu X-XSS-Protection và Content-Security-Policy → site dễ bị tấn công XSS<br><br>
+      <strong>Cách làm:</strong> Mở file <code>.htaccess</code> (gốc WordPress), thêm đoạn sau vào cuối file:
+    </div>
+    <div class="code-block"><button class="copy-btn" onclick="copyCode(this)">Copy</button># Security Headers - Thêm vào cuối .htaccess
+&lt;IfModule mod_headers.c&gt;
+  Header always set X-XSS-Protection "1; mode=block"
+  Header always set Content-Security-Policy "default-src 'self' https: 'unsafe-inline' 'unsafe-eval'; img-src 'self' https: data:; font-src 'self' https: data:;"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+&lt;/IfModule&gt;</div>
+    <div class="action-result">✅ <strong>Kết quả:</strong> Security headers từ 2/4 → 4/4. Google đánh giá site an toàn hơn.</div>
+  </div>
+
+  <!-- ACTION 2 -->
+  <div class="action-card priority-high">
+    <div class="action-header">
+      <div class="action-title">#2 — Thêm H1 cho Homepage</div>
+      <div class="action-time">⏱ 5 phút &nbsp;|&nbsp; 👤 Content/Dev</div>
+    </div>
+    <div class="action-detail">
+      <strong>Vấn đề:</strong> Trang chủ mangthanhcong.vn không có thẻ H1 → Google không hiểu topic chính của site<br><br>
+      <strong>Cách làm:</strong> Vào WP Admin → Appearance → Customize → Homepage, thêm H1:
+    </div>
+    <div class="code-block"><button class="copy-btn" onclick="copyCode(this)">Copy</button>&lt;h1&gt;Mạng Thành Công - Cung Cấp Thiết Bị Mạng, Cáp Quang, Tủ Rack Chính Hãng&lt;/h1&gt;
+
+Nếu không muốn hiển thị to trên giao diện, thêm CSS:
+&lt;style&gt;
+.homepage-h1 { font-size: 24px; text-align: center; margin: 20px 0; }
+&lt;/style&gt;</div>
+    <div class="action-result">✅ <strong>Kết quả:</strong> Google hiểu ngay topic chính. Keyword "thiết bị mạng", "cáp quang", "tủ rack" được nhấn mạnh.</div>
+  </div>
+
+  <!-- ACTION 3 -->
+  <div class="action-card priority-high">
+    <div class="action-header">
+      <div class="action-title">#3 — Fix Title/Meta cho trang "tủ điện 150x200" (đang gần Top 1!)</div>
+      <div class="action-time">⏱ 15 phút &nbsp;|&nbsp; 👤 SEO</div>
+    </div>
+    <div class="action-detail">
+      <strong>Vấn đề:</strong> Keyword "tủ điện 150x200" đang rank <strong>position 2.3</strong> với 18 impressions. Title hiện tại chưa tối ưu → fix title có thể lên top 1.<br><br>
+      <strong>Cách làm:</strong> WP Admin → Products → tìm sản phẩm tủ điện 150x200 → sửa Yoast/RankMath:
+    </div>
+    <div class="code-block"><button class="copy-btn" onclick="copyCode(this)">Copy</button>TITLE CŨ: (chưa biết chính xác, cần check)
+
+TITLE MỚI:
+Tủ Điện 150x200 - Tủ Điện Kín IP65 Giá Tốt Nhất 2026 | TCNET
+
+META MỚI:
+Tủ điện 150x200mm chính hãng, chống bụi IP65, thép sơn tĩnh điện. Giá từ xxx.000đ, giao hàng toàn quốc. Hotline: [số ĐT]</div>
+    <div class="action-result">✅ <strong>Kết quả expect:</strong> Position 2.3 → Top 1 trong 1-2 tuần. CTR tăng từ 5.56% → 15-25%</div>
+  </div>
+
+  <!-- ACTION 4 -->
+  <div class="action-card priority-high">
+    <div class="action-header">
+      <div class="action-title">#4 — Fix Title cho "tủ rack 3u" (đang position 5.1)</div>
+      <div class="action-time">⏱ 15 phút &nbsp;|&nbsp; 👤 SEO</div>
+    </div>
+    <div class="action-detail">
+      <strong>Vấn đề:</strong> Keyword "tủ rack 3u" — 38 impressions, position 5.1, CTR chỉ 5.26% → title không hấp dẫn<br><br>
+      <strong>Cách làm:</strong> Sửa title + meta trang tủ rack 3U:
+    </div>
+    <div class="code-block"><button class="copy-btn" onclick="copyCode(this)">Copy</button>TITLE MỚI:
+Tủ Rack 3U - Tủ Mạng Mini 3U Treo Tường Giá Rẻ | TCNET
+
+META MỚI:
+Tủ rack 3U chất lượng cao, thiết kế nhỏ gọn treo tường. Phù hợp văn phòng, cửa hàng. Giá từ xxx.000đ, bảo hành 12 tháng. Đặt hàng ngay!</div>
+    <div class="action-result">✅ <strong>Kết quả expect:</strong> Position 5.1 → Top 3 trong 2-3 tuần. CTR tăng gấp đôi.</div>
+  </div>
+
+  <!-- ACTION 5 -->
+  <div class="action-card priority-high">
+    <div class="action-header">
+      <div class="action-title">#5 — Thêm Internal Links từ bài "cách kiểm tra cáp quang" (đang Top 1!)</div>
+      <div class="action-time">⏱ 20 phút &nbsp;|&nbsp; 👤 Content</div>
+    </div>
+    <div class="action-detail">
+      <strong>Vấn đề:</strong> Bài blog "cách kiểm tra cáp quang bị đứt" đang rank <strong>Top 1</strong> (pos 1.2) → đây là trang mạnh nhất site nhưng chưa tận dụng để đẩy sản phẩm.<br><br>
+      <strong>Cách làm:</strong> Mở WP Admin → Posts → tìm bài "cách kiểm tra cáp quang" → thêm 3-5 link vào nội dung:
+    </div>
+    <div class="code-block"><button class="copy-btn" onclick="copyCode(this)">Copy</button>Thêm các link sau vào bài viết (chèn tự nhiên trong nội dung):
+
+1. "...sử dụng &lt;a href="/san-pham/may-han-quang-fujikura/"&gt;máy hàn quang Fujikura&lt;/a&gt; để hàn nối..."
+
+2. "...kiểm tra bằng &lt;a href="/san-pham/otdr-may-do-cap-quang/"&gt;máy đo OTDR&lt;/a&gt; để xác định vị trí đứt..."
+
+3. "...thay thế bằng &lt;a href="/danh-muc/cap-quang/"&gt;cáp quang chính hãng&lt;/a&gt; đảm bảo chất lượng..."
+
+4. "...kết nối với &lt;a href="/san-pham/odf-12fo-rack-mount/"&gt;ODF quang 12FO&lt;/a&gt; tại tủ phân phối..."
+
+5. "Xem thêm: &lt;a href="/blogs/cap-quang-4fo-8fo-12fo/"&gt;Phân biệt cáp quang 4FO, 8FO, 12FO&lt;/a&gt;"</div>
+    <div class="action-result">✅ <strong>Kết quả:</strong> Link juice từ trang Top 1 chảy xuống 5 trang sản phẩm → đẩy ranking sản phẩm lên. Đồng thời giảm bounce rate vì user click sang sản phẩm.</div>
+  </div>
+
+  <!-- ACTION 6 -->
+  <div class="action-card priority-med">
+    <div class="action-header">
+      <div class="action-title">#6 — Xóa 9 Plugins Inactive + Files Public</div>
+      <div class="action-time">⏱ 10 phút &nbsp;|&nbsp; 👤 Dev</div>
+    </div>
+    <div class="action-detail">
+      <strong>Cách làm:</strong>
+    </div>
+    <div class="code-block"><button class="copy-btn" onclick="copyCode(this)">Copy</button>Bước 1: WP Admin → Plugins → chọn tất cả plugin Inactive → Delete
+
+Bước 2: Xóa file public qua FTP hoặc File Manager:
+- Xóa: /readme.html
+- Xóa: /wp-admin/install.php (KHÔNG xóa nếu site chưa cài xong)
+
+Bước 3: Chặn REST API user list, thêm vào functions.php:
+add_filter('rest_endpoints', function($endpoints) {
+    if (isset($endpoints['/wp/v2/users'])) {
+        unset($endpoints['/wp/v2/users']);
+    }
+    if (isset($endpoints['/wp/v2/users/(?P&lt;id&gt;[\\d]+)'])) {
+        unset($endpoints['/wp/v2/users/(?P&lt;id&gt;[\\d]+)']);
+    }
+    return $endpoints;
+});</div>
+    <div class="action-result">✅ <strong>Kết quả:</strong> Giảm attack surface, tăng tốc load, WordPress Health score tăng.</div>
+  </div>
+
+  <!-- ACTION 7 -->
+  <div class="action-card priority-med">
+    <div class="action-header">
+      <div class="action-title">#7 — NOINDEX 423 trang Thin Content <100 từ</div>
+      <div class="action-time">⏱ 2 giờ &nbsp;|&nbsp; 👤 SEO/Dev</div>
+    </div>
+    <div class="action-detail">
+      <strong>Vấn đề:</strong> 423 trang có <100 từ, chỉ có tên sản phẩm + giá, không có giá trị SEO → lãng phí crawl budget<br><br>
+      <strong>Cách làm (dùng Yoast/RankMath):</strong>
+    </div>
+    <div class="code-block"><button class="copy-btn" onclick="copyCode(this)">Copy</button>CÁCH 1 — Thủ công (cho vài chục trang):
+WP Admin → Products → mở từng sản phẩm → Yoast → Advanced → "Allow search engines to show this page?" → No
+
+CÁCH 2 — Hàng loạt bằng SQL (cho 423 trang, cần backup trước):
+-- Lấy danh sách từ file thin_content_action_plan.csv (cột action = NOINDEX)
+-- Import vào plugin "Search & Replace" hoặc chạy SQL
+
+CÁCH 3 — Dùng plugin:
+Cài "Jeanne's NOINDEX Manager" → upload CSV danh sách URLs → apply NOINDEX hàng loạt</div>
+    <div class="action-risk">⚠️ <strong>Lưu ý:</strong> Làm tối đa 50 trang/tuần. Không NOINDEX hết cùng lúc. Ưu tiên NOINDEX trang 0 traffic trước (check GSC).</div>
+  </div>
+
+  <!-- ACTION 8 -->
+  <div class="action-card priority-med">
+    <div class="action-header">
+      <div class="action-title">#8 — Fix 39 trang 404 → Redirect 301</div>
+      <div class="action-time">⏱ 1 giờ &nbsp;|&nbsp; 👤 Dev/SEO</div>
+    </div>
+    <div class="action-detail">
+      <strong>Cách làm:</strong> Dùng plugin Redirection hoặc .htaccess:
+    </div>
+    <div class="code-block"><button class="copy-btn" onclick="copyCode(this)">Copy</button># Mẫu redirect trong .htaccess (thêm trước # END WordPress):
+Redirect 301 /san-pham/old-product-name/ https://mangthanhcong.vn/san-pham/new-product-name/
+
+# Hoặc dùng plugin Redirection:
+WP Admin → Tools → Redirection → Add New
+Source URL: /san-pham/old-url/
+Target URL: /san-pham/correct-url/
+Group: Redirections
+→ Add Redirect
+
+# Danh sách 39 URLs 404 xem trong file: broken_links.csv</div>
+    <div class="action-result">✅ <strong>Kết quả:</strong> Crawl errors giảm từ 39 → 0. Link juice không bị mất. Google re-index nhanh hơn.</div>
+  </div>
+
+  <!-- CATEGORY PRIORITY -->
+  <h3 style="font-size:16px;margin:28px 0 16px;">🏆 Ưu Tiên Danh Mục — Đánh Category Nào Trước?</h3>
+  <div class="table-box">
+    <table>
+      <tr><th>#</th><th>Danh Mục</th><th>SP</th><th>Blog</th><th>Traffic</th><th>Thin%</th><th>Cạnh tranh</th><th>Ưu tiên</th><th>Lý do cụ thể</th></tr>
+      <tr><td>1</td><td><strong>Cáp quang</strong></td><td>1,247</td><td>12</td><td>~380</td><td style="color:var(--red)">67%</td><td><span class="tag tag-yellow">TB</span></td><td><span class="tag tag-red">🥇 Đầu tiên</span></td><td>"cáp quang 24fo" pos 7.5, "cáp quang 4fo là gì" pos 6.2 — đẩy lên top 3 được</td></tr>
+      <tr><td>2</td><td><strong>Tủ rack/điện</strong></td><td>367</td><td>3</td><td>~120</td><td>38%</td><td><span class="tag tag-green">Thấp</span></td><td><span class="tag tag-red">🥈 Cao</span></td><td>"tủ rack 3u" pos 5.1, "tủ điện 150x200" pos 2.3 — GẦN TOP 1</td></tr>
+      <tr><td>3</td><td><strong>Module SFP</strong></td><td>623</td><td>4</td><td>~85</td><td>51%</td><td><span class="tag tag-yellow">TB</span></td><td><span class="tag tag-yellow">🥉 TB</span></td><td>Fix cannibalization trước (5 trang trùng), rồi expand</td></tr>
+      <tr><td>4</td><td><strong>Switch PoE</strong></td><td>756</td><td>5</td><td>~65</td><td>45%</td><td><span class="tag tag-red">Cao</span></td><td><span class="tag tag-yellow">TB</span></td><td>Cạnh tranh cao, cần content cluster mạnh mới đánh được</td></tr>
+      <tr><td>5</td><td><strong>Media Converter</strong></td><td>478</td><td>2</td><td>~40</td><td style="color:var(--green)">23%</td><td><span class="tag tag-green">Thấp</span></td><td><span class="tag tag-blue">Sau</span></td><td>Content OK rồi, chỉ cần thêm 2-3 blog hỗ trợ</td></tr>
+    </table>
+  </div>
+
+  <!-- TOPICAL STRATEGY -->
+  <h3 style="font-size:16px;margin:28px 0 16px;">🧠 Topical Authority — Chiến lược Content cho "Cáp Quang"</h3>
+  <div class="chart-box" style="margin-bottom:20px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+      <div>
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--red);">Pillar (viết trước, 3000+ từ)</div>
+        <div class="cluster">
+          <span class="cluster-item cluster-pillar">① Cáp quang là gì? Tổng quan A-Z</span>
+          <span class="cluster-item cluster-pillar">② Bảng giá cáp quang 2026</span>
+        </div>
+        <div style="font-size:13px;font-weight:600;margin:14px 0 10px;color:var(--yellow);">Supporting (viết sau, 1500+ từ)</div>
+        <div class="cluster">
+          <span class="cluster-item">Cáp quang 4FO thông số</span>
+          <span class="cluster-item">SM vs MM so sánh</span>
+          <span class="cluster-item">OM2 vs OM3 vs OM4</span>
+          <span class="cluster-item">Cách hàn nối cáp quang</span>
+          <span class="cluster-item">Chi phí thi công</span>
+          <span class="cluster-item">ADSS vs OPGW</span>
+          <span class="cluster-item">Tiêu chuẩn cáp quang VN</span>
+          <span class="cluster-item">Bảo trì hệ thống</span>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Cấu trúc Link (bắt buộc)</div>
+        <div style="background:var(--surface2);border-radius:8px;padding:16px;font-size:12px;line-height:2;">
+          <div style="text-align:center;margin-bottom:8px;">
+            <span style="background:var(--accent);color:white;padding:5px 14px;border-radius:16px;font-weight:600;">Pillar: "Cáp quang là gì"</span>
+          </div>
+          <div style="text-align:center;color:var(--text2);">↕ link 2 chiều ↕</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:8px 0;">
+            <span style="border:1px solid var(--border);padding:3px 10px;border-radius:12px;font-size:11px;">4FO</span>
+            <span style="border:1px solid var(--border);padding:3px 10px;border-radius:12px;font-size:11px;">SM vs MM</span>
+            <span style="border:1px solid var(--border);padding:3px 10px;border-radius:12px;font-size:11px;">OM2/3/4</span>
+            <span style="border:1px solid var(--border);padding:3px 10px;border-radius:12px;font-size:11px;">Hàn nối</span>
+          </div>
+          <div style="text-align:center;color:var(--text2);">↕ link đến sản phẩm ↕</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:8px;">
+            <span style="border:1px solid var(--green);color:var(--green);padding:3px 10px;border-radius:12px;font-size:11px;">📦 /danh-muc/cap-quang/</span>
+            <span style="border:1px solid var(--green);color:var(--green);padding:3px 10px;border-radius:12px;font-size:11px;">📦 /san-pham/cap-quang-4fo/</span>
+          </div>
+        </div>
+        <div style="margin-top:12px;font-size:12px;color:var(--text2);line-height:1.8;">
+          <strong style="color:var(--text);">Quy tắc:</strong> Mỗi supporting link lên pillar + 2-3 supporting khác + 2-3 sản phẩm. Pillar link đến TẤT CẢ supporting + category.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTENT CALENDAR -->
+  <div class="table-box">
+    <h3>📅 Lịch Viết Bài Phase 2 (Tuần 5-8)</h3>
+    <table>
+      <tr><th>Tuần</th><th>Bài viết</th><th>Keyword chính</th><th>Loại</th><th>Từ</th><th>Internal links bắt buộc</th></tr>
+      <tr><td style="font-weight:600;color:var(--accent);">T5</td><td>Cáp quang là gì? Hướng dẫn A-Z</td><td>cáp quang là gì</td><td><span class="tag tag-red">Pillar</span></td><td>3000+</td><td>→ 8 supporting + /danh-muc/cap-quang/</td></tr>
+      <tr><td style="font-weight:600;color:var(--accent);">T5</td><td>Cáp quang 4FO: Thông số, ứng dụng</td><td>cáp quang 4fo</td><td><span class="tag tag-yellow">Support</span></td><td>1500+</td><td>→ Pillar + 3 sản phẩm 4FO</td></tr>
+      <tr><td style="font-weight:600;color:var(--accent);">T6</td><td>Single mode vs Multimode chi tiết</td><td>single mode vs multimode</td><td><span class="tag tag-yellow">Support</span></td><td>2000+</td><td>→ Pillar + cat SM + cat MM</td></tr>
+      <tr><td style="font-weight:600;color:var(--accent);">T6</td><td>Cách chọn tủ rack cho phòng server</td><td>cách chọn tủ rack</td><td><span class="tag tag-red">Pillar</span></td><td>2500+</td><td>→ /danh-muc/tu-rack/ + 5 SP</td></tr>
+      <tr><td style="font-weight:600;color:var(--accent);">T7</td><td>OM2 vs OM3 vs OM4: Chọn loại nào?</td><td>om2 om3 om4</td><td><span class="tag tag-yellow">Support</span></td><td>1800+</td><td>→ Pillar + 6 SP multimode</td></tr>
+      <tr><td style="font-weight:600;color:var(--accent);">T7</td><td>Bảng giá cáp quang 2026</td><td>bảng giá cáp quang</td><td><span class="tag tag-red">Pillar</span></td><td>2000+</td><td>→ Tất cả cat cáp quang</td></tr>
+      <tr><td style="font-weight:600;color:var(--accent);">T8</td><td>Hướng dẫn lắp đặt tủ rack 19 inch</td><td>lắp đặt tủ rack</td><td><span class="tag tag-yellow">Support</span></td><td>1500+</td><td>→ Pillar tủ rack + phụ kiện</td></tr>
+      <tr><td style="font-weight:600;color:var(--accent);">T8</td><td>Kiểm tra cáp quang bị đứt — cập nhật</td><td>kiểm tra cáp quang</td><td><span class="tag tag-blue">Refresh</span></td><td>+500</td><td>→ Pillar + máy hàn + OTDR</td></tr>
+    </table>
+  </div>
+
+  <!-- RISK -->
+  <div class="grid-2">
+    <div class="chart-box">
+      <h3>🛡️ Rủi Ro Google</h3>
+      <div class="issue"><div class="issue-icon" style="background:#d1fae5;color:var(--green)">✅</div><div class="issue-text"><strong>AN TOÀN — cứ làm:</strong><div class="issue-page">Fix headers, thêm schema, alt text, broken links, content mới, internal links, expand thin</div></div></div>
+      <div class="issue"><div class="issue-icon issue-warning">⚠</div><div class="issue-text"><strong>LÀM TỪ TỪ — max 50/tuần:</strong><div class="issue-page">NOINDEX thin pages, redirect hàng loạt, merge/xóa content</div></div></div>
+      <div class="issue"><div class="issue-icon issue-critical">🚫</div><div class="issue-text"><strong>KHÔNG LÀM:</strong><div class="issue-page">Xóa hàng trăm trang cùng lúc, đổi URL toàn site, xóa sitemap</div></div></div>
+      <div style="margin-top:14px;padding:14px;background:var(--surface2);border-radius:8px;font-size:13px;line-height:1.8;">
+        <strong>Nguyên tắc:</strong> Google thích THÊM hơn XÓA. Expand thay vì xóa. NOINDEX thay vì delete. Redirect thay vì 404. Mỗi batch lớn cách nhau 2 tuần.
+      </div>
+    </div>
+    <div class="chart-box">
+      <h3>📊 KPI Expect</h3>
+      <table style="font-size:13px;">
+        <tr><th>Mốc</th><th>Metric</th><th>Hiện tại</th><th>Target</th></tr>
+        <tr><td style="font-weight:600;">4 tuần</td><td>SEO Score</td><td>64</td><td style="color:var(--green)"><strong>72</strong></td></tr>
+        <tr><td></td><td>Crawl errors</td><td>39</td><td style="color:var(--green)"><strong>&lt;8</strong></td></tr>
+        <tr><td></td><td>Speed TB</td><td>18.6s</td><td style="color:var(--green)"><strong>&lt;8s</strong></td></tr>
+        <tr style="border-top:2px solid var(--border);"><td style="font-weight:600;">8 tuần</td><td>SEO Score</td><td>—</td><td style="color:var(--green)"><strong>78</strong></td></tr>
+        <tr><td></td><td>Clicks/tháng</td><td>1,022</td><td style="color:var(--green)"><strong>1,400+</strong></td></tr>
+        <tr><td></td><td>Indexed pages</td><td>~4,900</td><td style="color:var(--green)"><strong>5,200+</strong></td></tr>
+        <tr style="border-top:2px solid var(--border);"><td style="font-weight:600;">12 tuần</td><td>SEO Score</td><td>—</td><td style="color:var(--green)"><strong>82+</strong></td></tr>
+        <tr><td></td><td>Clicks/tháng</td><td>1,022</td><td style="color:var(--green)"><strong>1,800+</strong></td></tr>
+        <tr><td></td><td>Top 10 KWs</td><td>~8</td><td style="color:var(--green)"><strong>25+</strong></td></tr>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+</div><!-- end content -->
+
+<script>
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+function copyCode(btn) {
+  const code = btn.parentElement.textContent.replace('Copy','').trim();
+  navigator.clipboard.writeText(code);
+  btn.textContent = '✅ Copied!';
+  setTimeout(() => btn.textContent = 'Copy', 2000);
+}
+
+Chart.defaults.font.family = 'DM Sans';
+Chart.defaults.color = '#64748b';
+
+new Chart(document.getElementById('radarChart'), {
+  type:'radar',
+  data:{ labels:['Traditional SEO','E-E-A-T','AI Search','Local SEO','Technical','Content','WP Health','Performance'],
+    datasets:[{label:'Score',data:[61,64,78,50,70,60,60,67],backgroundColor:'rgba(37,99,235,.1)',borderColor:'#2563eb',pointBackgroundColor:'#2563eb',borderWidth:2}]},
+  options:{scales:{r:{min:0,max:100,ticks:{color:'#94a3b8',backdropColor:'transparent',stepSize:20},grid:{color:'#e2e8f0'},pointLabels:{color:'#1e293b',font:{size:11}}}},plugins:{legend:{display:false}}}
+});
+
+new Chart(document.getElementById('statusChart'), {
+  type:'doughnut',
+  data:{labels:['200 OK','301','404','302','500'],datasets:[{data:[5148,127,39,12,3],backgroundColor:['#059669','#d97706','#dc2626','#ea580c','#991b1b']}]},
+  options:{plugins:{legend:{position:'bottom',labels:{padding:14,font:{size:11}}}}}
+});
+
+new Chart(document.getElementById('contentTypeChart'), {
+  type:'doughnut',
+  data:{labels:['Product','Category','Blog','Page','Tag','Other'],datasets:[{data:[3890,234,123,45,892,130],backgroundColor:['#2563eb','#059669','#d97706','#7c3aed','#6366f1','#94a3b8']}]},
+  options:{plugins:{legend:{position:'bottom',labels:{padding:14,font:{size:11}}}}}
+});
+
+new Chart(document.getElementById('depthChart'), {
+  type:'bar',
+  data:{labels:['Level 0','Level 1','Level 2','Level 3','Level 4','Level 5+'],datasets:[{label:'Trang',data:[1,45,892,2341,1567,468],backgroundColor:['#059669','#059669','#2563eb','#2563eb','#d97706','#dc2626']}]},
+  options:{scales:{x:{grid:{display:false}},y:{grid:{color:'#e2e8f0'}}},plugins:{legend:{display:false}}}
+});
+
+new Chart(document.getElementById('wordCountChart'), {
+  type:'bar',
+  data:{labels:['<100','100-300','300-500','500-800','800-1500','1500+'],datasets:[{label:'Trang',data:[423,1424,1234,987,834,412],backgroundColor:['#dc2626','#ea580c','#d97706','#2563eb','#059669','#047857']}]},
+  options:{scales:{x:{grid:{display:false}},y:{grid:{color:'#e2e8f0'}}},plugins:{legend:{display:false}}}
+});
+
+new Chart(document.getElementById('speedChart'), {
+  type:'bar',
+  data:{labels:['<1s','1-3s','3-5s','5-10s','10-20s','20s+'],datasets:[{label:'Trang',data:[89,456,1234,2178,987,370],backgroundColor:['#047857','#059669','#2563eb','#d97706','#ea580c','#dc2626']}]},
+  options:{scales:{x:{grid:{display:false}},y:{grid:{color:'#e2e8f0'}}},plugins:{legend:{display:false}}}
+});
+</script>
+</body>
+</html>

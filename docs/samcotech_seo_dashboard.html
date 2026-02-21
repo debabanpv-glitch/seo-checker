@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SEO Audit Report - samcotech.com.vn</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#f8f9fb;--s:#fff;--s2:#f1f5f9;--bd:#e2e8f0;--t:#1e293b;--t2:#64748b;--a:#2563eb;--g:#059669;--gbg:#ecfdf5;--y:#d97706;--ybg:#fffbeb;--r:#dc2626;--rbg:#fef2f2;--o:#ea580c;--p:#7c3aed;--abg:#eff6ff;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t);min-height:100vh;font-size:14px;line-height:1.6;}
+.header{padding:18px 28px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center;background:var(--s);}
+.header h1{font-size:18px;font-weight:700;}.header h1 span{color:var(--a);}
+.header-meta{display:flex;gap:20px;font-size:12px;color:var(--t2);}
+.tabs{display:flex;gap:0;padding:0 28px;background:var(--s);border-bottom:1px solid var(--bd);overflow-x:auto;}
+.tab{padding:12px 18px;font-size:12px;font-weight:500;color:var(--t2);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;}
+.tab:hover{color:var(--t);background:#f8fafc;}.tab.active{color:var(--a);border-bottom-color:var(--a);font-weight:600;}
+.content{padding:24px 28px;max-width:1440px;margin:0 auto;}
+.tab-content{display:none;}.tab-content.active{display:block;}
+.box{background:var(--s);border:1px solid var(--bd);border-radius:10px;padding:20px;margin-bottom:16px;}
+.box h3{font-size:14px;font-weight:600;margin-bottom:14px;}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;}
+.card{background:var(--s);border:1px solid var(--bd);border-radius:8px;padding:14px;}
+.card .cl{font-size:10px;color:var(--t2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;font-weight:600;}
+.card .cv{font-size:24px;font-weight:700;}.card .cs{font-size:11px;margin-top:2px;font-weight:500;}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+th{text-align:left;padding:8px 10px;border-bottom:2px solid var(--bd);color:var(--t2);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px;background:var(--s2);}
+td{padding:8px 10px;border-bottom:1px solid var(--bd);}tr:hover{background:var(--s2);}
+.uc{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#0891b2;font-size:11px;}
+.tag{display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:600;}
+.tr{background:var(--rbg);color:var(--r);}.ty{background:var(--ybg);color:var(--y);}.tg{background:var(--gbg);color:var(--g);}.tb{background:var(--abg);color:var(--a);}
+.dx{border-radius:10px;padding:18px 20px;margin-bottom:14px;font-size:13px;line-height:1.8;}
+.dx-red{background:#fef2f2;border:1px solid #fecaca;}.dx-yellow{background:#fffbeb;border:1px solid #fde68a;}.dx-green{background:#ecfdf5;border:1px solid #a7f3d0;}.dx-blue{background:#eff6ff;border:1px solid #bfdbfe;}
+.dx strong{display:block;font-size:14px;margin-bottom:4px;}.dx ul,.dx ol{margin:8px 0 0 16px;}.dx li{margin-bottom:2px;}
+.sb{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+.sb-label{font-size:12px;font-weight:500;width:140px;color:var(--t2);}
+.sb-bar{flex:1;height:8px;background:var(--s2);border-radius:4px;overflow:hidden;}
+.sb-fill{height:100%;border-radius:4px;}.sb-val{font-size:13px;font-weight:700;width:40px;text-align:right;}
+.hm{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:4px;}
+.hc{padding:12px 6px;border-radius:6px;text-align:center;font-size:10px;font-weight:600;}
+.hr{background:#fee2e2;color:var(--r);}.hy{background:#fef3c7;color:var(--y);}.hg{background:#d1fae5;color:var(--g);}
+.ac{background:var(--s);border:1px solid var(--bd);border-radius:8px;padding:16px;margin-bottom:12px;}
+.ac.hi{border-left:4px solid var(--r);}.ac.md{border-left:4px solid var(--y);}.ac.lo{border-left:4px solid var(--g);}
+@media(max-width:768px){.g2,.g3{grid-template-columns:1fr;}.content{padding:14px;}}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🔍 SEO Audit <span>Report</span></h1>
+  <div class="header-meta"><div>samcotech.com.vn</div><div>13/02/2026</div><div>5,000 trang</div></div>
+</div>
+<div class="tabs">
+  <div class="tab active" onclick="sw('overview')">📊 Overview</div>
+  <div class="tab" onclick="sw('eeat')">🏛 E-E-A-T</div>
+  <div class="tab" onclick="sw('links')">🔗 Links</div>
+  <div class="tab" onclick="sw('content')">📝 Content</div>
+  <div class="tab" onclick="sw('technical')">⚙️ Technical</div>
+  <div class="tab" onclick="sw('actionplan')">🎯 Action Plan</div>
+</div>
+<div class="content">
+
+<!-- ═══ OVERVIEW ═══ -->
+<div id="tab-overview" class="tab-content active">
+  <div class="g2">
+    <div class="box">
+      <h3>Tổng điểm & Xếp hạng</h3>
+      <div style="display:flex;gap:24px;align-items:center;">
+        <div style="text-align:center;">
+          <div style="font-size:56px;font-weight:700;color:var(--r);">55.6</div>
+          <div style="font-size:13px;color:var(--t2);">/ 100 — Trung Bình Thấp</div>
+        </div>
+        <div style="flex:1;">
+          <div class="sb"><div class="sb-label">Content Quality</div><div class="sb-bar"><div class="sb-fill" style="width:89%;background:var(--g);"></div></div><div class="sb-val" style="color:var(--g)">89%</div></div>
+          <div class="sb"><div class="sb-label">Technical</div><div class="sb-bar"><div class="sb-fill" style="width:75%;background:var(--g);"></div></div><div class="sb-val">75%</div></div>
+          <div class="sb"><div class="sb-label">Traditional SEO</div><div class="sb-bar"><div class="sb-fill" style="width:56%;background:var(--y);"></div></div><div class="sb-val">56%</div></div>
+          <div class="sb"><div class="sb-label">AI Search</div><div class="sb-bar"><div class="sb-fill" style="width:54%;background:var(--y);"></div></div><div class="sb-val">54%</div></div>
+          <div class="sb"><div class="sb-label">E-E-A-T</div><div class="sb-bar"><div class="sb-fill" style="width:42%;background:var(--r);"></div></div><div class="sb-val" style="color:var(--r)">42%</div></div>
+          <div class="sb"><div class="sb-label">GEO/Local</div><div class="sb-bar"><div class="sb-fill" style="width:25%;background:var(--r);"></div></div><div class="sb-val" style="color:var(--r)">25%</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="box">
+      <h3>Chẩn đoán tổng quan</h3>
+      <div class="dx dx-red"><strong>🔴 GEO/Local SEO (25%) — Yếu nhất</strong>Google không biết samcotech ở đâu. 0 LocalBusiness schema. NAP chưa tối ưu. → Google không hiển thị trong local results.</div>
+      <div class="dx dx-red"><strong>🔴 E-E-A-T (42%) — Trust chỉ 30%</strong>0 author box, 4,824 trang thiếu ngày publish, 0 testimonials. Google không tin site đáng tin cậy.</div>
+      <div class="dx dx-yellow"><strong>🟡 CẢNH BÁO: 4,999 trang orphan + 164 URL rác</strong>Internal link graph = 0 edges (có thể do JS rendering). 164 URL thanh-toán + hàng trăm ?add-to-cart lãng phí crawl budget.</div>
+      <div class="dx dx-green"><strong>✅ Content Quality (89%) — Điểm sáng!</strong>TB 2,000+ từ/trang, không thin content. Nền tảng content tốt, chỉ cần tối ưu meta + structure.</div>
+    </div>
+  </div>
+  <div class="cards">
+    <div class="card"><div class="cl">Tổng trang</div><div class="cv">5,000</div></div>
+    <div class="card"><div class="cl">Score TB</div><div class="cv" style="color:var(--r)">55.6</div><div class="cs">94.7% trang 40-59</div></div>
+    <div class="card"><div class="cl">Broken Links</div><div class="cv" style="color:var(--y)">33</div></div>
+    <div class="card"><div class="cl">Tốc độ TB</div><div class="cv" style="color:var(--r)">13.9s</div><div class="cs dn" style="color:var(--r)">Chuẩn: <3s</div></div>
+    <div class="card"><div class="cl">Orphan Pages</div><div class="cv" style="color:var(--r)">4,999</div><div class="cs" style="color:var(--r)">99.9%!</div></div>
+    <div class="card"><div class="cl">Thiếu Meta Desc</div><div class="cv" style="color:var(--r)">1,219</div><div class="cs">24.4%</div></div>
+    <div class="card"><div class="cl">H1 Trùng</div><div class="cv" style="color:var(--r)">2,891</div><div class="cs">379 nhóm</div></div>
+    <div class="card"><div class="cl">Ảnh thiếu Alt</div><div class="cv" style="color:var(--o)">145K</div><div class="cs">56.9%</div></div>
+  </div>
+  <div class="g2">
+    <div class="box"><h3>Phân bố điểm SEO</h3><canvas id="scoreDistChart" height="200"></canvas></div>
+    <div class="box"><h3>Top 10 vấn đề phổ biến</h3>
+      <table>
+        <tr><th>Vấn đề</th><th>Trang</th><th>%</th></tr>
+        <tr><td>Quá nhiều internal links (>100)</td><td>5,000</td><td style="color:var(--r)"><strong>100%</strong></td></tr>
+        <tr><td>Thiếu FAQ section/schema</td><td>5,000</td><td style="color:var(--r)"><strong>100%</strong></td></tr>
+        <tr><td>Thiếu H2 tags</td><td>2,346</td><td style="color:var(--y)">46.9%</td></tr>
+        <tr><td>Thiếu og:image</td><td>1,505</td><td style="color:var(--y)">30.1%</td></tr>
+        <tr><td>Thiếu meta description</td><td>1,219</td><td style="color:var(--y)">24.4%</td></tr>
+        <tr><td>Ảnh thiếu alt text</td><td>913+</td><td>18.3%</td></tr>
+        <tr><td>Thiếu canonical URL</td><td>575</td><td>11.5%</td></tr>
+        <tr><td>Trang noindex</td><td>575</td><td>11.5%</td></tr>
+        <tr><td>Title trùng nhau</td><td>574</td><td>11.5%</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ E-E-A-T ═══ -->
+<div id="tab-eeat" class="tab-content">
+  <div class="dx dx-red" style="margin-bottom:20px;"><strong>🔴 E-E-A-T Score: 42.4% (9.3/22)</strong>Trust chỉ 30% — Google không coi samcotech là nguồn tin cậy. Đặc biệt yếu ở Experience và Trustworthiness.</div>
+  <div class="cards">
+    <div class="card"><div class="cl">Experience</div><div class="cv" style="color:var(--r)">36%</div><div class="cs">2.1/6</div></div>
+    <div class="card"><div class="cl">Expertise</div><div class="cv" style="color:var(--g)">74%</div><div class="cs">3.7/5</div></div>
+    <div class="card"><div class="cl">Authority</div><div class="cv" style="color:var(--y)">42%</div><div class="cs">2.5/6</div></div>
+    <div class="card"><div class="cl">Trust</div><div class="cv" style="color:var(--r)">30%</div><div class="cs">1.5/5</div></div>
+  </div>
+  <div class="box">
+    <h3>Experience (36%) — Không có bằng chứng kinh nghiệm</h3>
+    <table>
+      <tr><th>Yếu tố</th><th>Status</th><th>Vấn đề</th><th>Fix</th></tr>
+      <tr><td>Author box</td><td><span class="tag tr">❌</span></td><td>0/5 blog có author</td><td>Thêm tên + ảnh + bio + LinkedIn</td></tr>
+      <tr><td>Ngày publish</td><td><span class="tag tr">❌</span></td><td>4,824 trang thiếu</td><td>Hiển thị datePublished + dateModified</td></tr>
+      <tr><td>Testimonials</td><td><span class="tag tr">❌</span></td><td>0 reviews trên site</td><td>Thêm "Khách hàng nói gì" + Review schema</td></tr>
+      <tr><td>First-hand content</td><td><span class="tag ty">⚠</span></td><td>Ít ảnh thực tế, 0 video demo</td><td>Video unbox/demo, ảnh chụp sản phẩm thật</td></tr>
+    </table>
+  </div>
+  <div class="box">
+    <h3>Trustworthiness (30%) — YẾU NHẤT</h3>
+    <table>
+      <tr><th>Yếu tố</th><th>Status</th><th>Vấn đề</th><th>Fix</th></tr>
+      <tr><td>Security headers</td><td><span class="tag tr">❌</span></td><td>Thiếu CSP, X-XSS</td><td>.htaccess → Action #6</td></tr>
+      <tr><td>Chính sách đổi trả</td><td><span class="tag ty">⚠</span></td><td>Sơ sài</td><td>Viết lại 500+ từ chi tiết</td></tr>
+      <tr><td>Payment badges</td><td><span class="tag tr">❌</span></td><td>Không hiển thị</td><td>Thêm logo ngân hàng, COD, SSL</td></tr>
+      <tr><td>AggregateRating</td><td><span class="tag tr">❌</span></td><td>0 Product có rating schema</td><td>Thêm review + rating schema</td></tr>
+    </table>
+  </div>
+  <div class="dx dx-blue"><strong>💡 Lộ trình E-E-A-T</strong>
+    <ol><li><strong>Tuần 1:</strong> Author box + hiển thị ngày + security headers</li>
+    <li><strong>Tuần 2:</strong> LocalBusiness + Organization schema đầy đủ</li>
+    <li><strong>Tuần 3:</strong> Chứng nhận đại lý Brother + viết lại policies</li>
+    <li><strong>Tuần 4+:</strong> Video demo, trust signals, blog supporting</li></ol>
+    <strong>KPI:</strong> E-E-A-T 42% → 62% sau 4 tuần</div>
+</div>
+
+<!-- ═══ LINKS ═══ -->
+<div id="tab-links" class="tab-content">
+  <div class="dx dx-red" style="margin-bottom:20px;"><strong>🔴 CRITICAL: Internal Link Graph = 0 Edges</strong>Crawler phát hiện 5,000 nodes nhưng 0 edges. 4,999/5,000 trang orphan. Nguyên nhân: menu chính render bằng JS mà crawler không execute. Cần verify + fix navigation.</div>
+  <div class="cards">
+    <div class="card"><div class="cl">Orphan Pages</div><div class="cv" style="color:var(--r)">4,999</div><div class="cs" style="color:var(--r)">99.9%!</div></div>
+    <div class="card"><div class="cl">Broken Links</div><div class="cv" style="color:var(--y)">33</div></div>
+    <div class="card"><div class="cl">Redirects</div><div class="cv" style="color:var(--r)">5,021</div></div>
+    <div class="card"><div class="cl">Links/trang max</div><div class="cv" style="color:var(--r)">598</div><div class="cs">Homepage</div></div>
+  </div>
+  <div class="box">
+    <h3>Broken Links — 33 (404 + 500 errors)</h3>
+    <table>
+      <tr><th>URL</th><th>Status</th><th>Fix</th></tr>
+      <tr><td class="uc">/phu-kien-pos-may-pos-ban-hang</td><td><span class="tag tr">404</span></td><td>301 → trang phù hợp</td></tr>
+      <tr><td class="uc">/may-in-hoa-don/may-in-hoa-don-khong-day...</td><td><span class="tag tr">404</span></td><td>301 redirect</td></tr>
+      <tr><td class="uc">/cac-loi-muc-in-nhan/</td><td><span class="tag tr">500</span></td><td>Fix server error — check DB</td></tr>
+      <tr><td class="uc">/muc-in-nhan-la-gi/</td><td><span class="tag tr">500</span></td><td>Fix server error</td></tr>
+      <tr><td class="uc">/muc-in-ribbon/</td><td><span class="tag tr">500</span></td><td>Fix server error</td></tr>
+      <tr><td class="uc">/dpi-may-in-nhan/</td><td><span class="tag tr">500</span></td><td>Fix server error</td></tr>
+      <tr><td class="uc">/lop-phu-nhan-in/</td><td><span class="tag tr">500</span></td><td>Fix server error</td></tr>
+    </table>
+    <div class="dx dx-yellow" style="margin-top:12px;"><strong>⚠️ Nhiều blog URL trả 500</strong> — Có thể database issue hoặc plugin conflict. Cần check WP error log.</div>
+  </div>
+  <div class="box">
+    <h3>Quá nhiều Links/trang — Pha loãng Link Juice</h3>
+    <table>
+      <tr><th>Trang</th><th>Internal Links</th><th>Đánh giá</th><th>Fix</th></tr>
+      <tr><td class="uc">Homepage</td><td><strong>598</strong></td><td><span class="tag tr">Quá nhiều</span></td><td>Mega menu → JS dropdown</td></tr>
+      <tr><td class="uc">Category pages</td><td>400-435</td><td><span class="tag tr">Quá nhiều</span></td><td>Giảm sidebar + footer</td></tr>
+      <tr><td class="uc">Product pages</td><td>300-350</td><td><span class="tag ty">Nhiều</span></td><td>Chỉ giữ nav chính</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ═══ CONTENT ═══ -->
+<div id="tab-content" class="tab-content">
+  <div class="dx dx-yellow" style="margin-bottom:20px;"><strong>🟡 Content: Quality tốt (89%) nhưng Structure yếu</strong>Word count OK, không thin content. Vấn đề: 1,219 thiếu meta desc, 2,891 H1 trùng, 1,496 title quá dài, chỉ 5 blog.</div>
+  <div class="cards">
+    <div class="card"><div class="cl">Thiếu Meta Desc</div><div class="cv" style="color:var(--r)">1,219</div><div class="cs">24.4%</div></div>
+    <div class="card"><div class="cl">Meta Desc ngắn</div><div class="cv" style="color:var(--y)">148</div></div>
+    <div class="card"><div class="cl">H1 Trùng</div><div class="cv" style="color:var(--r)">2,891</div><div class="cs">379 nhóm</div></div>
+    <div class="card"><div class="cl">Title quá dài</div><div class="cv" style="color:var(--y)">1,496</div><div class="cs">30%</div></div>
+    <div class="card"><div class="cl">Thiếu H2</div><div class="cv" style="color:var(--y)">2,346</div><div class="cs">46.9%</div></div>
+    <div class="card"><div class="cl">Blog posts</div><div class="cv" style="color:var(--r)">5</div><div class="cs">Cần 30+</div></div>
+  </div>
+  <div class="box">
+    <h3>URL Rác — Crawl Budget Waste 🔴</h3>
+    <table>
+      <tr><th>Pattern</th><th>Số lượng</th><th>Vấn đề</th><th>Fix</th></tr>
+      <tr><td><code>/thanh-toan-2/?remove_item=...</code></td><td><strong>164 URL</strong></td><td>Duplicate, waste crawl</td><td>robots.txt: Disallow: /thanh-toan-2/?remove_item</td></tr>
+      <tr><td><code>/?add-to-cart=...</code></td><td><strong>hàng trăm</strong></td><td>Duplicate, waste crawl</td><td>robots.txt: Disallow: /*?add-to-cart</td></tr>
+      <tr><td><code>/page/N/</code> pagination</td><td>nhiều</td><td>Thin pagination</td><td>rel=next/prev + canonical</td></tr>
+    </table>
+  </div>
+  <div class="box">
+    <h3>Topical Authority — Cluster mạnh nhất</h3>
+    <div class="hm">
+      <div class="hc hg">Nhãn in<br><strong>426 trang</strong></div>
+      <div class="hc hg">Máy in nhãn<br><strong>195 trang</strong></div>
+      <div class="hc hg">Máy quét MV<br><strong>113 trang</strong></div>
+      <div class="hc hg">Máy in ống lồng<br><strong>93 trang</strong></div>
+      <div class="hc hg">Máy in MV<br><strong>89 trang</strong></div>
+      <div class="hc hg">Máy in HĐ<br><strong>70 trang</strong></div>
+      <div class="hc hy">Máy in VP<br><strong>49 trang</strong></div>
+      <div class="hc hy">Máy POS<br><strong>32 trang</strong></div>
+    </div>
+    <div class="dx dx-blue" style="margin-top:14px;"><strong>💡 Thiếu: Blog supporting!</strong> 304 topic clusters nhưng chỉ 5 bài blog. Cần viết pillar + supporting cho mỗi cluster lớn để xây topical authority.</div>
+  </div>
+</div>
+
+<!-- ═══ TECHNICAL ═══ -->
+<div id="tab-technical" class="tab-content">
+  <div class="dx dx-yellow" style="margin-bottom:20px;"><strong>🟡 Technical: 74.8% — Speed là vấn đề lớn nhất</strong>Tốc độ TB 13.9s, 99.9% trang >2s. Schema thiếu Product + FAQ. 145K ảnh thiếu alt.</div>
+  <div class="cards">
+    <div class="card"><div class="cl">Speed TB</div><div class="cv" style="color:var(--r)">13.9s</div><div class="cs" style="color:var(--r)">Chuẩn: <3s</div></div>
+    <div class="card"><div class="cl">Chậm nhất</div><div class="cv" style="color:var(--r)">37.9s</div></div>
+    <div class="card"><div class="cl">Trang >2s</div><div class="cv" style="color:var(--r)">99.9%</div></div>
+    <div class="card"><div class="cl">Ảnh thiếu alt</div><div class="cv" style="color:var(--o)">145,415</div><div class="cs">56.9%</div></div>
+  </div>
+  <div class="g2">
+    <div class="box">
+      <h3>Speed Distribution</h3>
+      <canvas id="speedChart" height="220"></canvas>
+      <div class="dx dx-red" style="margin-top:14px;"><strong>13.9s = user bounce 70%+</strong><br>Fix: 1) Server cache 2) WebP images 3) Lazy load 4) CDN 5) Block ?add-to-cart URLs</div>
+    </div>
+    <div class="box">
+      <h3>Schema Audit — Thiếu gì</h3>
+      <table>
+        <tr><th>Schema</th><th>Status</th><th>Fix</th></tr>
+        <tr><td>Organization</td><td><span class="tg tag">✅ Có</span></td><td>Bổ sung foundingDate, sameAs</td></tr>
+        <tr><td>WebPage</td><td><span class="tg tag">✅ Có</span></td><td>OK</td></tr>
+        <tr><td>Product</td><td><span class="tr tag">❌ Thiếu</span></td><td>4,000+ SP cần schema → giá, rating trên SERP</td></tr>
+        <tr><td>FAQPage</td><td><span class="tr tag">❌ 0</span></td><td>🔴 Cơ hội lớn! Rich snippet FAQ</td></tr>
+        <tr><td>LocalBusiness</td><td><span class="tr tag">❌ 0</span></td><td>Google không biết ở đâu</td></tr>
+        <tr><td>AggregateRating</td><td><span class="tr tag">❌ 0</span></td><td>Cần cho Product pages</td></tr>
+        <tr><td>BreadcrumbList</td><td><span class="ty tag">⚠ Partial</span></td><td>Fix template toàn site</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ACTION PLAN ═══ -->
+<div id="tab-actionplan" class="tab-content">
+  <div style="margin-bottom:24px;">
+    <h2 style="font-size:20px;margin-bottom:6px;">🎯 Action Plan — 22 Bước, 12 Tuần</h2>
+    <p style="color:var(--t2);font-size:13px;">Score 55.6 → Target 78+. Ưu tiên: Block URL rác → Fix broken → Meta desc → E-E-A-T</p>
+  </div>
+  <div class="g3" style="margin-bottom:24px;">
+    <div style="background:linear-gradient(135deg,#fef2f2,#fff);border:1px solid #fecaca;border-radius:10px;padding:20px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--r);">Phase 1 — Tuần 1-4</div>
+      <div style="font-size:18px;font-weight:700;margin:6px 0;">Fix Critical</div>
+      <div style="font-size:12px;color:var(--t2);">Score: 55.6 → 65<br>10 actions</div>
+    </div>
+    <div style="background:linear-gradient(135deg,#fffbeb,#fff);border:1px solid #fde68a;border-radius:10px;padding:20px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--y);">Phase 2 — Tuần 5-8</div>
+      <div style="font-size:18px;font-weight:700;margin:6px 0;">Content + E-E-A-T</div>
+      <div style="font-size:12px;color:var(--t2);">Score: 65 → 72<br>7 actions</div>
+    </div>
+    <div style="background:linear-gradient(135deg,#ecfdf5,#fff);border:1px solid #a7f3d0;border-radius:10px;padding:20px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--g);">Phase 3 — Tuần 9-12</div>
+      <div style="font-size:18px;font-weight:700;margin:6px 0;">Scale & Authority</div>
+      <div style="font-size:12px;color:var(--t2);">Score: 72 → 78+<br>5 actions</div>
+    </div>
+  </div>
+  <div class="box">
+    <h3>Tất cả Actions — Sắp theo ưu tiên</h3>
+    <table>
+      <tr><th>#</th><th>Phase</th><th>Action</th><th>Ai</th><th>Time</th><th>Impact</th></tr>
+      <tr><td>1</td><td><span class="tag tr">P1</span></td><td><strong>Block URL params robots.txt</strong></td><td>Dev</td><td>15p</td><td><span class="tag tr">Cao</span></td></tr>
+      <tr><td>2</td><td><span class="tag tr">P1</span></td><td><strong>Fix 33 broken links (404+500)</strong></td><td>Dev</td><td>2h</td><td><span class="tag tr">Cao</span></td></tr>
+      <tr><td>3</td><td><span class="tag tr">P1</span></td><td><strong>Thêm meta desc 1,219 trang</strong></td><td>SEO</td><td>batch</td><td><span class="tag tr">Cao</span></td></tr>
+      <tr><td>4</td><td><span class="tag tr">P1</span></td><td><strong>Fix 379 nhóm H1 trùng</strong></td><td>SEO</td><td>batch</td><td><span class="tag tr">Cao</span></td></tr>
+      <tr><td>5</td><td><span class="tag tr">P1</span></td><td><strong>Giảm internal links/trang</strong></td><td>Dev</td><td>2h</td><td><span class="tag ty">TB</span></td></tr>
+      <tr><td>6</td><td><span class="tag tr">P1</span></td><td><strong>Security headers</strong></td><td>Dev</td><td>15p</td><td><span class="tag tr">Cao</span></td></tr>
+      <tr><td>7</td><td><span class="tag tr">P1</span></td><td><strong>Author box cho blog</strong></td><td>Dev</td><td>1h</td><td><span class="tag tr">Cao</span></td></tr>
+      <tr><td>8</td><td><span class="tag tr">P1</span></td><td><strong>LocalBusiness schema</strong></td><td>Dev</td><td>30p</td><td><span class="tag tr">Cao</span></td></tr>
+      <tr><td>9</td><td><span class="tag tr">P1</span></td><td><strong>datePublished/Modified</strong></td><td>Dev</td><td>1h</td><td><span class="tag ty">TB</span></td></tr>
+      <tr><td>10</td><td><span class="tag tr">P1</span></td><td><strong>Fix canonical 575 trang</strong></td><td>Dev</td><td>1h</td><td><span class="tag ty">TB</span></td></tr>
+      <tr style="background:var(--ybg);"><td>11</td><td><span class="tag ty">P2</span></td><td><strong>Viết lại 148 meta desc ngắn</strong></td><td>SEO</td><td>1 ngày</td><td><span class="tag ty">TB</span></td></tr>
+      <tr style="background:var(--ybg);"><td>12</td><td><span class="tag ty">P2</span></td><td><strong>Rút gọn 1,496 title quá dài</strong></td><td>SEO</td><td>batch</td><td><span class="tag ty">TB</span></td></tr>
+      <tr style="background:var(--ybg);"><td>13</td><td><span class="tag ty">P2</span></td><td><strong>Thêm H2 cho 2,346 trang</strong></td><td>Dev</td><td>batch</td><td><span class="tag ty">TB</span></td></tr>
+      <tr style="background:var(--ybg);"><td>14</td><td><span class="tag ty">P2</span></td><td><strong>Thêm og:image 1,505 trang</strong></td><td>Dev</td><td>1h</td><td><span class="tag ty">TB</span></td></tr>
+      <tr style="background:var(--ybg);"><td>15</td><td><span class="tag ty">P2</span></td><td><strong>FAQ schema 45 trang</strong></td><td>Dev</td><td>2 ngày</td><td><span class="tag tr">Cao</span></td></tr>
+      <tr style="background:var(--ybg);"><td>16</td><td><span class="tag ty">P2</span></td><td><strong>Product schema 4,000+ SP</strong></td><td>Dev</td><td>template</td><td><span class="tag tr">Cao</span></td></tr>
+      <tr style="background:var(--ybg);"><td>17</td><td><span class="tag ty">P2</span></td><td><strong>Viết 6 pillar blog</strong></td><td>Content</td><td>2 tuần</td><td><span class="tag tr">Cao</span></td></tr>
+      <tr style="background:var(--gbg);"><td>18</td><td><span class="tag tg">P3</span></td><td><strong>Viết 12 supporting blog</strong></td><td>Content</td><td>4 tuần</td><td><span class="tag tr">Cao</span></td></tr>
+      <tr style="background:var(--gbg);"><td>19</td><td><span class="tag tg">P3</span></td><td><strong>Alt text 145K ảnh</strong></td><td>Dev</td><td>batch</td><td><span class="tag ty">TB</span></td></tr>
+      <tr style="background:var(--gbg);"><td>20</td><td><span class="tag tg">P3</span></td><td><strong>Speed optimization</strong></td><td>Dev</td><td>1 tuần</td><td><span class="tag tr">Cao</span></td></tr>
+      <tr style="background:var(--gbg);"><td>21</td><td><span class="tag tg">P3</span></td><td><strong>AggregateRating schema</strong></td><td>Dev</td><td>template</td><td><span class="tag ty">TB</span></td></tr>
+      <tr style="background:var(--gbg);"><td>22</td><td><span class="tag tg">P3</span></td><td><strong>Chứng nhận Brother + trust</strong></td><td>Content</td><td>3h</td><td><span class="tag tr">Cao</span></td></tr>
+    </table>
+  </div>
+  <div class="g2">
+    <div class="box">
+      <h3>📊 KPI Tracking</h3>
+      <table>
+        <tr><th>Mốc</th><th>Metric</th><th>Hiện tại</th><th>Target</th></tr>
+        <tr><td style="font-weight:600;">4 tuần</td><td>SEO Score</td><td>55.6</td><td style="color:var(--g)"><strong>65</strong></td></tr>
+        <tr><td></td><td>E-E-A-T</td><td style="color:var(--r)">42%</td><td style="color:var(--g)"><strong>55%</strong></td></tr>
+        <tr><td></td><td>Broken links</td><td>33</td><td style="color:var(--g)"><strong>0</strong></td></tr>
+        <tr style="border-top:2px solid var(--bd);"><td style="font-weight:600;">8 tuần</td><td>SEO Score</td><td>—</td><td style="color:var(--g)"><strong>72</strong></td></tr>
+        <tr><td></td><td>Thiếu meta desc</td><td>1,219</td><td style="color:var(--g)"><strong>0</strong></td></tr>
+        <tr style="border-top:2px solid var(--bd);"><td style="font-weight:600;">12 tuần</td><td>SEO Score</td><td>—</td><td style="color:var(--g)"><strong>78+</strong></td></tr>
+        <tr><td></td><td>Blog posts</td><td>5</td><td style="color:var(--g)"><strong>23+</strong></td></tr>
+      </table>
+    </div>
+    <div class="box">
+      <h3>🛡️ Rủi Ro Google</h3>
+      <div style="font-size:13px;line-height:2;">
+        <div style="padding:8px 12px;background:#d1fae5;border-radius:6px;margin-bottom:6px;">✅ <strong>AN TOÀN:</strong> Meta desc, schema, alt text, blog mới, author box, headers, robots.txt</div>
+        <div style="padding:8px 12px;background:#fef3c7;border-radius:6px;margin-bottom:6px;">⚠️ <strong>TỪ TỪ:</strong> Noindex URL params, bulk redirects, merge content</div>
+        <div style="padding:8px 12px;background:#fee2e2;border-radius:6px;">🚫 <strong>KHÔNG:</strong> Xóa hàng trăm trang, đổi URL structure, mass changes</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+<script>
+function sw(n){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));document.getElementById('tab-'+n).classList.add('active');event.target.classList.add('active');}
+Chart.defaults.font.family='DM Sans';Chart.defaults.color='#64748b';
+new Chart(document.getElementById('scoreDistChart'),{type:'bar',data:{labels:['40-49','50-54','55-59','60-64'],datasets:[{label:'Trang',data:[267,2100,2367,266],backgroundColor:['#dc2626','#ea580c','#d97706','#059669']}]},options:{scales:{x:{grid:{display:false}},y:{grid:{color:'#e2e8f0'}}},plugins:{legend:{display:false}}}});
+new Chart(document.getElementById('speedChart'),{type:'bar',data:{labels:['<3s','3-5s','5-10s','10-15s','15-20s','20s+'],datasets:[{label:'Trang',data:[1,12,890,2800,980,317],backgroundColor:['#047857','#059669','#2563eb','#d97706','#ea580c','#dc2626']}]},options:{scales:{x:{grid:{display:false}},y:{grid:{color:'#e2e8f0'}}},plugins:{legend:{display:false}}}});
+</script>
+</body>
+</html>
