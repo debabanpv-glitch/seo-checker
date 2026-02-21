@@ -103,9 +103,9 @@ export default function Sidebar() {
         )}
       </nav>
 
-      {/* Settings */}
+      {/* Settings — pinned to bottom */}
       {settingsModules.length > 0 && (
-        <div className="px-3 py-4 border-t border-border space-y-1">
+        <div className="mt-auto px-3 py-4 border-t border-border space-y-1">
           {settingsModules.map((item) => (
             <NavItem key={item.id} item={item} onClick={closeMobile} />
           ))}
