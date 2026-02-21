@@ -11,7 +11,7 @@ export function GET(request: NextRequest) {
     const activity_type = sp.get('activity_type') ?? undefined;
     const limitParam = sp.get('limit');
     const limit = limitParam ? parseInt(limitParam) : undefined;
-    return NextResponse.json({ activities: getActivities({ project_slug, activity_type, limit }) });
+    return NextResponse.json({ logs: getActivities({ project_slug, activity_type, limit }) });
   } catch (error) {
     return handleApiError(error);
   }
