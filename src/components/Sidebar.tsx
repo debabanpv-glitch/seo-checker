@@ -12,30 +12,55 @@ import {
   Menu,
   X,
   Search,
-  BookOpen,
   TrendingUp,
+  Target,
+  Bot,
+  StickyNote,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { modules, type ModuleConfig } from '@/modules/registry';
 
-const navigation = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Dự án', href: '/projects', icon: FolderKanban },
-  { name: 'Tasks', href: '/tasks', icon: ListTodo },
-  { name: 'SEO Audit', href: '/seo-audit', icon: Search },
-  { name: 'Keyword Ranking', href: '/keyword-ranking', icon: TrendingUp },
-  { name: 'Thành viên', href: '/members', icon: Users },
-  { name: 'Tính lương', href: '/salary', icon: Wallet },
-  { name: 'Cài đặt', href: '/settings', icon: Settings },
-];
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  LayoutDashboard,
+  FolderKanban,
+  ListTodo,
+  Users,
+  Wallet,
+  Search,
+  TrendingUp,
+  Target,
+  Bot,
+  StickyNote,
+  Settings,
+};
 
-const secondaryNav = [
-  { name: 'Docs', href: '/docs', icon: BookOpen },
-];
+const enabledModules = modules.filter((m) => m.enabled).sort((a, b) => a.order - b.order);
+
+const coreModules = enabledModules.filter((m) => m.group === 'core');
+const extensionModules = enabledModules.filter((m) => m.group === 'extension');
+const settingsModules = enabledModules.filter((m) => m.group === 'settings');
+
+function NavItem({ item, onClick }: { item: ModuleConfig; onClick: () => void }) {
+  const pathname = usePathname();
+  const isActive = pathname === item.path;
+  const Icon = iconMap[item.icon];
+
+  return (
+    <Link
+      href={item.path}
+      onClick={onClick}
+      className={cn('nav-link', isActive && 'active')}
+    >
+      {Icon && <Icon className="w-5 h-5" />}
+      <span>{item.name}</span>
+    </Link>
+  );
+}
 
 export default function Sidebar() {
-  const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const closeMobile = () => setMobileOpen(false);
 
   const SidebarContent = () => (
     <>
@@ -51,46 +76,35 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {navigation.map((item) => {
-          const isActive = pathname === item.href;
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              onClick={() => setMobileOpen(false)}
-              className={cn(
-                'nav-link',
-                isActive && 'active'
-              )}
-            >
-              <item.icon className="w-5 h-5" />
-              <span>{item.name}</span>
-            </Link>
-          );
-        })}
+      <nav className="flex-1 px-3 py-4 overflow-y-auto">
+        {/* Core */}
+        <div className="space-y-1">
+          {coreModules.map((item) => (
+            <NavItem key={item.id} item={item} onClick={closeMobile} />
+          ))}
+        </div>
+
+        {/* Extensions */}
+        {extensionModules.length > 0 && (
+          <>
+            <div className="my-3 border-t border-border" />
+            <div className="space-y-1">
+              {extensionModules.map((item) => (
+                <NavItem key={item.id} item={item} onClick={closeMobile} />
+              ))}
+            </div>
+          </>
+        )}
       </nav>
 
-      {/* Secondary Nav */}
-      <div className="px-3 py-4 border-t border-border space-y-1">
-        {secondaryNav.map((item) => {
-          const isActive = pathname === item.href;
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              onClick={() => setMobileOpen(false)}
-              className={cn(
-                'nav-link text-[#8888a0]',
-                isActive && 'active'
-              )}
-            >
-              <item.icon className="w-5 h-5" />
-              <span>{item.name}</span>
-            </Link>
-          );
-        })}
-      </div>
+      {/* Settings */}
+      {settingsModules.length > 0 && (
+        <div className="px-3 py-4 border-t border-border space-y-1">
+          {settingsModules.map((item) => (
+            <NavItem key={item.id} item={item} onClick={closeMobile} />
+          ))}
+        </div>
+      )}
     </>
   );
 

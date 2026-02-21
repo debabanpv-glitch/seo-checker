@@ -28,4 +28,5 @@ export const keywordRankings = sqliteTable('keyword_rankings', {
   position: real('position').notNull(),
   date: text('date').notNull(),
   project_id: text('project_id').references(() => projects.id, { onDelete: 'set null' }),
+  source: text('source').notNull().default('sheets'), // sheets | claude-code | gsc
 });

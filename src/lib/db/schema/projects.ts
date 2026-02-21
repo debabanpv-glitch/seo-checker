@@ -5,11 +5,17 @@ import { sql } from 'drizzle-orm';
 export const projects = sqliteTable('projects', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   name: text('name').notNull(),
+  slug: text('slug'),
+  website: text('website'),
+  industry: text('industry'),
   sheet_id: text('sheet_id').notNull().default(''),
   sheet_name: text('sheet_name').notNull().default(''),
   monthly_target: integer('monthly_target').notNull().default(20),
   ranking_sheet_url: text('ranking_sheet_url'),
+  gsc_property: text('gsc_property'),
+  status: text('status').notNull().default('active'),
   created_at: text('created_at').notNull().default(sql`(datetime('now'))`),
+  updated_at: text('updated_at').default(sql`(datetime('now'))`),
 });
 
 // --- tasks table ---
@@ -36,6 +42,8 @@ export const tasks = sqliteTable('tasks', {
   publish_date: text('publish_date'),
   note: text('note').notNull().default(''),
   month_year: text('month_year').notNull().default(''),
+  source: text('source').notNull().default('sheets'), // sheets | claude-code | manual
+  assigned_to: text('assigned_to').notNull().default('human'), // human | claude
   created_at: text('created_at').notNull().default(sql`(datetime('now'))`),
   updated_at: text('updated_at').notNull().default(sql`(datetime('now'))`),
 });

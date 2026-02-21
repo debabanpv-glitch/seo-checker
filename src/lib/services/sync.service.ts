@@ -11,7 +11,9 @@ type SheetCell = { v: string | number | null; f?: string };
 type SheetRow = { c: Array<SheetCell> };
 
 async function fetchGoogleSheet(sheetId: string, sheetName: string) {
-  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
+  // Use gid parameter if sheet_name is numeric (tab ID), otherwise use sheet name
+  const sheetParam = /^\d+$/.test(sheetName) ? `gid=${sheetName}` : `sheet=${encodeURIComponent(sheetName)}`;
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&${sheetParam}`;
 
   const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
   if (!response.ok) throw new Error(`Failed to fetch sheet: ${response.status}`);

@@ -6,3 +6,7 @@ export * from './member.service';
 export * from './salary.service';
 export * from './sync.service';
 export * from './dashboard.service';
+export * from './strategy-phases-and-actions-crud.service';
+export * from './claude-activities-log-and-query.service';
+export * from './notes-create-list-delete.service';
+export * from './gsc-snapshots-save-and-query.service';
