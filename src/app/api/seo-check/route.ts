@@ -125,6 +125,9 @@ export async function POST(request: NextRequest) {
     const lastParas = getLastParagraphs(bodyHtml);
     const urlObj = new URL(url);
 
+    // Extract H1 early (used in both content and technical checks)
+    const h1Matches = bodyHtml.match(/<h1[^>]*>([\s\S]*?)<\/h1>/gi) || [];
+
     // ==================== CONTENT CHECKS ====================
 
     // 1. Meta Title
@@ -328,6 +331,81 @@ export async function POST(request: NextRequest) {
       suggestion: density < 0.5 ? 'Tăng mật độ keyword' : density > 2.5 ? 'Giảm mật độ keyword, tránh spam' : undefined,
     });
 
+    // 11. H1 chứa keyword
+    const h1Contents = h1Matches.map(h => extractText(h));
+    const h1HasKeyword = h1Contents.some(h => hasKeyword(h, keyword));
+    details.push({
+      id: 'h1-keyword',
+      category: 'content',
+      name: 'H1 chứa keyword',
+      description: 'Thẻ H1 phải chứa keyword chính',
+      status: h1HasKeyword ? 'pass' : 'fail',
+      score: h1HasKeyword ? 3 : 0,
+      maxScore: 3,
+      value: h1Contents.length > 0 ? h1Contents[0].substring(0, 80) + (h1Contents[0].length > 80 ? '...' : '') : 'Không có H1',
+      suggestion: !h1HasKeyword ? `Thêm keyword "${keyword}" vào thẻ H1` : undefined,
+    });
+
+    // 12. Cấu trúc heading H3
+    const h3Matches = bodyHtml.match(/<h3[^>]*>([\s\S]*?)<\/h3>/gi) || [];
+    details.push({
+      id: 'h3-structure',
+      category: 'content',
+      name: 'Cấu trúc heading H3',
+      description: 'Có ít nhất 2 thẻ H3 để tạo cấu trúc nội dung',
+      status: h3Matches.length >= 2 ? 'pass' : h3Matches.length === 1 ? 'warning' : 'fail',
+      score: h3Matches.length >= 2 ? 2 : h3Matches.length === 1 ? 1 : 0,
+      maxScore: 2,
+      value: `${h3Matches.length} H3`,
+      suggestion: h3Matches.length < 2 ? 'Thêm thẻ H3 để chia nhỏ nội dung trong mỗi mục' : undefined,
+    });
+
+    // 13. Keyword in đậm
+    const boldMatches = bodyHtml.match(/<(?:strong|b)[^>]*>([\s\S]*?)<\/(?:strong|b)>/gi) || [];
+    const boldHasKeyword = boldMatches.some(b => hasKeyword(extractText(b), keyword));
+    details.push({
+      id: 'bold-keyword',
+      category: 'content',
+      name: 'Keyword in đậm',
+      description: 'Keyword xuất hiện trong thẻ <strong> hoặc <b>',
+      status: boldHasKeyword ? 'pass' : 'warning',
+      score: boldHasKeyword ? 2 : 0,
+      maxScore: 2,
+      value: boldHasKeyword ? 'Có keyword in đậm' : 'Không có keyword in đậm',
+      suggestion: !boldHasKeyword ? `In đậm keyword "${keyword}" ít nhất 1 lần trong bài` : undefined,
+    });
+
+    // 14. Table of Contents
+    const hasToc = /id=["'][^"']*toc[^"']*["']/i.test(bodyHtml) ||
+      /class=["'][^"']*(?:toc|table-of-content|muc-luc)[^"']*["']/i.test(bodyHtml);
+    details.push({
+      id: 'toc',
+      category: 'content',
+      name: 'Table of Contents',
+      description: 'Có mục lục để điều hướng bài viết',
+      status: hasToc ? 'pass' : 'warning',
+      score: hasToc ? 2 : 0,
+      maxScore: 2,
+      value: hasToc ? 'Có mục lục' : 'Không có mục lục',
+      suggestion: !hasToc ? 'Thêm mục lục (id="toc" hoặc class="toc") để tăng UX và SEO' : undefined,
+    });
+
+    // 15. FAQ Section
+    const hasFaqSchema = /"@type"\s*:\s*"FAQPage"/i.test(html);
+    const hasFaqHeading = /<h[2-4][^>]*>[^<]*(?:faq|câu hỏi thường gặp)[^<]*<\/h[2-4]>/i.test(bodyHtml);
+    const hasFaq = hasFaqSchema || hasFaqHeading;
+    details.push({
+      id: 'faq',
+      category: 'content',
+      name: 'FAQ Section',
+      description: 'Có phần FAQ (schema FAQPage hoặc heading FAQ)',
+      status: hasFaq ? 'pass' : 'warning',
+      score: hasFaq ? 2 : 0,
+      maxScore: 2,
+      value: hasFaqSchema ? 'Có FAQ schema' : hasFaqHeading ? 'Có FAQ heading' : 'Không có FAQ',
+      suggestion: !hasFaq ? 'Thêm phần "Câu hỏi thường gặp" với FAQ schema để tăng khả năng xuất hiện rich snippet' : undefined,
+    });
+
     // ==================== IMAGE CHECKS ====================
 
     const imgMatches = bodyHtml.match(/<img[^>]*>/gi) || [];
@@ -379,6 +457,36 @@ export async function POST(request: NextRequest) {
       maxScore: 3,
       value: `${imgMatches.length} ảnh / ${h2Contents.length} H2`,
       suggestion: imgMatches.length < h2Contents.length ? 'Thêm ảnh minh họa cho các heading' : undefined,
+    });
+
+    // Lazy loading
+    const imagesWithLazy = imgMatches.filter(img => /loading=["']lazy["']/i.test(img)).length;
+    details.push({
+      id: 'image-lazy',
+      category: 'images',
+      name: 'Lazy loading',
+      description: 'Ảnh nên có loading="lazy" để tăng tốc độ tải',
+      status: imgMatches.length === 0 || imagesWithLazy === imgMatches.length ? 'pass' : imagesWithLazy > 0 ? 'warning' : 'fail',
+      score: imgMatches.length === 0 ? 2 : imagesWithLazy === imgMatches.length ? 2 : imagesWithLazy > 0 ? 1 : 0,
+      maxScore: 2,
+      value: imgMatches.length === 0 ? 'Không có ảnh' : `${imagesWithLazy}/${imgMatches.length} ảnh có lazy loading`,
+      suggestion: imgMatches.length > 0 && imagesWithLazy < imgMatches.length ? 'Thêm loading="lazy" cho tất cả ảnh' : undefined,
+    });
+
+    // Next-gen image format (WebP/AVIF)
+    const sourceMatches = bodyHtml.match(/<source[^>]*>/gi) || [];
+    const allImgElements = [...imgMatches, ...sourceMatches];
+    const imagesWithNextGen = allImgElements.filter(el => /\.(?:webp|avif)(?:[?#"'\s]|$)/i.test(el)).length;
+    details.push({
+      id: 'image-format',
+      category: 'images',
+      name: 'Next-gen format (WebP/AVIF)',
+      description: 'Sử dụng WebP hoặc AVIF để giảm dung lượng ảnh',
+      status: imgMatches.length === 0 || imagesWithNextGen > 0 ? 'pass' : 'warning',
+      score: imgMatches.length === 0 || imagesWithNextGen > 0 ? 2 : 0,
+      maxScore: 2,
+      value: imgMatches.length === 0 ? 'Không có ảnh' : imagesWithNextGen > 0 ? `${imagesWithNextGen} ảnh dùng WebP/AVIF` : 'Không dùng WebP/AVIF',
+      suggestion: imgMatches.length > 0 && imagesWithNextGen === 0 ? 'Chuyển ảnh sang định dạng WebP hoặc AVIF để tối ưu tốc độ' : undefined,
     });
 
     // ==================== TECHNICAL CHECKS ====================
@@ -510,7 +618,6 @@ export async function POST(request: NextRequest) {
     });
 
     // H1 check
-    const h1Matches = bodyHtml.match(/<h1[^>]*>([\s\S]*?)<\/h1>/gi) || [];
     details.push({
       id: 'h1-count',
       category: 'technical',
@@ -521,6 +628,115 @@ export async function POST(request: NextRequest) {
       maxScore: 2,
       value: `${h1Matches.length} H1`,
       suggestion: h1Matches.length === 0 ? 'Thiếu thẻ H1' : h1Matches.length > 1 ? 'Chỉ nên có 1 thẻ H1' : undefined,
+    });
+
+    // Open Graph tags
+    const hasOgTitle = /<meta[^>]*property=["']og:title["']/i.test(html);
+    const hasOgDescription = /<meta[^>]*property=["']og:description["']/i.test(html);
+    const hasOgImage = /<meta[^>]*property=["']og:image["']/i.test(html);
+    const ogCount = [hasOgTitle, hasOgDescription, hasOgImage].filter(Boolean).length;
+    details.push({
+      id: 'og-tags',
+      category: 'technical',
+      name: 'Open Graph',
+      description: 'Có đủ 3 thẻ og:title, og:description, og:image',
+      status: ogCount === 3 ? 'pass' : ogCount > 0 ? 'warning' : 'fail',
+      score: ogCount === 3 ? 3 : ogCount > 0 ? 1 : 0,
+      maxScore: 3,
+      value: `${ogCount}/3 OG tags (${[hasOgTitle && 'title', hasOgDescription && 'description', hasOgImage && 'image'].filter(Boolean).join(', ') || 'không có'})`,
+      suggestion: ogCount < 3 ? `Thiếu: ${[!hasOgTitle && 'og:title', !hasOgDescription && 'og:description', !hasOgImage && 'og:image'].filter(Boolean).join(', ')}` : undefined,
+    });
+
+    // Schema.org JSON-LD
+    const schemaMatches = html.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gi) || [];
+    details.push({
+      id: 'schema',
+      category: 'technical',
+      name: 'Schema.org',
+      description: 'Có structured data JSON-LD',
+      status: schemaMatches.length > 0 ? 'pass' : 'fail',
+      score: schemaMatches.length > 0 ? 3 : 0,
+      maxScore: 3,
+      value: schemaMatches.length > 0 ? `${schemaMatches.length} JSON-LD block` : 'Không có schema',
+      suggestion: schemaMatches.length === 0 ? 'Thêm structured data JSON-LD (Article, BreadcrumbList, FAQPage...)' : undefined,
+    });
+
+    // URL chứa keyword
+    const urlPath = urlObj.pathname.toLowerCase();
+    const keywordLower = keyword ? keyword.toLowerCase() : '';
+    const urlHasKeyword = keywordLower ? urlPath.includes(keywordLower) : false;
+    details.push({
+      id: 'url-keyword',
+      category: 'technical',
+      name: 'URL chứa keyword',
+      description: 'Slug URL nên chứa keyword chính',
+      status: urlHasKeyword ? 'pass' : keywordLower ? 'warning' : 'pass',
+      score: urlHasKeyword ? 2 : keywordLower ? 0 : 2,
+      maxScore: 2,
+      value: urlObj.pathname || '/',
+      suggestion: keywordLower && !urlHasKeyword ? `Đặt keyword "${keyword}" vào slug URL` : undefined,
+    });
+
+    // HTTPS
+    const isHttps = urlObj.protocol === 'https:';
+    details.push({
+      id: 'https',
+      category: 'technical',
+      name: 'HTTPS',
+      description: 'Trang web sử dụng HTTPS',
+      status: isHttps ? 'pass' : 'fail',
+      score: isHttps ? 2 : 0,
+      maxScore: 2,
+      value: isHttps ? 'HTTPS' : 'HTTP (không an toàn)',
+      suggestion: !isHttps ? 'Chuyển sang HTTPS để bảo mật và tăng thứ hạng SEO' : undefined,
+    });
+
+    // Robots meta
+    const robotsMetaMatch = html.match(/<meta[^>]*name=["']robots["'][^>]*content=["']([^"']*)["']/i) ||
+      html.match(/<meta[^>]*content=["']([^"']*)["'][^>]*name=["']robots["']/i);
+    const robotsContent = robotsMetaMatch ? robotsMetaMatch[1].toLowerCase() : '';
+    const hasNoindex = robotsContent.includes('noindex');
+    details.push({
+      id: 'robots',
+      category: 'technical',
+      name: 'Robots meta',
+      description: 'Không có noindex (trang phải được index)',
+      status: hasNoindex ? 'fail' : 'pass',
+      score: hasNoindex ? 0 : 1,
+      maxScore: 1,
+      value: robotsContent || 'Không có (mặc định index,follow)',
+      suggestion: hasNoindex ? 'Xóa hoặc sửa robots meta tag, tránh noindex nếu muốn trang được index' : undefined,
+    });
+
+    // Language tag
+    const hasLang = /<html[^>]*lang=/i.test(html);
+    details.push({
+      id: 'lang',
+      category: 'technical',
+      name: 'Language tag',
+      description: 'Thẻ <html> có thuộc tính lang',
+      status: hasLang ? 'pass' : 'fail',
+      score: hasLang ? 1 : 0,
+      maxScore: 1,
+      value: hasLang ? 'Có lang attribute' : 'Không có lang attribute',
+      suggestion: !hasLang ? 'Thêm lang attribute vào thẻ <html> (ví dụ: lang="vi")' : undefined,
+    });
+
+    // Breadcrumb
+    const hasBreadcrumbSchema = /"@type"\s*:\s*"BreadcrumbList"/i.test(html);
+    const hasBreadcrumbClass = /class=["'][^"']*breadcrumb[^"']*["']/i.test(bodyHtml) ||
+      /aria-label=["']breadcrumb["']/i.test(bodyHtml);
+    const hasBreadcrumb = hasBreadcrumbSchema || hasBreadcrumbClass;
+    details.push({
+      id: 'breadcrumb',
+      category: 'technical',
+      name: 'Breadcrumb',
+      description: 'Có breadcrumb schema hoặc nav breadcrumb',
+      status: hasBreadcrumb ? 'pass' : 'warning',
+      score: hasBreadcrumb ? 2 : 0,
+      maxScore: 2,
+      value: hasBreadcrumbSchema ? 'Có breadcrumb schema' : hasBreadcrumbClass ? 'Có breadcrumb nav' : 'Không có breadcrumb',
+      suggestion: !hasBreadcrumb ? 'Thêm breadcrumb với BreadcrumbList schema để cải thiện rich snippet' : undefined,
     });
 
     // Calculate scores by category
