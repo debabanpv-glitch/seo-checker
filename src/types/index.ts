@@ -49,6 +49,11 @@ export interface Task {
   publish_date: string;
   note: string;
   month_year: string;
+  category: string; // content | technical | linkbuilding | onpage | audit
+  priority: string; // critical | high | medium | low
+  estimated_hours: number;
+  actual_result: string;
+  source: string; // sheets | claude-code | manual
   created_at: string;
   updated_at: string;
   // Joined fields
@@ -154,6 +159,8 @@ export interface TaskFilter {
   project?: string;
   pic?: string;
   status?: string;
+  category?: string;
+  priority?: string;
   month?: number;
   year?: number;
   search?: string;

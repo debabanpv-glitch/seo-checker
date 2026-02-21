@@ -15,11 +15,15 @@ export function getTasks(filters: {
   month?: number;
   year?: number;
   published?: boolean;
+  category?: string;
+  priority?: string;
 }) {
   const conditions = [];
 
   if (filters.project_id) conditions.push(eq(tasks.project_id, filters.project_id));
   if (filters.pic) conditions.push(eq(tasks.pic, filters.pic));
+  if (filters.category) conditions.push(eq(tasks.category, filters.category));
+  if (filters.priority) conditions.push(eq(tasks.priority, filters.priority));
 
   // For published filter, use publish_date range
   if (filters.month && filters.year && filters.published) {
@@ -96,6 +100,38 @@ export function insertTasksBatch(taskRows: (typeof tasks.$inferInsert)[]) {
 // Get all tasks (used by stats/dashboard)
 export function getAllTasks() {
   return db.select().from(tasks).all();
+}
+
+export function createTask(data: {
+  project_id: string;
+  title: string;
+  category?: string;
+  priority?: string;
+  deadline?: string;
+  pic?: string;
+  note?: string;
+  estimated_hours?: number;
+  month?: number;
+  year?: number;
+}) {
+  const now = new Date();
+  const month = data.month || now.getMonth() + 1;
+  const year = data.year || now.getFullYear();
+  return db.insert(tasks).values({
+    project_id: data.project_id,
+    title: data.title,
+    category: data.category || 'content',
+    priority: data.priority || 'medium',
+    deadline: data.deadline || null,
+    pic: data.pic || '',
+    note: data.note || '',
+    estimated_hours: data.estimated_hours || 0,
+    month,
+    year,
+    month_year: `${month}/${year}`,
+    source: 'manual',
+    status_content: '1. Doing',
+  }).returning().get();
 }
 
 // Get all tasks with project name joined

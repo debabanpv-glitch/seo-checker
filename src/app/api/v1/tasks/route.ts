@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTasks, updateTask, deleteTask } from '@/lib/services';
+import { getTasks, updateTask, deleteTask, createTask } from '@/lib/services';
 import { handleApiError } from '@/lib/api-response';
 
 export const dynamic = 'force-dynamic';
@@ -14,6 +14,19 @@ export function GET(request: NextRequest) {
 
     const tasks = getTasks({ project_id: project, month, year, published });
     return NextResponse.json({ tasks });
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    if (!body.project_id || !body.title) {
+      return NextResponse.json({ error: 'project_id and title are required' }, { status: 400 });
+    }
+    const task = createTask(body);
+    return NextResponse.json({ task });
   } catch (error) {
     return handleApiError(error);
   }

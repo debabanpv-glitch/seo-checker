@@ -2,56 +2,128 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import {
-  Search,
-  ExternalLink,
-  Filter,
   Calendar,
+  Plus,
   FileText,
-  CheckCircle2,
-  Clock,
   AlertTriangle,
-  Users,
+  TrendingUp,
+  LayoutList,
 } from 'lucide-react';
-import StatusBadge from '@/components/StatusBadge';
-import { PageLoading } from '@/components/LoadingSpinner';
-import EmptyState from '@/components/EmptyState';
-import { formatDate, isOverdue, isDueSoon, truncate, cn } from '@/lib/utils';
 import { Task, Project } from '@/types';
+import { isOverdue, cn } from '@/lib/utils';
+import { isPublished } from '@/lib/task-helpers';
+import { PageLoading } from '@/components/LoadingSpinner';
+import TasksAddFormDialog from './tasks-add-form-dialog';
+import { CATEGORIES } from './tasks-add-form-dialog';
+import { TasksWeekView, TasksMonthView } from './tasks-week-view-grouped-by-day-and-month-view-grouped-by-category';
+import TasksAllTabWithFiltersSearchAndSortableTable from './tasks-all-tab-with-filters-search-and-sortable-table';
 
-type ViewTab = 'all' | 'overdue' | 'dueSoon' | 'inProgress' | 'published';
+type ActiveTab = 'week' | 'month' | 'all';
+
+// ─── Stat Card ────────────────────────────────────────────────────────────────
+
+function StatCard({
+  icon,
+  label,
+  value,
+  sub,
+  colorClass,
+  active,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number | string;
+  sub?: string;
+  colorClass: string;
+  active?: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'bg-card border rounded-xl p-3 text-left transition-all flex flex-col gap-1',
+        active ? `border-current ring-2 ring-current/20 ${colorClass}` : 'border-border hover:border-accent/40'
+      )}
+    >
+      <div className="flex items-center justify-between">
+        <span className={cn('w-7 h-7 flex items-center justify-center rounded-lg', active ? 'bg-white/10' : 'bg-secondary')}>
+          {icon}
+        </span>
+        <span className={cn('text-xs', active ? 'opacity-80' : 'text-[#8888a0]')}>{label}</span>
+      </div>
+      <p className={cn('text-2xl font-bold', active ? '' : 'text-[var(--text-primary)]')}>{value}</p>
+      {sub && <p className={cn('text-xs', active ? 'opacity-70' : 'text-[#8888a0]')}>{sub}</p>}
+    </button>
+  );
+}
+
+// ─── Category Mini Bar ────────────────────────────────────────────────────────
+
+function CategoryMiniBreakdown({ tasks }: { tasks: Task[] }) {
+  const counts = useMemo(() => {
+    return CATEGORIES.map((cat) => ({
+      ...cat,
+      count: tasks.filter((t) => t.category === cat.value).length,
+    })).filter((c) => c.count > 0);
+  }, [tasks]);
+
+  const max = Math.max(...counts.map((c) => c.count), 1);
+
+  if (counts.length === 0) return null;
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-3 flex flex-col gap-2">
+      <span className="text-xs text-[#8888a0] font-medium flex items-center gap-1.5">
+        <LayoutList className="w-3.5 h-3.5" /> Danh mục
+      </span>
+      <div className="flex flex-col gap-1.5">
+        {counts.map((cat) => (
+          <div key={cat.value} className="flex items-center gap-2">
+            <span className={cn('text-xs px-1.5 py-0.5 rounded font-medium whitespace-nowrap', cat.color)}>
+              {cat.label}
+            </span>
+            <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full bg-accent/60 transition-all"
+                style={{ width: `${(cat.count / max) * 100}%` }}
+              />
+            </div>
+            <span className="text-xs text-[var(--text-primary)] font-medium w-4 text-right">{cat.count}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<ActiveTab>('week');
+  const [showAddForm, setShowAddForm] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return `${now.getMonth() + 1}-${now.getFullYear()}`;
   });
-  const [filters, setFilters] = useState({
-    project: '',
-    pic: '',
-    status: '',
-    search: '',
-  });
-  const [pics, setPics] = useState<string[]>([]);
-  const [viewTab, setViewTab] = useState<ViewTab>('all');
 
-  // Generate month options
-  const monthOptions = [];
-  const now = new Date();
-  for (let i = 0; i < 12; i++) {
-    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    monthOptions.push({
-      value: `${date.getMonth() + 1}-${date.getFullYear()}`,
-      label: `Tháng ${date.getMonth() + 1}/${date.getFullYear()}`,
-    });
-  }
-
-  useEffect(() => {
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedMonth]);
+  // Month options
+  const monthOptions = useMemo(() => {
+    const opts = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      opts.push({
+        value: `${d.getMonth() + 1}-${d.getFullYear()}`,
+        label: `Tháng ${d.getMonth() + 1}/${d.getFullYear()}`,
+      });
+    }
+    return opts;
+  }, []);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -61,451 +133,171 @@ export default function TasksPage() {
         fetch(`/api/v1/tasks?month=${month}&year=${year}`),
         fetch('/api/v1/projects'),
       ]);
-
       const tasksData = await tasksRes.json();
       const projectsData = await projectsRes.json();
-
       setTasks(tasksData.tasks || []);
       setProjects(projectsData.projects || []);
-
-      // Extract unique PICs
-      const uniquePics = [...new Set((tasksData.tasks || []).map((t: Task) => t.pic).filter(Boolean))];
-      setPics(uniquePics as string[]);
-    } catch (error) {
-      console.error('Failed to fetch data:', error);
+    } catch (err) {
+      console.error('Failed to fetch tasks:', err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Calculate stats
+  useEffect(() => {
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMonth]);
+
+  // Stats
   const stats = useMemo(() => {
-    const validTasks = tasks.filter(t => t.title || t.keyword_sub);
-    const published = validTasks.filter(t =>
-      t.status_content?.includes('4. Publish') || t.status_content?.includes('4.Publish')
-    );
-    const inProgress = validTasks.filter(t =>
-      t.status_content && !t.status_content.includes('4. Publish') && !t.status_content.includes('4.Publish')
-    );
-    const overdue = validTasks.filter(t => {
-      if (!t.deadline) return false;
-      if (t.status_content?.includes('4. Publish')) return false;
-      return isOverdue(t.deadline);
-    });
-    const dueSoon = validTasks.filter(t => {
-      if (!t.deadline) return false;
-      if (t.status_content?.includes('4. Publish')) return false;
-      return isDueSoon(t.deadline) && !isOverdue(t.deadline);
-    });
-
-    // Group by PIC
-    const byPic: Record<string, { total: number; published: number; overdue: number }> = {};
-    validTasks.forEach(t => {
-      const pic = t.pic || 'Unknown';
-      if (!byPic[pic]) byPic[pic] = { total: 0, published: 0, overdue: 0 };
-      byPic[pic].total++;
-      if (t.status_content?.includes('4. Publish')) byPic[pic].published++;
-      if (t.deadline && isOverdue(t.deadline) && !t.status_content?.includes('4. Publish')) {
-        byPic[pic].overdue++;
-      }
-    });
-
-    return {
-      total: validTasks.length,
-      published: published.length,
-      inProgress: inProgress.length,
-      overdue: overdue.length,
-      dueSoon: dueSoon.length,
-      byPic,
-    };
+    const valid = tasks.filter((t) => t.title || t.keyword_sub);
+    const done = valid.filter((t) => isPublished(t));
+    const overdue = valid.filter((t) => !isPublished(t) && isOverdue(t.deadline));
+    const pct = valid.length > 0 ? Math.round((done.length / valid.length) * 100) : 0;
+    return { total: valid.length, done: done.length, overdue: overdue.length, pct };
   }, [tasks]);
 
-  const filteredTasks = useMemo(() => {
-    let result = tasks.filter((task) => {
-      // Filter out empty tasks
-      if (!task.title && !task.keyword_sub) return false;
+  // Current week tasks (for "Tuần này" tab)
+  const weekTasks = useMemo(() => {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7));
+    monday.setHours(0, 0, 0, 0);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
 
-      if (filters.project && task.project_id !== filters.project) return false;
-      if (filters.pic && task.pic !== filters.pic) return false;
-      if (filters.status) {
-        const status = task.status_content || task.status_outline || '';
-        if (!status.toLowerCase().includes(filters.status.toLowerCase())) return false;
-      }
-      if (filters.search) {
-        const searchLower = filters.search.toLowerCase();
-        const title = (task.title || '').toLowerCase();
-        const keyword = (task.keyword_sub || '').toLowerCase();
-        if (!title.includes(searchLower) && !keyword.includes(searchLower)) return false;
-      }
-      return true;
+    return tasks.filter((t) => {
+      if (!t.deadline) return false;
+      const d = new Date(t.deadline);
+      return d >= monday && d <= sunday;
     });
+  }, [tasks]);
 
-    // Apply view tab filter
-    switch (viewTab) {
-      case 'overdue':
-        result = result.filter(t =>
-          t.deadline && isOverdue(t.deadline) && !t.status_content?.includes('4. Publish')
-        );
-        break;
-      case 'dueSoon':
-        result = result.filter(t =>
-          t.deadline && isDueSoon(t.deadline) && !isOverdue(t.deadline) && !t.status_content?.includes('4. Publish')
-        );
-        break;
-      case 'inProgress':
-        result = result.filter(t =>
-          t.status_content && !t.status_content.includes('4. Publish')
-        );
-        break;
-      case 'published':
-        result = result.filter(t =>
-          t.status_content?.includes('4. Publish')
-        );
-        break;
-    }
+  const pics = useMemo(() => {
+    return [...new Set(tasks.map((t) => t.pic).filter(Boolean))] as string[];
+  }, [tasks]);
 
-    return result;
-  }, [tasks, filters, viewTab]);
+  const tabs: { id: ActiveTab; label: string }[] = [
+    { id: 'week', label: 'Tuần này' },
+    { id: 'month', label: 'Tháng này' },
+    { id: 'all', label: 'Tổng' },
+  ];
 
-  const getRowClass = (task: Task) => {
-    if (task.status_content === '4. Publish') return 'bg-success/5';
-    if (isOverdue(task.deadline)) return 'bg-danger/10';
-    if (isDueSoon(task.deadline)) return 'bg-warning/10';
-    return '';
-  };
-
-  if (isLoading) {
-    return <PageLoading />;
-  }
+  if (isLoading) return <PageLoading />;
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* ── Header ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Tasks</h1>
-          <p className="text-[#8888a0] text-sm">Quản lý công việc - T{selectedMonth.replace('-', '/')}</p>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Kế hoạch công việc</h1>
+          <p className="text-[#8888a0] text-sm">
+            Quản lý SEO tasks — T{selectedMonth.replace('-', '/')}
+          </p>
         </div>
-
-        {/* Month Selector */}
         <div className="flex items-center gap-2">
           <Calendar className="w-4 h-4 text-[#8888a0]" />
           <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            className="px-4 py-2 bg-card border border-border rounded-lg text-[var(--text-primary)]"
+            className="px-3 py-1.5 bg-card border border-border rounded-lg text-[var(--text-primary)] text-sm"
           >
-            {monthOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
+            {monthOptions.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
+          <button
+            onClick={() => setShowAddForm((v) => !v)}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
+              showAddForm
+                ? 'bg-secondary text-[#8888a0]'
+                : 'bg-accent text-white hover:bg-accent/80'
+            )}
+          >
+            <Plus className="w-4 h-4" />
+            Thêm task
+          </button>
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <button
-          onClick={() => setViewTab('all')}
-          className={cn(
-            "bg-card border rounded-xl p-4 text-left transition-all",
-            viewTab === 'all' ? "border-accent ring-2 ring-accent/20" : "border-border hover:border-accent/50"
-          )}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <FileText className="w-5 h-5 text-accent" />
-            <span className="text-xs text-[#8888a0]">Tổng</span>
-          </div>
-          <p className="text-2xl font-bold text-[var(--text-primary)]">{stats.total}</p>
-        </button>
-
-        <button
-          onClick={() => setViewTab('published')}
-          className={cn(
-            "bg-card border rounded-xl p-4 text-left transition-all",
-            viewTab === 'published' ? "border-success ring-2 ring-success/20" : "border-border hover:border-success/50"
-          )}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <CheckCircle2 className="w-5 h-5 text-success" />
-            <span className="text-xs text-[#8888a0]">Published</span>
-          </div>
-          <p className="text-2xl font-bold text-success">{stats.published}</p>
-          <p className="text-xs text-[#8888a0]">{stats.total > 0 ? Math.round(stats.published / stats.total * 100) : 0}% hoàn thành</p>
-        </button>
-
-        <button
-          onClick={() => setViewTab('inProgress')}
-          className={cn(
-            "bg-card border rounded-xl p-4 text-left transition-all",
-            viewTab === 'inProgress' ? "border-warning ring-2 ring-warning/20" : "border-border hover:border-warning/50"
-          )}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <Clock className="w-5 h-5 text-warning" />
-            <span className="text-xs text-[#8888a0]">Đang làm</span>
-          </div>
-          <p className="text-2xl font-bold text-warning">{stats.inProgress}</p>
-        </button>
-
-        <button
-          onClick={() => setViewTab('overdue')}
-          className={cn(
-            "bg-card border rounded-xl p-4 text-left transition-all",
-            viewTab === 'overdue' ? "border-danger ring-2 ring-danger/20" : "border-border hover:border-danger/50"
-          )}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <AlertTriangle className="w-5 h-5 text-danger" />
-            <span className="text-xs text-[#8888a0]">Trễ</span>
-          </div>
-          <p className="text-2xl font-bold text-danger">{stats.overdue}</p>
-          {stats.overdue > 0 && (
-            <p className="text-xs text-danger">Cần xử lý!</p>
-          )}
-        </button>
-
-        <button
-          onClick={() => setViewTab('dueSoon')}
-          className={cn(
-            "bg-card border rounded-xl p-4 text-left transition-all",
-            viewTab === 'dueSoon' ? "border-orange-500 ring-2 ring-orange-500/20" : "border-border hover:border-orange-500/50"
-          )}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <Clock className="w-5 h-5 text-orange-400" />
-            <span className="text-xs text-[#8888a0]">Sắp trễ</span>
-          </div>
-          <p className="text-2xl font-bold text-orange-400">{stats.dueSoon}</p>
-          <p className="text-xs text-[#8888a0]">Trong 3 ngày</p>
-        </button>
-      </div>
-
-      {/* PIC Overview - Compact */}
-      {Object.keys(stats.byPic).length > 0 && (
-        <div className="bg-card border border-border rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Users className="w-4 h-4 text-accent" />
-            <span className="text-sm font-medium text-[var(--text-primary)]">Theo người phụ trách</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(stats.byPic)
-              .filter(([name]) => name !== 'Unknown')
-              .sort((a, b) => b[1].total - a[1].total)
-              .slice(0, 10)
-              .map(([name, data]) => (
-                <button
-                  key={name}
-                  onClick={() => setFilters({ ...filters, pic: filters.pic === name ? '' : name })}
-                  className={cn(
-                    "px-3 py-1.5 rounded-lg text-sm flex items-center gap-2 transition-colors",
-                    filters.pic === name
-                      ? "bg-accent text-white"
-                      : "bg-secondary text-[var(--text-primary)] hover:bg-accent/20"
-                  )}
-                >
-                  <span className="font-medium">{name}</span>
-                  <span className={cn(
-                    "px-1.5 py-0.5 rounded text-xs",
-                    filters.pic === name ? "bg-white/20" : "bg-card"
-                  )}>
-                    {data.published}/{data.total}
-                  </span>
-                  {data.overdue > 0 && (
-                    <span className="px-1.5 py-0.5 bg-danger text-white rounded text-xs">
-                      {data.overdue}
-                    </span>
-                  )}
-                </button>
-              ))}
-          </div>
-        </div>
-      )}
-
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 p-4 bg-card border border-border rounded-xl">
-        <div className="flex items-center gap-2 text-[#8888a0]">
-          <Filter className="w-4 h-4" />
-          <span className="text-sm">Lọc:</span>
-        </div>
-
-        <select
-          value={filters.project}
-          onChange={(e) => setFilters({ ...filters, project: e.target.value })}
-          className="px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm"
-        >
-          <option value="">Tất cả dự án</option>
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={filters.pic}
-          onChange={(e) => setFilters({ ...filters, pic: e.target.value })}
-          className="px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm"
-        >
-          <option value="">Tất cả PIC</option>
-          {pics.map((pic) => (
-            <option key={pic} value={pic}>
-              {pic}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={filters.status}
-          onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-          className="px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm"
-        >
-          <option value="">Tất cả trạng thái</option>
-          <option value="Doing">Đang làm</option>
-          <option value="Fixing">Đang sửa</option>
-          <option value="QC">Chờ QC</option>
-          <option value="Done">Done</option>
-          <option value="Publish">Đã Publish</option>
-        </select>
-
-        <div className="flex-1 min-w-[200px]">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8888a0]" />
-            <input
-              type="text"
-              value={filters.search}
-              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-              placeholder="Tìm kiếm..."
-              className="w-full pl-10 pr-4 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] placeholder-[#8888a0] text-sm"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Tasks Table */}
-      {filteredTasks.length > 0 ? (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="data-table">
-              <thead>
-                <tr className="bg-secondary">
-                  <th className="w-12">STT</th>
-                  <th>Dự án</th>
-                  <th className="min-w-[250px]">Title</th>
-                  <th>PIC</th>
-                  <th>Deadline</th>
-                  <th>Status</th>
-                  <th>Link</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredTasks.map((task, index) => (
-                  <tr key={task.id} className={getRowClass(task)}>
-                    <td className="text-center font-mono text-[#8888a0]">
-                      {task.stt || index + 1}
-                    </td>
-                    <td>
-                      <span className="text-accent text-sm">
-                        {task.project?.name || '-'}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="max-w-[300px]">
-                        <p className="text-[var(--text-primary)] font-medium truncate">
-                          {truncate(task.title || task.keyword_sub || '', 50)}
-                        </p>
-                        {task.keyword_sub && task.title && (
-                          <p className="text-xs text-[#8888a0] truncate">
-                            {truncate(task.keyword_sub, 40)}
-                          </p>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <span className="text-[var(--text-primary)]">{task.pic || '-'}</span>
-                    </td>
-                    <td>
-                      <span
-                        className={cn(
-                          'font-mono text-sm',
-                          isOverdue(task.deadline) && task.status_content !== '4. Publish'
-                            ? 'text-danger'
-                            : isDueSoon(task.deadline)
-                            ? 'text-warning'
-                            : 'text-[var(--text-primary)]'
-                        )}
-                      >
-                        {formatDate(task.deadline)}
-                      </span>
-                    </td>
-                    <td>
-                      <StatusBadge status={task.status_content || task.status_outline || ''} />
-                    </td>
-                    <td>
-                      {task.link_publish ? (
-                        <a
-                          href={task.link_publish}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-accent hover:underline inline-flex items-center gap-1"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
-                      ) : (
-                        <span className="text-[#8888a0]">-</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : (
-        <EmptyState
-          title="Không tìm thấy tasks"
-          description="Thử thay đổi bộ lọc hoặc sync dữ liệu từ Google Sheets"
+      {/* ── Add Form (inline, collapsible) ── */}
+      {showAddForm && (
+        <TasksAddFormDialog
+          projects={projects}
+          onSuccess={() => {
+            setShowAddForm(false);
+            fetchData();
+          }}
+          onCancel={() => setShowAddForm(false)}
         />
       )}
 
-      {/* Summary */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-sm text-[#8888a0]">
-        <div className="flex items-center gap-3">
-          <span>
-            Hiển thị <span className="text-accent font-medium">{filteredTasks.length}</span> / {stats.total} tasks
-            {viewTab !== 'all' && (
-              <span className="ml-2 text-accent">
-                ({viewTab === 'overdue' ? 'Trễ' :
-                  viewTab === 'dueSoon' ? 'Sắp trễ' :
-                  viewTab === 'inProgress' ? 'Đang làm' : 'Published'})
+      {/* ── Dashboard stat cards ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard
+          icon={<FileText className="w-4 h-4 text-accent" />}
+          label="Tổng tasks"
+          value={stats.total}
+          colorClass="text-accent"
+        />
+        <StatCard
+          icon={<AlertTriangle className="w-4 h-4 text-danger" />}
+          label="Trễ deadline"
+          value={stats.overdue}
+          sub={stats.overdue > 0 ? 'Cần xử lý!' : 'Không có'}
+          colorClass="text-danger"
+          active={stats.overdue > 0}
+        />
+        <CategoryMiniBreakdown tasks={tasks.filter((t) => t.title || t.keyword_sub)} />
+        <StatCard
+          icon={<TrendingUp className="w-4 h-4 text-success" />}
+          label="Tiến độ tháng"
+          value={`${stats.pct}%`}
+          sub={`${stats.done}/${stats.total} hoàn thành`}
+          colorClass="text-success"
+        />
+      </div>
+
+      {/* ── Tabs ── */}
+      <div className="flex items-center gap-1 bg-card border border-border rounded-xl p-1 w-fit">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={cn(
+              'px-4 py-1.5 rounded-lg text-sm font-medium transition-colors',
+              activeTab === tab.id
+                ? 'bg-accent text-white'
+                : 'text-[#8888a0] hover:text-[var(--text-primary)]'
+            )}
+          >
+            {tab.label}
+            {tab.id === 'week' && weekTasks.length > 0 && (
+              <span className={cn(
+                'ml-1.5 text-xs px-1.5 py-0.5 rounded-full',
+                activeTab === 'week' ? 'bg-white/20' : 'bg-secondary'
+              )}>
+                {weekTasks.length}
               </span>
             )}
-          </span>
-          {(viewTab !== 'all' || filters.pic || filters.project || filters.status || filters.search) && (
-            <button
-              onClick={() => {
-                setViewTab('all');
-                setFilters({ project: '', pic: '', status: '', search: '' });
-              }}
-              className="text-accent hover:underline"
-            >
-              Xóa bộ lọc
-            </button>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-4">
-          <span className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded bg-danger/30" /> Trễ deadline
-          </span>
-          <span className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded bg-warning/30" /> Sắp đến hạn
-          </span>
-          <span className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded bg-success/30" /> Đã publish
-          </span>
-        </div>
+          </button>
+        ))}
       </div>
+
+      {/* ── Tab content ── */}
+      {activeTab === 'week' && <TasksWeekView tasks={weekTasks} />}
+      {activeTab === 'month' && <TasksMonthView tasks={tasks.filter((t) => t.title || t.keyword_sub)} />}
+      {activeTab === 'all' && (
+        <TasksAllTabWithFiltersSearchAndSortableTable
+          tasks={tasks}
+          projects={projects}
+          pics={pics}
+        />
+      )}
     </div>
   );
 }

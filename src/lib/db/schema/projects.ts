@@ -43,6 +43,10 @@ export const tasks = sqliteTable('tasks', {
   publish_date: text('publish_date'),
   note: text('note').notNull().default(''),
   month_year: text('month_year').notNull().default(''),
+  category: text('category').notNull().default('content'), // content | technical | linkbuilding | onpage | audit
+  priority: text('priority').notNull().default('medium'), // critical | high | medium | low
+  estimated_hours: integer('estimated_hours').notNull().default(0),
+  actual_result: text('actual_result').notNull().default(''),
   source: text('source').notNull().default('sheets'), // sheets | claude-code | manual
   assigned_to: text('assigned_to').notNull().default('human'), // human | claude
   created_at: text('created_at').notNull().default(sql`(datetime('now'))`),

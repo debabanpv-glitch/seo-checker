@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { projects, tasks, syncLogs } from '@/lib/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { parseSheetDate } from '@/lib/utils';
 
 // ---------------------------------------------------------------------------
@@ -190,9 +190,9 @@ export async function syncAllProjects() {
           .filter((row: SheetRow) => isValidRow(row))
           .map((row: SheetRow) => mapRowToTask(row, project.id));
 
-        // Delete + insert in transaction
+        // Delete only 'sheets' source tasks, preserve manual/claude-code tasks
         db.transaction((tx) => {
-          tx.delete(tasks).where(eq(tasks.project_id, project.id)).run();
+          tx.delete(tasks).where(and(eq(tasks.project_id, project.id), eq(tasks.source, 'sheets'))).run();
           for (let i = 0; i < taskRows.length; i += 100) {
             tx.insert(tasks).values(taskRows.slice(i, i + 100)).run();
           }
