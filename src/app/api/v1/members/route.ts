@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getMemberStats, createMember, updateMember, deleteMember } from '@/lib/services';
+import { getMemberStats, getAllMembers, createMember, updateMember, deleteMember } from '@/lib/services';
 import { handleApiError } from '@/lib/api-response';
 
 export const dynamic = 'force-dynamic';
@@ -7,6 +7,10 @@ export const dynamic = 'force-dynamic';
 export function GET(request: NextRequest) {
   try {
     const sp = new URL(request.url).searchParams;
+    // ?list=true returns raw member list (for settings page)
+    if (sp.get('list') === 'true') {
+      return NextResponse.json({ members: getAllMembers() });
+    }
     const month = parseInt(sp.get('month') || String(new Date().getMonth() + 1));
     const year = parseInt(sp.get('year') || String(new Date().getFullYear()));
     const viewType = sp.get('view') || 'month';

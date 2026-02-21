@@ -6,6 +6,7 @@ export const projects = sqliteTable('projects', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   name: text('name').notNull(),
   slug: text('slug'),
+  domain: text('project_domain'),
   website: text('website'),
   industry: text('industry'),
   sheet_id: text('sheet_id').notNull().default(''),

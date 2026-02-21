@@ -2,10 +2,27 @@
 export interface Project {
   id: string;
   name: string;
+  slug?: string;
+  domain?: string;
   sheet_id: string;
   sheet_name: string;
   monthly_target: number;
   ranking_sheet_url?: string;
+  created_at: string;
+}
+
+export interface Member {
+  id: string;
+  name: string;
+  nickname?: string | null;
+  role: string;
+  projects: string[];
+  start_date?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  bank_name?: string | null;
+  bank_account?: string | null;
+  salary_rate: number;
   created_at: string;
 }
 

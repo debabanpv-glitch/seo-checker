@@ -20,6 +20,8 @@ export function getProjectById(id: string) {
 
 export function createProject(data: {
   name: string;
+  slug?: string | null;
+  domain?: string | null;
   sheet_id: string;
   sheet_name?: string;
   monthly_target?: number;
@@ -27,6 +29,8 @@ export function createProject(data: {
 }) {
   return db.insert(projects).values({
     name: data.name,
+    slug: data.slug ?? null,
+    domain: data.domain ?? null,
     sheet_id: data.sheet_id,
     sheet_name: data.sheet_name || 'Content',
     monthly_target: data.monthly_target ?? 20,

@@ -10,3 +10,6 @@ export * from './strategy-phases-and-actions-crud.service';
 export * from './claude-activities-log-and-query.service';
 export * from './notes-create-list-delete.service';
 export * from './gsc-snapshots-save-and-query.service';
+export * from './app-config-crud.service';
+export * from './audit-results-crud.service';
+export * from './monthly-reports-crud.service';

@@ -27,6 +27,7 @@ export function createMember(data: {
   phone?: string | null;
   bank_name?: string | null;
   bank_account?: string | null;
+  salary_rate?: number;
 }) {
   return db.insert(members).values({
     name: data.name,
@@ -38,6 +39,7 @@ export function createMember(data: {
     phone: data.phone ?? null,
     bank_name: data.bank_name ?? null,
     bank_account: data.bank_account ?? null,
+    salary_rate: data.salary_rate ?? 0,
   }).returning().get();
 }
 

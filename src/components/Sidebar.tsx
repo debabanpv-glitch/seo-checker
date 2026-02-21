@@ -16,6 +16,9 @@ import {
   Target,
   Bot,
   StickyNote,
+  Upload,
+  Globe,
+  FileText,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -33,6 +36,9 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Bot,
   StickyNote,
   Settings,
+  Upload,
+  Globe,
+  FileText,
 };
 
 const enabledModules = modules.filter((m) => m.enabled).sort((a, b) => a.order - b.order);

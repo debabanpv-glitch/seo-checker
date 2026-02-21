@@ -13,6 +13,7 @@ export const members = sqliteTable('members', {
   phone: text('phone'),
   bank_name: text('bank_name'),
   bank_account: text('bank_account'),
+  salary_rate: real('salary_rate').notNull().default(0),
   created_at: text('created_at').notNull().default(sql`(datetime('now'))`),
 });
 

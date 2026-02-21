@@ -18,9 +18,12 @@ export const modules: ModuleConfig[] = [
   { id: 'seo-audit', name: 'SEO Audit',   icon: 'Search',          path: '/seo-audit',       order: 5,  group: 'core',      enabled: true },
   { id: 'keywords',  name: 'Keywords',    icon: 'TrendingUp',      path: '/keyword-ranking', order: 6,  group: 'core',      enabled: true },
   // EXTENSIONS
-  { id: 'strategy',  name: 'Chiến lược',  icon: 'Target',          path: '/strategy',        order: 10, group: 'extension', enabled: true },
-  { id: 'claude-log',name: 'Claude Log',  icon: 'Bot',             path: '/claude-log',      order: 11, group: 'extension', enabled: true },
-  { id: 'notes',     name: 'Notes',       icon: 'StickyNote',      path: '/notes',           order: 12, group: 'extension', enabled: true },
+  { id: 'strategy',      name: 'Chiến lược',     icon: 'Target',          path: '/strategy',        order: 10, group: 'extension', enabled: true },
+  { id: 'claude-log',   name: 'Claude Log',     icon: 'Bot',             path: '/claude-log',      order: 11, group: 'extension', enabled: true },
+  { id: 'notes',        name: 'Notes',          icon: 'StickyNote',      path: '/notes',           order: 12, group: 'extension', enabled: true },
+  { id: 'audit-import', name: 'Audit Import',   icon: 'Upload',          path: '/audit-import',    order: 13, group: 'extension', enabled: true },
+  { id: 'gsc',          name: 'Search Console', icon: 'Globe',           path: '/gsc',             order: 14, group: 'extension', enabled: true },
+  { id: 'reports',      name: 'Báo cáo',        icon: 'FileText',        path: '/reports',         order: 15, group: 'extension', enabled: true },
   // SETTINGS
   { id: 'settings',  name: 'Cài đặt',    icon: 'Settings',        path: '/settings',        order: 90, group: 'settings',  enabled: true },
 ];

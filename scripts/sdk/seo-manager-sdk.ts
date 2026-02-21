@@ -59,4 +59,12 @@ export const sdk = {
     saveSnapshot: (data: { project: string; clicks: number; impressions: number; ctr: number; position: number; top_queries?: any; top_pages?: any }) =>
       api('/gsc/snapshot', 'POST', { ...data, source: 'claude-code' }),
   },
+  reports: {
+    save: (data: { project_slug: string; month: number; year: number; [key: string]: any }) =>
+      api('/reports', 'POST', { ...data, generated_by: 'claude-code' }),
+  },
+  auditImport: {
+    upload: (data: { project_slug: string; audit_type: string; audit_date: string; summary: any; details: any }) =>
+      api('/audit-import', 'POST', { ...data, source: 'claude-code' }),
+  },
 };
