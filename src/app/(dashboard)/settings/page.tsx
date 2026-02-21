@@ -13,7 +13,6 @@ import {
   CheckCircle,
   XCircle,
   Activity,
-  User,
   Globe,
   Monitor,
   TrendingUp,
@@ -28,7 +27,6 @@ import {
 } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import { Project } from '@/types';
-import { ActivityLog } from '@/types/auth';
 import { cn } from '@/lib/utils';
 
 interface MonthlyTarget {
@@ -51,19 +49,6 @@ interface SyncLog {
 }
 
 
-// Action labels
-const actionLabels: Record<string, { label: string; color: string }> = {
-  login: { label: 'Đăng nhập', color: 'text-success' },
-  logout: { label: 'Đăng xuất', color: 'text-[#8888a0]' },
-  login_failed: { label: 'Đăng nhập thất bại', color: 'text-danger' },
-  sync: { label: 'Đồng bộ dữ liệu', color: 'text-accent' },
-  check_seo: { label: 'Check SEO', color: 'text-accent' },
-  create_user: { label: 'Tạo user', color: 'text-success' },
-  update_user: { label: 'Cập nhật user', color: 'text-warning' },
-  delete_user: { label: 'Xóa user', color: 'text-danger' },
-  view_salary: { label: 'Xem lương', color: 'text-[#8888a0]' },
-};
-
 type TabType = 'projects' | 'sync' | 'activity' | 'system';
 
 export default function SettingsPage() {
@@ -72,7 +57,6 @@ export default function SettingsPage() {
   const [monthlyTargets, setMonthlyTargets] = useState<MonthlyTarget[]>([]);
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
   const [lastSync, setLastSync] = useState<SyncLog | null>(null);
-  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -111,23 +95,20 @@ export default function SettingsPage() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [projectsRes, targetsRes, logsRes, activityRes] = await Promise.all([
-        fetch('/api/projects'),
-        fetch('/api/targets'),
-        fetch('/api/sync/logs'),
-        fetch('/api/activity-logs?limit=20'),
+      const [projectsRes, targetsRes, logsRes] = await Promise.all([
+        fetch('/api/v1/v1/projects'),
+        fetch('/api/v1/v1/targets'),
+        fetch('/api/v1/v1/sync/logs'),
       ]);
 
       const projectsData = await projectsRes.json();
       const targetsData = await targetsRes.json();
       const logsData = await logsRes.json();
-      const activityData = await activityRes.json();
 
       setProjects(projectsData.projects || []);
       setMonthlyTargets(targetsData.targets || []);
       setSyncLogs(logsData.logs || []);
       setLastSync(logsData.lastSync || null);
-      setActivityLogs(activityData.logs || []);
 
       if (projectsData.projects?.length > 0 && !expandedProject) {
         setExpandedProject(projectsData.projects[0].id);
@@ -159,7 +140,7 @@ export default function SettingsPage() {
     setSyncResult(null);
 
     try {
-      const res = await fetch('/api/sync', { method: 'POST' });
+      const res = await fetch('/api/v1/sync', { method: 'POST' });
       const data = await res.json();
 
       if (res.ok) {
@@ -167,7 +148,7 @@ export default function SettingsPage() {
           success: true,
           message: `Đồng bộ thành công! ${data.syncedCount || 0} tasks được cập nhật.`,
         });
-        const logsRes = await fetch('/api/sync/logs');
+        const logsRes = await fetch('/api/v1/sync/logs');
         const logsData = await logsRes.json();
         setSyncLogs(logsData.logs || []);
         setLastSync(logsData.lastSync || null);
@@ -191,7 +172,7 @@ export default function SettingsPage() {
     setSyncResult(null);
 
     try {
-      const res = await fetch('/api/keyword-rankings/sync', {
+      const res = await fetch('/api/v1/keyword-rankings/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sheetUrl: rankingUrl, projectId }),
@@ -251,7 +232,7 @@ export default function SettingsPage() {
       const method = editingProject ? 'PUT' : 'POST';
       const body = editingProject ? { ...projectForm, id: editingProject.id } : projectForm;
 
-      const res = await fetch('/api/projects', {
+      const res = await fetch('/api/v1/projects', {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -280,7 +261,7 @@ export default function SettingsPage() {
     if (!confirm(`Bạn có chắc muốn xóa dự án "${project?.name}"?`)) return;
 
     try {
-      const res = await fetch(`/api/projects?id=${projectId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/v1/projects?id=${projectId}`, { method: 'DELETE' });
       if (res.ok) {
         await fetchData();
         setSyncResult({ success: true, message: 'Đã xóa dự án!' });
@@ -304,7 +285,7 @@ export default function SettingsPage() {
 
     setIsSavingTarget(true);
     try {
-      const res = await fetch('/api/targets', {
+      const res = await fetch('/api/v1/targets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -330,7 +311,7 @@ export default function SettingsPage() {
   const handleDeleteTarget = async (targetId: string) => {
     if (!confirm('Xóa target này?')) return;
     try {
-      await fetch(`/api/targets?id=${targetId}`, { method: 'DELETE' });
+      await fetch(`/api/v1/targets?id=${targetId}`, { method: 'DELETE' });
       setMonthlyTargets((prev) => prev.filter((t) => t.id !== targetId));
     } catch (error) {
       console.error('Failed to delete target:', error);
@@ -719,27 +700,9 @@ thuê căn hộ chung cư,https://example.com/thue-can-ho,12,2024/12/01`;
             <Activity className="w-5 h-5 text-accent" />
             <h3 className="font-semibold text-[var(--text-primary)]">Nhật ký hoạt động</h3>
           </div>
-
-          <div className="space-y-2">
-            {activityLogs.map((log) => {
-              const actionInfo = actionLabels[log.action] || { label: log.action, color: 'text-[#8888a0]' };
-              return (
-                <div key={log.id} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center">
-                      <User className="w-4 h-4 text-accent" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-[var(--text-primary)]">{log.username}</span>
-                        <span className={`text-xs ${actionInfo.color}`}>{actionInfo.label}</span>
-                      </div>
-                      <span className="text-xs text-[#8888a0]">{formatDateTime(log.created_at)}</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="text-center py-8 text-[#8888a0]">
+            <Activity className="w-10 h-10 mx-auto mb-3 opacity-50" />
+            <p className="text-sm">Tính năng nhật ký hoạt động đang được phát triển</p>
           </div>
         </div>
       )}
@@ -754,7 +717,7 @@ thuê căn hộ chung cư,https://example.com/thue-can-ho,12,2024/12/01`;
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="p-4 bg-secondary rounded-lg">
               <p className="text-[#8888a0] text-xs mb-1">Database</p>
-              <p className="text-[var(--text-primary)] font-mono">Supabase PostgreSQL</p>
+              <p className="text-[var(--text-primary)] font-mono">SQLite + Drizzle ORM</p>
             </div>
             <div className="p-4 bg-secondary rounded-lg">
               <p className="text-[#8888a0] text-xs mb-1">Số dự án</p>

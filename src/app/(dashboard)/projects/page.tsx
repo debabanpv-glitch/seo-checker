@@ -192,7 +192,7 @@ export default function ProjectsPage() {
   const fetchProjects = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/projects');
+      const res = await fetch('/api/v1/projects');
       const data = await res.json();
       const projectList = data.projects || [];
       setProjects(projectList);
@@ -217,7 +217,7 @@ export default function ProjectsPage() {
         days: rankingDays.toString(),
         projectId: selectedProjectId,
       });
-      const res = await fetch(`/api/keyword-rankings/growth?${params}`);
+      const res = await fetch(`/api/v1/keyword-rankings/growth?${params}`);
       const data = await res.json();
       setRankingGrowth(data);
     } catch (error) {
@@ -236,7 +236,7 @@ export default function ProjectsPage() {
         projectId: selectedProjectId,
         view: detailsView,
       });
-      const res = await fetch(`/api/keyword-rankings/details?${params}`);
+      const res = await fetch(`/api/v1/keyword-rankings/details?${params}`);
       const data = await res.json();
 
       if (detailsView === 'keywords') {
@@ -260,7 +260,7 @@ export default function ProjectsPage() {
       const params = new URLSearchParams({
         projectId: selectedProjectId,
       });
-      const res = await fetch(`/api/keyword-rankings/analysis?${params}`);
+      const res = await fetch(`/api/v1/keyword-rankings/analysis?${params}`);
       const data = await res.json();
       setAnalysisData(data);
     } catch (error) {

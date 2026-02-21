@@ -188,7 +188,7 @@ export default function SalaryPage() {
 
   const fetchAnalytics = async () => {
     try {
-      const res = await fetch('/api/salary/analytics?months=6');
+      const res = await fetch('/api/v1/salary/analytics?months=6');
       const data = await res.json();
       setAnalytics(data);
 
@@ -212,9 +212,9 @@ export default function SalaryPage() {
       const [month, year] = selectedMonth.split('-');
       const projectParam = selectedProject ? `&project=${selectedProject}` : '';
       const [salaryRes, membersRes, paymentsRes] = await Promise.all([
-        fetch(`/api/salary?month=${month}&year=${year}${projectParam}`),
-        fetch('/api/members'),
-        fetch(`/api/salary-payments?month=${month}&year=${year}`),
+        fetch(`/api/v1/salary?month=${month}&year=${year}${projectParam}`),
+        fetch('/api/v1/members'),
+        fetch(`/api/v1/salary-payments?month=${month}&year=${year}`),
       ]);
       const salaryResult = await salaryRes.json();
       const membersResult = await membersRes.json();
@@ -259,7 +259,7 @@ export default function SalaryPage() {
     const [month, year] = selectedMonth.split('-');
     setIsMarkingPaid(true);
     try {
-      const res = await fetch('/api/salary-payments', {
+      const res = await fetch('/api/v1/salary-payments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -287,7 +287,7 @@ export default function SalaryPage() {
     setIsMarkingPaid(true);
     try {
       const res = await fetch(
-        `/api/salary-payments?member_name=${encodeURIComponent(memberName)}&month=${month}&year=${year}`,
+        `/api/v1/salary-payments?member_name=${encodeURIComponent(memberName)}&month=${month}&year=${year}`,
         { method: 'DELETE' }
       );
       if (res.ok) {
@@ -312,7 +312,7 @@ export default function SalaryPage() {
     try {
       await Promise.all(
         unpaidMembers.map((member) =>
-          fetch('/api/salary-payments', {
+          fetch('/api/v1/salary-payments', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

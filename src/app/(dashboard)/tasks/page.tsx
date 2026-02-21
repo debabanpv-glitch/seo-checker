@@ -58,8 +58,8 @@ export default function TasksPage() {
     try {
       const [month, year] = selectedMonth.split('-');
       const [tasksRes, projectsRes] = await Promise.all([
-        fetch(`/api/tasks?month=${month}&year=${year}`),
-        fetch('/api/projects'),
+        fetch(`/api/v1/tasks?month=${month}&year=${year}`),
+        fetch('/api/v1/projects'),
       ]);
 
       const tasksData = await tasksRes.json();

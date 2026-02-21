@@ -9,73 +9,33 @@ import {
   Users,
   Wallet,
   Settings,
-  LogOut,
   Menu,
   X,
   Search,
   BookOpen,
-  UserCog,
-  Shield,
   TrendingUp,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/contexts/AuthContext';
-import { UserRole } from '@/types/auth';
 
-interface NavItem {
-  name: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  roles?: UserRole[]; // Nếu không có, tất cả đều xem được
-}
-
-const navigation: NavItem[] = [
+const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Dự án', href: '/projects', icon: FolderKanban },
   { name: 'Tasks', href: '/tasks', icon: ListTodo },
   { name: 'SEO Audit', href: '/seo-audit', icon: Search },
   { name: 'Keyword Ranking', href: '/keyword-ranking', icon: TrendingUp },
   { name: 'Thành viên', href: '/members', icon: Users },
-  { name: 'Tính lương', href: '/salary', icon: Wallet, roles: ['admin', 'member'] },
-  { name: 'Cài đặt', href: '/settings', icon: Settings, roles: ['admin'] },
-  { name: 'Quản lý users', href: '/users', icon: UserCog, roles: ['admin'] },
+  { name: 'Tính lương', href: '/salary', icon: Wallet },
+  { name: 'Cài đặt', href: '/settings', icon: Settings },
 ];
 
-// Secondary navigation (bottom)
-const secondaryNav: NavItem[] = [
+const secondaryNav = [
   { name: 'Docs', href: '/docs', icon: BookOpen },
 ];
-
-// Role badge colors - Updated for 2026 palette
-const roleBadgeColors: Record<UserRole, string> = {
-  admin: 'bg-danger/15 text-danger',
-  seo: 'bg-accent/15 text-accent',
-  member: 'bg-success/15 text-success',
-};
-
-const roleLabels: Record<UserRole, string> = {
-  admin: 'Admin',
-  seo: 'SEO',
-  member: 'Member',
-};
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { user, logout } = useAuth();
-
-  const handleLogout = async () => {
-    await logout();
-    window.location.href = '/login';
-  };
-
-  // Filter navigation based on user role
-  const filteredNavigation = navigation.filter((item) => {
-    if (!item.roles) return true;
-    if (!user) return false;
-    return item.roles.includes(user.role);
-  });
 
   const SidebarContent = () => (
     <>
@@ -90,31 +50,9 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* User Info */}
-      {user && (
-        <div className="px-4 py-3 border-b border-border">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-accent/20 rounded-lg flex items-center justify-center">
-              <Shield className="w-4 h-4 text-accent" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-[var(--text-primary)] truncate">
-                {user.display_name}
-              </p>
-              <span className={cn(
-                'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium',
-                roleBadgeColors[user.role]
-              )}>
-                {roleLabels[user.role]}
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {filteredNavigation.map((item) => {
+        {navigation.map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link
@@ -133,9 +71,8 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Secondary Nav + Logout */}
+      {/* Secondary Nav */}
       <div className="px-3 py-4 border-t border-border space-y-1">
-        {/* Docs link */}
         {secondaryNav.map((item) => {
           const isActive = pathname === item.href;
           return (
@@ -153,14 +90,6 @@ export default function Sidebar() {
             </Link>
           );
         })}
-        {/* Logout */}
-        <button
-          onClick={handleLogout}
-          className="nav-link w-full text-danger hover:text-danger hover:bg-danger/10"
-        >
-          <LogOut className="w-5 h-5" />
-          <span>Đăng xuất</span>
-        </button>
       </div>
     </>
   );

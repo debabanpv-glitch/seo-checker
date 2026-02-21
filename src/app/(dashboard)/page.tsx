@@ -128,8 +128,8 @@ export default function DashboardPage() {
     try {
       // Fetch both stats and overview in parallel
       const [statsRes, overviewRes] = await Promise.all([
-        fetch(`/api/stats?month=${selectedMonth}&year=${selectedYear}`),
-        fetch(`/api/dashboard/overview?month=${selectedMonth}&year=${selectedYear}`),
+        fetch(`/api/v1/stats?month=${selectedMonth}&year=${selectedYear}`),
+        fetch(`/api/v1/dashboard/overview?month=${selectedMonth}&year=${selectedYear}`),
       ]);
 
       const data = await statsRes.json();

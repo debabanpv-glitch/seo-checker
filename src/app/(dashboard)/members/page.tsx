@@ -56,9 +56,9 @@ export default function MembersPage() {
     try {
       const [month, year] = selectedMonth.split('-');
       const [membersRes, projectsRes, paymentsRes] = await Promise.all([
-        fetch(`/api/members?month=${month}&year=${year}&view=${viewType}`),
-        fetch('/api/projects'),
-        viewType === 'month' ? fetch(`/api/salary-payments?month=${month}&year=${year}`) : Promise.resolve(null),
+        fetch(`/api/v1/members?month=${month}&year=${year}&view=${viewType}`),
+        fetch('/api/v1/projects'),
+        viewType === 'month' ? fetch(`/api/v1/salary-payments?month=${month}&year=${year}`) : Promise.resolve(null),
       ]);
 
       const membersData = await membersRes.json();
@@ -79,7 +79,7 @@ export default function MembersPage() {
   const handleSaveMember = async (data: Partial<MemberInfo>) => {
     try {
       const method = editingMember ? 'PUT' : 'POST';
-      const res = await fetch('/api/members', {
+      const res = await fetch('/api/v1/members', {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editingMember ? { ...editingMember, ...data } : data),
@@ -99,7 +99,7 @@ export default function MembersPage() {
     if (!confirm('Bạn có chắc muốn xóa thành viên này?')) return;
 
     try {
-      const res = await fetch(`/api/members?id=${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/v1/members?id=${id}`, { method: 'DELETE' });
       if (res.ok) {
         fetchData();
       }

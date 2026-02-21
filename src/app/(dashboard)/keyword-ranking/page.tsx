@@ -61,8 +61,8 @@ export default function KeywordRankingPage() {
     setIsLoading(true);
     try {
       const [rankingsRes, projectsRes] = await Promise.all([
-        fetch(`/api/keyword-rankings${selectedProject ? `?projectId=${selectedProject}` : ''}`),
-        fetch('/api/projects'),
+        fetch(`/api/v1/keyword-rankings${selectedProject ? `?projectId=${selectedProject}` : ''}`),
+        fetch('/api/v1/projects'),
       ]);
 
       const rankingsData = await rankingsRes.json();

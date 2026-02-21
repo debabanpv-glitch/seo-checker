@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { AuthProvider } from '@/contexts/AuthContext';
 
 export const metadata: Metadata = {
   title: 'Content Tracker - Quản lý công việc Team Content',
@@ -15,9 +14,7 @@ export default function RootLayout({
   return (
     <html lang="vi">
       <body className="min-h-screen bg-primary text-[var(--text-primary)] antialiased">
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+        {children}
       </body>
     </html>
   );

@@ -497,7 +497,7 @@ export default function SEOAuditPage() {
       // Fetch published tasks filtered by month
       const [month, year] = selectedMonth.split('-');
       const projectParam = selectedProject ? `&project=${selectedProject}` : '';
-      const res = await fetch(`/api/tasks?published=true&month=${month}&year=${year}${projectParam}`);
+      const res = await fetch(`/api/v1/tasks?published=true&month=${month}&year=${year}${projectParam}`);
       const data = await res.json();
 
       const publishedTasks: TaskWithSEO[] = (data.tasks || []).filter(
@@ -507,7 +507,7 @@ export default function SEOAuditPage() {
       // Fetch SEO results only for URLs of current tasks (optimized - minimal fields for listing)
       const urls = publishedTasks.map((t) => t.link_publish).filter(Boolean);
       // Use POST to avoid URL length limits
-      const seoRes = await fetch('/api/seo-results/batch', {
+      const seoRes = await fetch('/api/v1/seo-results/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ urls, minimal: true }),
@@ -531,7 +531,7 @@ export default function SEOAuditPage() {
       setTasks(tasksWithSEO);
 
       // Fetch projects
-      const projectsRes = await fetch('/api/projects');
+      const projectsRes = await fetch('/api/v1/projects');
       const projectsData = await projectsRes.json();
       setProjects(projectsData.projects || []);
     } catch (error) {
@@ -553,7 +553,7 @@ export default function SEOAuditPage() {
     setSelectedTask(task);
 
     try {
-      const res = await fetch(`/api/seo-results?url=${encodeURIComponent(task.link_publish)}`);
+      const res = await fetch(`/api/v1/seo-results?url=${encodeURIComponent(task.link_publish)}`);
       const data = await res.json();
       const fullResult = data.results?.[0];
 
@@ -595,7 +595,7 @@ export default function SEOAuditPage() {
       }
 
       // Call SEO check API
-      const res = await fetch('/api/seo-check', {
+      const res = await fetch('/api/v1/seo-check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -608,7 +608,7 @@ export default function SEOAuditPage() {
       const result = await res.json();
 
       // Save to database (by URL, not task_id - so results persist across syncs)
-      await fetch('/api/seo-results', {
+      await fetch('/api/v1/seo-results', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
