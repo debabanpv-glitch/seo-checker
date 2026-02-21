@@ -51,17 +51,18 @@ const PHASE_STATUS_CONFIG = {
   blocked: { label: 'Bị chặn', color: 'bg-red-500/20 text-red-400', icon: XCircle },
 };
 
-const ACTION_STATUS_CONFIG = {
+const ACTION_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   todo: { label: 'Chờ làm', color: 'bg-gray-500/20 text-gray-400' },
   doing: { label: 'Đang làm', color: 'bg-yellow-500/20 text-yellow-400' },
   done: { label: 'Xong', color: 'bg-green-500/20 text-green-400' },
   blocked: { label: 'Bị chặn', color: 'bg-red-500/20 text-red-400' },
 };
 
-const PRIORITY_CONFIG = {
+const PRIORITY_CONFIG: Record<string, { label: string; color: string }> = {
   low: { label: 'Thấp', color: 'text-gray-400' },
   medium: { label: 'Trung bình', color: 'text-yellow-400' },
   high: { label: 'Cao', color: 'text-red-400' },
+  critical: { label: 'Khẩn cấp', color: 'text-orange-400' },
 };
 
 export default function SeoStrategyPhasesAndActionsManager() {
@@ -227,7 +228,7 @@ export default function SeoStrategyPhasesAndActionsManager() {
             const isLoadingActions = loadingPhases.has(phase.id);
             const phaseActions = actions[phase.id] || [];
             const progress = getPhaseProgress(phase.id);
-            const statusConfig = PHASE_STATUS_CONFIG[phase.status];
+            const statusConfig = PHASE_STATUS_CONFIG[phase.status] || PHASE_STATUS_CONFIG.planned;
             const StatusIcon = statusConfig.icon;
 
             return (
@@ -292,8 +293,8 @@ export default function SeoStrategyPhasesAndActionsManager() {
                         {phaseActions.length > 0 ? (
                           <div className="divide-y divide-border">
                             {phaseActions.map((action) => {
-                              const actionStatus = ACTION_STATUS_CONFIG[action.status];
-                              const priority = PRIORITY_CONFIG[action.priority];
+                              const actionStatus = ACTION_STATUS_CONFIG[action.status] || ACTION_STATUS_CONFIG.todo;
+                              const priority = PRIORITY_CONFIG[action.priority] || PRIORITY_CONFIG.medium;
                               return (
                                 <div
                                   key={action.id}
