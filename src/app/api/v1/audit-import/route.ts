@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAudits, createAudit } from '@/lib/services';
+import { getAudits, createAudit, deleteAudit } from '@/lib/services';
 import { handleApiError } from '@/lib/api-response';
 
 export const dynamic = 'force-dynamic';
@@ -22,6 +22,17 @@ export async function POST(request: NextRequest) {
     }
     const audit = createAudit(body);
     return NextResponse.json({ audit });
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+
+export function DELETE(request: NextRequest) {
+  try {
+    const id = new URL(request.url).searchParams.get('id');
+    if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 });
+    deleteAudit(id);
+    return NextResponse.json({ success: true });
   } catch (error) {
     return handleApiError(error);
   }
