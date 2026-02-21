@@ -406,6 +406,98 @@ export async function POST(request: NextRequest) {
       suggestion: !hasFaq ? 'Thêm phần "Câu hỏi thường gặp" với FAQ schema để tăng khả năng xuất hiện rich snippet' : undefined,
     });
 
+    // 16. IRU - Answer-first (Đoạn mở bài trả lời trực tiếp câu hỏi)
+    // IRU = Information Response Unit: kết luận TRƯỚC, chi tiết SAU
+    const firstParaWords = countWords(firstPara);
+    const firstParaHasKeyword = hasKeyword(firstPara, keyword);
+    // Heuristic: good IRU = đoạn mở bài ngắn (≤60 words), chứa keyword, không bắt đầu bằng câu hỏi
+    const startsWithQuestion = /^(?:bạn có|bạn đã|liệu|tại sao|vì sao|làm sao|làm thế nào|có bao giờ|what|how|why|do you|have you|are you)/i.test(firstPara);
+    const iruScore = (firstParaWords > 0 && firstParaWords <= 60 && firstParaHasKeyword && !startsWithQuestion) ? 3
+      : (firstParaWords > 0 && firstParaWords <= 80 && firstParaHasKeyword) ? 2
+      : (firstParaWords > 0 && firstParaHasKeyword) ? 1 : 0;
+    details.push({
+      id: 'iru-answer-first',
+      category: 'content',
+      name: 'IRU: Answer-first',
+      description: 'Đoạn mở bài trả lời trực tiếp, ngắn gọn (≤60 từ), chứa keyword — theo mô hình IRU',
+      status: iruScore >= 3 ? 'pass' : iruScore >= 1 ? 'warning' : 'fail',
+      score: iruScore,
+      maxScore: 3,
+      value: `${firstParaWords} từ, ${firstParaHasKeyword ? 'có' : 'thiếu'} keyword${startsWithQuestion ? ', bắt đầu bằng câu hỏi' : ''}`,
+      suggestion: iruScore < 3 ? 'Viết đoạn mở bài ngắn gọn (≤60 từ), trả lời trực tiếp câu hỏi chính, chứa keyword — kết luận TRƯỚC, chi tiết SAU' : undefined,
+    });
+
+    // 17. Cấu trúc đoạn văn ngắn (≤4 câu mỗi đoạn)
+    const paragraphs = bodyHtml.match(/<p[^>]*>[\s\S]*?<\/p>/gi) || [];
+    const longParagraphs = paragraphs.filter(p => {
+      const text = extractText(p);
+      const sentences = text.split(/[.!?。]\s+/).filter(s => s.trim().length > 5);
+      return sentences.length > 4;
+    });
+    const shortParaRatio = paragraphs.length > 0 ? (paragraphs.length - longParagraphs.length) / paragraphs.length : 0;
+    details.push({
+      id: 'paragraph-structure',
+      category: 'content',
+      name: 'Đoạn văn ngắn gọn',
+      description: 'Đoạn văn ≤4 câu, dễ đọc trên mobile',
+      status: shortParaRatio >= 0.8 ? 'pass' : shortParaRatio >= 0.5 ? 'warning' : 'fail',
+      score: shortParaRatio >= 0.8 ? 2 : shortParaRatio >= 0.5 ? 1 : 0,
+      maxScore: 2,
+      value: `${longParagraphs.length}/${paragraphs.length} đoạn quá dài`,
+      suggestion: longParagraphs.length > 0 ? `Chia nhỏ ${longParagraphs.length} đoạn văn dài thành ≤4 câu mỗi đoạn` : undefined,
+    });
+
+    // 18. Danh sách (ul/ol) — cải thiện readability & featured snippet
+    const ulMatches = bodyHtml.match(/<ul[^>]*>/gi) || [];
+    const olMatches = bodyHtml.match(/<ol[^>]*>/gi) || [];
+    const totalLists = ulMatches.length + olMatches.length;
+    details.push({
+      id: 'lists',
+      category: 'content',
+      name: 'Danh sách (ul/ol)',
+      description: 'Có ít nhất 1 danh sách để tăng readability và featured snippet',
+      status: totalLists >= 2 ? 'pass' : totalLists >= 1 ? 'warning' : 'fail',
+      score: totalLists >= 2 ? 2 : totalLists >= 1 ? 1 : 0,
+      maxScore: 2,
+      value: `${totalLists} danh sách (${ulMatches.length} ul, ${olMatches.length} ol)`,
+      suggestion: totalLists === 0 ? 'Thêm bullet list hoặc numbered list để tăng khả năng xuất hiện featured snippet' : undefined,
+    });
+
+    // 19. CTA (Call-to-Action) presence
+    const ctaPatterns = [
+      /(?:đăng ký|liên hệ|mua ngay|tải ngay|dùng thử|xem thêm|tìm hiểu thêm|bắt đầu|nhận ngay)/i,
+      /(?:sign up|contact|buy now|download|try free|learn more|get started|subscribe)/i,
+    ];
+    const hasCta = ctaPatterns.some(p => p.test(bodyHtml));
+    // Also check for CTA buttons/links
+    const ctaButtons = bodyHtml.match(/<(?:a|button)[^>]*class=["'][^"']*(?:btn|button|cta)[^"']*["'][^>]*>/gi) || [];
+    details.push({
+      id: 'cta',
+      category: 'content',
+      name: 'Call-to-Action',
+      description: 'Có CTA rõ ràng để chuyển đổi người đọc',
+      status: hasCta || ctaButtons.length > 0 ? 'pass' : 'warning',
+      score: hasCta || ctaButtons.length > 0 ? 2 : 0,
+      maxScore: 2,
+      value: ctaButtons.length > 0 ? `${ctaButtons.length} CTA button` : hasCta ? 'Có CTA text' : 'Không có CTA',
+      suggestion: !hasCta && ctaButtons.length === 0 ? 'Thêm CTA rõ ràng (nút hoặc link) để hướng dẫn hành động tiếp theo' : undefined,
+    });
+
+    // 20. Content freshness (datePublished/dateModified schema)
+    const hasDatePublished = /datePublished/i.test(html);
+    const hasDateModified = /dateModified/i.test(html);
+    details.push({
+      id: 'content-freshness',
+      category: 'content',
+      name: 'Content freshness',
+      description: 'Có datePublished/dateModified trong schema để Google nhận diện trang mới',
+      status: hasDatePublished && hasDateModified ? 'pass' : hasDatePublished ? 'warning' : 'fail',
+      score: hasDatePublished && hasDateModified ? 2 : hasDatePublished ? 1 : 0,
+      maxScore: 2,
+      value: `${hasDatePublished ? 'datePublished ✓' : 'datePublished ✗'}, ${hasDateModified ? 'dateModified ✓' : 'dateModified ✗'}`,
+      suggestion: !hasDatePublished ? 'Thêm datePublished và dateModified vào schema Article' : !hasDateModified ? 'Thêm dateModified để hiển thị ngày cập nhật' : undefined,
+    });
+
     // ==================== IMAGE CHECKS ====================
 
     const imgMatches = bodyHtml.match(/<img[^>]*>/gi) || [];
@@ -487,6 +579,42 @@ export async function POST(request: NextRequest) {
       maxScore: 2,
       value: imgMatches.length === 0 ? 'Không có ảnh' : imagesWithNextGen > 0 ? `${imagesWithNextGen} ảnh dùng WebP/AVIF` : 'Không dùng WebP/AVIF',
       suggestion: imgMatches.length > 0 && imagesWithNextGen === 0 ? 'Chuyển ảnh sang định dạng WebP hoặc AVIF để tối ưu tốc độ' : undefined,
+    });
+
+    // Image file names (descriptive vs IMG_1234)
+    const badImageNames = imgMatches.filter(img => {
+      const srcMatch = img.match(/src=["']([^"']*)["']/i);
+      if (!srcMatch) return false;
+      const fileName = srcMatch[1].split('/').pop()?.split('?')[0] || '';
+      return /^(?:img|image|photo|pic|screenshot|screen|untitled|dsc|dcim)[-_]?\d*/i.test(fileName) ||
+        /^\d+\.\w+$/.test(fileName);
+    });
+    details.push({
+      id: 'image-filenames',
+      category: 'images',
+      name: 'Tên file ảnh mô tả',
+      description: 'Tên file ảnh nên mô tả nội dung (không dùng IMG_1234)',
+      status: imgMatches.length === 0 || badImageNames.length === 0 ? 'pass' : badImageNames.length <= 2 ? 'warning' : 'fail',
+      score: imgMatches.length === 0 || badImageNames.length === 0 ? 2 : badImageNames.length <= 2 ? 1 : 0,
+      maxScore: 2,
+      value: imgMatches.length === 0 ? 'Không có ảnh' : badImageNames.length === 0 ? 'Tất cả tên file OK' : `${badImageNames.length} ảnh có tên không mô tả`,
+      suggestion: badImageNames.length > 0 ? 'Đổi tên file ảnh thành mô tả (vd: "seo-audit-checklist.webp" thay vì "IMG_1234.jpg")' : undefined,
+    });
+
+    // Image dimensions (width/height attributes for CLS)
+    const imagesWithDimensions = imgMatches.filter(img =>
+      /width=/i.test(img) && /height=/i.test(img)
+    ).length;
+    details.push({
+      id: 'image-dimensions',
+      category: 'images',
+      name: 'Width/Height attributes',
+      description: 'Ảnh có width/height để tránh CLS (layout shift)',
+      status: imgMatches.length === 0 || imagesWithDimensions === imgMatches.length ? 'pass' : imagesWithDimensions > imgMatches.length / 2 ? 'warning' : 'fail',
+      score: imgMatches.length === 0 || imagesWithDimensions === imgMatches.length ? 2 : imagesWithDimensions > imgMatches.length / 2 ? 1 : 0,
+      maxScore: 2,
+      value: imgMatches.length === 0 ? 'Không có ảnh' : `${imagesWithDimensions}/${imgMatches.length} ảnh có width/height`,
+      suggestion: imagesWithDimensions < imgMatches.length ? 'Thêm width và height cho ảnh để tránh Cumulative Layout Shift (CLS)' : undefined,
     });
 
     // ==================== TECHNICAL CHECKS ====================
@@ -737,6 +865,52 @@ export async function POST(request: NextRequest) {
       maxScore: 2,
       value: hasBreadcrumbSchema ? 'Có breadcrumb schema' : hasBreadcrumbClass ? 'Có breadcrumb nav' : 'Không có breadcrumb',
       suggestion: !hasBreadcrumb ? 'Thêm breadcrumb với BreadcrumbList schema để cải thiện rich snippet' : undefined,
+    });
+
+    // Favicon
+    const hasFavicon = /<link[^>]*rel=["'](?:icon|shortcut icon|apple-touch-icon)["']/i.test(html);
+    details.push({
+      id: 'favicon',
+      category: 'technical',
+      name: 'Favicon',
+      description: 'Có favicon cho tab trình duyệt',
+      status: hasFavicon ? 'pass' : 'fail',
+      score: hasFavicon ? 1 : 0,
+      maxScore: 1,
+      value: hasFavicon ? 'Có favicon' : 'Không có favicon',
+      suggestion: !hasFavicon ? 'Thêm favicon (link rel="icon") để tăng nhận diện thương hiệu trên tab' : undefined,
+    });
+
+    // E-E-A-T signals (Author info)
+    const hasAuthorSchema = /["']author["']\s*:/i.test(html);
+    const hasAuthorMeta = /<meta[^>]*name=["']author["']/i.test(html);
+    const hasAuthorByline = /class=["'][^"']*(?:author|byline|writer)[^"']*["']/i.test(bodyHtml);
+    const hasAuthor = hasAuthorSchema || hasAuthorMeta || hasAuthorByline;
+    details.push({
+      id: 'eeat-author',
+      category: 'technical',
+      name: 'E-E-A-T: Tác giả',
+      description: 'Có thông tin tác giả (schema, meta, hoặc byline) để tăng E-E-A-T',
+      status: hasAuthor ? 'pass' : 'warning',
+      score: hasAuthor ? 2 : 0,
+      maxScore: 2,
+      value: hasAuthorSchema ? 'Có author schema' : hasAuthorMeta ? 'Có author meta' : hasAuthorByline ? 'Có author byline' : 'Không có thông tin tác giả',
+      suggestion: !hasAuthor ? 'Thêm thông tin tác giả (author schema, meta author, hoặc byline) để tăng E-E-A-T' : undefined,
+    });
+
+    // Twitter Card
+    const hasTwitterCard = /<meta[^>]*(?:name|property)=["']twitter:card["']/i.test(html);
+    const hasTwitterTitle = /<meta[^>]*(?:name|property)=["']twitter:title["']/i.test(html);
+    details.push({
+      id: 'twitter-card',
+      category: 'technical',
+      name: 'Twitter Card',
+      description: 'Có twitter:card meta tag cho chia sẻ mạng xã hội',
+      status: hasTwitterCard && hasTwitterTitle ? 'pass' : hasTwitterCard ? 'warning' : 'warning',
+      score: hasTwitterCard && hasTwitterTitle ? 1 : hasTwitterCard ? 1 : 0,
+      maxScore: 1,
+      value: hasTwitterCard ? 'Có Twitter Card' : 'Không có Twitter Card',
+      suggestion: !hasTwitterCard ? 'Thêm twitter:card meta tag để tối ưu hiển thị khi chia sẻ trên X/Twitter' : undefined,
     });
 
     // Calculate scores by category
