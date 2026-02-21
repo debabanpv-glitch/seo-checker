@@ -822,6 +822,7 @@ function PhaseCard({
   onAddAction,
   onBulkAddAction,
   onUpdateActionStatus,
+  onUpdateActionDetail,
 }: {
   phase: StrategyPhase;
   phaseIndex: number;
@@ -833,6 +834,7 @@ function PhaseCard({
   onAddAction: () => void;
   onBulkAddAction: () => void;
   onUpdateActionStatus: (actionId: string, phaseId: string, status: StrategyAction['status']) => void;
+  onUpdateActionDetail: (actionId: string, phaseId: string, data: Partial<StrategyAction>) => void;
 }) {
   const statusConfig = PHASE_STATUS_CONFIG[phase.status] || PHASE_STATUS_CONFIG.planned;
   const StatusIcon = statusConfig.icon;
@@ -964,6 +966,7 @@ function PhaseCard({
                         action={action}
                         phaseId={phase.id}
                         onUpdateStatus={onUpdateActionStatus}
+                        onUpdateAction={onUpdateActionDetail}
                       />
                     ))}
                   </div>
@@ -1128,6 +1131,19 @@ export default function SeoStrategyPhasesAndActionsManager() {
     }
   }, []);
 
+  const handleUpdateActionDetail = useCallback((
+    actionId: string,
+    phaseId: string,
+    data: Partial<StrategyAction>
+  ) => {
+    setActions((prev) => ({
+      ...prev,
+      [phaseId]: (prev[phaseId] || []).map((a) =>
+        a.id === actionId ? { ...a, ...data } : a
+      ),
+    }));
+  }, []);
+
   const sortedPhases = useMemo(() => [...phases].sort((a, b) => a.order_index - b.order_index), [phases]);
 
   if (isLoading && projects.length === 0) return <PageLoading />;
@@ -1250,6 +1266,7 @@ export default function SeoStrategyPhasesAndActionsManager() {
                 onAddAction={() => setShowAddAction(phase.id)}
                 onBulkAddAction={() => setShowBulkAddAction(phase.id)}
                 onUpdateActionStatus={handleUpdateActionStatus}
+                onUpdateActionDetail={handleUpdateActionDetail}
               />
             </div>
           ))}
