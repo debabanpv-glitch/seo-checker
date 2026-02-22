@@ -164,6 +164,36 @@ export function GET(
         security_headers: s?.security_headers ?? 0,
         schema_coverage: s?.schema_coverage ?? 0,
         redirect_chains: s?.redirect_chains ?? 0,
+        // Category scores from seo_master_auditor
+        seo_score: s?.seo_score ?? 0,
+        content_score: s?.content_score ?? 0,
+        technical_score: s?.technical_score ?? 0,
+        images_score: s?.images_score ?? 0,
+        links_score: s?.links_score ?? 0,
+        eeat_score: s?.eeat_score ?? 0,
+        ai_readiness_score: s?.ai_readiness_score ?? 0,
+        // Detail breakdowns
+        title_issues: s?.title_issues ?? null,
+        meta_issues: s?.meta_issues ?? null,
+        h1_issues: s?.h1_issues ?? null,
+        top_issues: s?.top_issues ?? [],
+        score_distribution: s?.score_distribution ?? null,
+        images_missing_alt: s?.images_missing_alt ?? 0,
+        total_images: s?.total_images ?? 0,
+      };
+    }
+
+    // If seoStats is empty but latestAudit has category scores, populate from audit
+    if (seoStats.totalPages === 0 && latestAuditParsed) {
+      const s = latestAudit!.summary as Record<string, unknown> | null;
+      seoStats = {
+        totalPages: (latestAuditParsed.total_urls as number) || 0,
+        avgScore: (latestAuditParsed.seo_score as number) || 0,
+        avgContentScore: (latestAuditParsed.content_score as number) || 0,
+        avgTechnicalScore: (latestAuditParsed.technical_score as number) || 0,
+        avgImagesScore: (latestAuditParsed.images_score as number) || 0,
+        topIssues: (s?.top_issues as Array<{ type: string; count: number; severity: string }>) || [],
+        scoreDistribution: (s?.score_distribution as { good: number; average: number; poor: number }) || { good: 0, average: 0, poor: 0 },
       };
     }
 
