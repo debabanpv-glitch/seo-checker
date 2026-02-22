@@ -267,31 +267,37 @@ export async function POST(request: NextRequest) {
     // --- AI readiness ---
     let aiReadinessScore = 0;
     if (aiReadiness.length > 0) {
-      const totalSignals = aiReadiness.reduce((s, r) => s + num(r['signal_count']), 0);
-      // Max signals per page assumed ~10, normalize to 0-100
-      aiReadinessScore = Math.round((totalSignals / (aiReadiness.length * 10)) * 100);
+      // Known signal types: Breadcrumb, FAQ Schema, Schema, Semantic HTML, TOC
+      const MAX_AI_SIGNALS = 5;
+      const avgSignals = aiReadiness.reduce((s, r) => s + num(r['signal_count']), 0) / aiReadiness.length;
+      aiReadinessScore = Math.min(100, Math.round((avgSignals / MAX_AI_SIGNALS) * 100));
     }
 
     // --- Thin content ---
     const thinContentCount = thinContent.length;
 
     // --- Compute category scores (0-100) ---
+    // Capped ratio helper: count/total capped at 1.0
+    const cRatio = (count: number, total: number) => Math.min(1, count / Math.max(total, 1));
+
     const contentScore = Math.max(0, Math.min(100, Math.round(
       100
-      - (titleMissing / totalUrls) * 20          // missing titles penalty
-      - (metaMissing / totalUrls) * 15            // missing meta penalty
-      - (dupTotal / totalUrls) * 15               // duplicate content penalty
-      - (thinContentCount / totalUrls) * 15       // thin content penalty
-      - Math.max(0, (300 - avgWordCount) / 300) * 10 // low word count penalty
+      - cRatio(titleMissing, totalUrls) * 20
+      - cRatio(metaMissing, totalUrls) * 15
+      - cRatio(dupTotal, totalUrls) * 15             // dupTotal can exceed totalUrls
+      - cRatio(thinContentCount, totalUrls) * 15
+      - Math.min(1, Math.max(0, (300 - avgWordCount) / 300)) * 10
     )));
 
+    // Use % of slow pages instead of avg response time (crawl RT is unreliable)
+    const slowPageCount = allPages.filter(r => float(r['Response Time (ms)']) > 5000).length;
     const technicalScore = Math.max(0, Math.min(100, Math.round(
       100
-      - ((statusCodes['404'] || 0) / totalUrls) * 25
-      - ((statusCodes['500'] || 0) / totalUrls) * 25
-      - (redirectChainsCount / totalUrls) * 15
-      - Math.max(0, (avgResponseMs - 2000) / 2000) * 20 // slow response penalty
-      - ((totalUrls - hasViewportCount) / totalUrls) * 5
+      - cRatio(statusCodes['404'] || 0, totalUrls) * 25
+      - cRatio(statusCodes['500'] || 0, totalUrls) * 25
+      - cRatio(redirectChainsCount, totalUrls) * 15  // can exceed totalUrls
+      - cRatio(slowPageCount, totalUrls) * 15         // % slow pages, max 15
+      - cRatio(totalUrls - hasViewportCount, totalUrls) * 5
     )));
 
     const imagesScore = totalImages > 0
@@ -300,8 +306,8 @@ export async function POST(request: NextRequest) {
 
     const linksScore = Math.max(0, Math.min(100, Math.round(
       100
-      - (brokenLinksCount / Math.max(totalUrls, 1)) * 30
-      - Math.max(0, (3 - avgInlinks) / 3) * 20  // low avg inlinks penalty
+      - cRatio(brokenLinksCount, totalUrls) * 30      // can exceed totalUrls
+      - Math.min(1, Math.max(0, (3 - avgInlinks) / 3)) * 20
     )));
 
     // --- Top issues (combine issueMap + missing_seo) ---
@@ -352,6 +358,7 @@ export async function POST(request: NextRequest) {
       h1_issues: { total: totalUrls, missing: h1Missing, multiple: h1Multiple },
 
       // Technical metrics
+      slow_pages: slowPageCount,
       avg_response_ms: avgResponseMs,
       redirect_chains: redirectChainsCount,
       avg_chain_length: avgChainLength,
