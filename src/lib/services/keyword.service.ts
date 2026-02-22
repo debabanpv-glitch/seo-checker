@@ -68,6 +68,8 @@ export function upsertRankingsBatch(rows: Array<{
   position: number;
   date: string;
   project_id?: string | null;
+  ranking_tier?: string | null;
+  keyword_type?: string | null;
 }>) {
   db.transaction((tx) => {
     for (const row of rows) {
@@ -87,6 +89,8 @@ export function upsertRankingsBatch(rows: Array<{
         position: row.position,
         date: row.date,
         project_id: row.project_id ?? null,
+        ranking_tier: row.ranking_tier ?? null,
+        keyword_type: row.keyword_type ?? null,
       }).run();
     }
   });

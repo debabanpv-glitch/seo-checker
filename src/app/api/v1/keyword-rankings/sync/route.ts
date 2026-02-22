@@ -61,6 +61,9 @@ export async function POST(request: NextRequest) {
       dateIdx = findColumnIndex(headers, ['date', 'ngày', 'ngay', 'check_date', 'checked', 'checkdate']);
     }
 
+    const rankingTierIdx = findColumnIndex(headers, ['ranking']);
+    const keywordTypeIdx = findColumnIndex(headers, ['type', 'loại', 'loai', 'kw type']);
+
     if (keywordIdx === -1) {
       return NextResponse.json(
         { error: 'Không tìm thấy cột "keyword". Bạn có thể sử dụng chế độ chỉ định cột thủ công.', debug: { headers, firstRow: rows[0] } },
@@ -75,7 +78,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    interface RankingRow { keyword: string; url: string; position: number; date: string; project_id?: string | null }
+    interface RankingRow { keyword: string; url: string; position: number; date: string; project_id?: string | null; ranking_tier?: string | null; keyword_type?: string | null }
     const rankings: RankingRow[] = [];
     const errors: string[] = [];
 
@@ -87,6 +90,8 @@ export async function POST(request: NextRequest) {
       const url = urlIdx !== -1 ? row[urlIdx]?.trim() : '';
       const positionStr = row[positionIdx]?.trim();
       const dateStr = dateIdx !== -1 ? row[dateIdx]?.trim() : '';
+      const rankingTier = rankingTierIdx !== -1 ? row[rankingTierIdx]?.trim() : '';
+      const keywordType = keywordTypeIdx !== -1 ? row[keywordTypeIdx]?.trim() : '';
 
       if (!keyword) { errors.push(`Row ${i + 1}: Missing keyword`); continue; }
 
@@ -106,6 +111,8 @@ export async function POST(request: NextRequest) {
         position: Math.round(position * 10) / 10,
         date: parsedDate,
         project_id: projectId || null,
+        ranking_tier: rankingTier || null,
+        keyword_type: keywordType || null,
       });
     }
 

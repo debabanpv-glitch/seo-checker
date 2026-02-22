@@ -1,25 +1,36 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   TrendingUp,
   TrendingDown,
-  Search,
-  Filter,
   ArrowUp,
   ArrowDown,
   Minus,
   RefreshCw,
   ExternalLink,
   X,
-  Calendar,
-  ChevronRight,
+  ChevronDown,
+  Upload,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
+  Settings2,
+  Plus,
+  Trash2,
+  Search,
+  Target,
+  Eye,
+  Zap,
 } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
 import { cn } from '@/lib/utils';
 import { Project } from '@/types';
 
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 interface KeywordRanking {
   id: string;
   keyword: string;
@@ -27,6 +38,8 @@ interface KeywordRanking {
   position: number;
   date: string;
   project_id: string | null;
+  ranking_tier?: string | null;
+  keyword_type?: string | null;
 }
 
 interface KeywordTrend {
@@ -36,570 +49,415 @@ interface KeywordTrend {
   previousPosition: number | null;
   change: number | null;
   history: { date: string; position: number }[];
+  ranking_tier?: string | null;
+  keyword_type?: string | null;
 }
 
-type PositionFilter = 'all' | 'top3' | 'top10' | 'top20' | 'top30' | 'below30';
+interface SheetConfig {
+  url: string;
+  project_id: string;
+  label: string;
+}
 
+type ViewTab = 'all' | 'cam_ket' | 'blog' | 'opportunity' | 'declining';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+const posColor = (pos: number) => {
+  if (pos <= 3) return 'text-emerald-400';
+  if (pos <= 10) return 'text-accent';
+  if (pos <= 20) return 'text-sky-400';
+  if (pos <= 30) return 'text-amber-400';
+  return 'text-[#666680]';
+};
+
+const posBg = (pos: number) => {
+  if (pos <= 3) return 'bg-emerald-400/10 border-emerald-400/20';
+  if (pos <= 10) return 'bg-accent/10 border-accent/20';
+  if (pos <= 20) return 'bg-sky-400/10 border-sky-400/20';
+  if (pos <= 30) return 'bg-amber-400/10 border-amber-400/20';
+  return 'bg-[#666680]/10 border-[#666680]/20';
+};
+
+// ---------------------------------------------------------------------------
+// Main Component
+// ---------------------------------------------------------------------------
 export default function KeywordRankingPage() {
   const [rankings, setRankings] = useState<KeywordRanking[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<ViewTab>('all');
+  const [expandedKw, setExpandedKw] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'position' | 'change' | 'keyword'>('position');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [positionFilter, setPositionFilter] = useState<PositionFilter>('all');
-  const [selectedKeyword, setSelectedKeyword] = useState<KeywordTrend | null>(null);
-  const timelineRef = useRef<HTMLDivElement>(null);
+  const [sortAsc, setSortAsc] = useState(true);
 
-  useEffect(() => {
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProject]);
+  // Sync state
+  const [sheetConfigs, setSheetConfigs] = useState<SheetConfig[]>([]);
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [editConfigs, setEditConfigs] = useState<SheetConfig[]>([]);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  const fetchData = async () => {
+  // ── Data fetching ─────────────────────────────────────────────────────
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [rankingsRes, projectsRes] = await Promise.all([
-        fetch(`/api/v1/keyword-rankings${selectedProject ? `?projectId=${selectedProject}` : ''}`),
+      const [rankingsRes, projectsRes, configRes] = await Promise.all([
+        fetch(`/api/v1/keyword-rankings?limit=5000${selectedProject ? `&projectId=${selectedProject}` : ''}`),
         fetch('/api/v1/projects'),
+        fetch('/api/v1/keyword-rankings/sync-all'),
       ]);
-
-      const rankingsData = await rankingsRes.json();
-      const projectsData = await projectsRes.json();
-
+      const [rankingsData, projectsData, configData] = await Promise.all([
+        rankingsRes.json(), projectsRes.json(), configRes.json(),
+      ]);
       setRankings(rankingsData.rankings || []);
       setProjects(projectsData.projects || []);
+      setSheetConfigs(configData.configs || []);
     } catch (error) {
-      console.error('Failed to fetch data:', error);
+      console.error('Failed to fetch:', error);
     } finally {
       setIsLoading(false);
     }
+  }, [selectedProject]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  // ── Sync ──────────────────────────────────────────────────────────────
+  const handleSyncAll = async () => {
+    if (sheetConfigs.length === 0) { setEditConfigs([]); setShowConfigModal(true); return; }
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch('/api/v1/keyword-rankings/sync-all', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+      });
+      const data = await res.json();
+      setSyncResult({ success: data.success, message: data.message });
+      if (data.success) fetchData();
+      setTimeout(() => setSyncResult(null), 5000);
+    } catch {
+      setSyncResult({ success: false, message: 'Lỗi kết nối' });
+    } finally {
+      setSyncing(false);
+    }
   };
 
-  // Process rankings into trends (group by keyword, calculate changes)
+  const handleSaveConfigs = async () => {
+    const valid = editConfigs.filter((c) => c.url.trim());
+    await fetch('/api/v1/keyword-rankings/sync-all', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ configs: valid }),
+    });
+    setSheetConfigs(valid);
+    setShowConfigModal(false);
+  };
+
+  // ── Process trends ────────────────────────────────────────────────────
   const keywordTrends = useMemo(() => {
     const keywordMap = new Map<string, KeywordRanking[]>();
-
-    // Group by keyword
     rankings.forEach((r) => {
       const key = r.keyword.toLowerCase();
-      if (!keywordMap.has(key)) {
-        keywordMap.set(key, []);
-      }
+      if (!keywordMap.has(key)) keywordMap.set(key, []);
       keywordMap.get(key)!.push(r);
     });
 
-    // Calculate trends
     const trends: KeywordTrend[] = [];
-
     keywordMap.forEach((records) => {
-      // Sort by date descending
-      const sorted = records.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
+      const sorted = records.sort((a, b) => b.date.localeCompare(a.date));
       const latest = sorted[0];
       const previous = sorted[1];
 
-      // Get unique dates for history (last 6 months)
       const history: { date: string; position: number }[] = [];
       const seenDates = new Set<string>();
-
       sorted.forEach((r) => {
-        const monthKey = r.date.substring(0, 7); // YYYY-MM
-        if (!seenDates.has(monthKey)) {
-          seenDates.add(monthKey);
+        if (!seenDates.has(r.date)) {
+          seenDates.add(r.date);
           history.push({ date: r.date, position: r.position });
         }
       });
-
-      // Sort history by date ascending for display
-      history.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      history.sort((a, b) => a.date.localeCompare(b.date));
 
       trends.push({
         keyword: latest.keyword,
         url: latest.url,
         currentPosition: latest.position,
-        previousPosition: previous?.position || null,
-        change: previous ? previous.position - latest.position : null, // Positive = improved
-        history: history.slice(-6), // Last 6 months
+        previousPosition: previous?.position ?? null,
+        change: previous ? previous.position - latest.position : null,
+        history,
+        ranking_tier: latest.ranking_tier,
+        keyword_type: latest.keyword_type,
       });
     });
-
     return trends;
   }, [rankings]);
 
-  // Filter and sort
-  const filteredTrends = useMemo(() => {
-    let result = [...keywordTrends];
-
-    // Filter by position
-    switch (positionFilter) {
-      case 'top3':
-        result = result.filter((t) => t.currentPosition <= 3);
-        break;
-      case 'top10':
-        result = result.filter((t) => t.currentPosition <= 10);
-        break;
-      case 'top20':
-        result = result.filter((t) => t.currentPosition <= 20);
-        break;
-      case 'top30':
-        result = result.filter((t) => t.currentPosition <= 30);
-        break;
-      case 'below30':
-        result = result.filter((t) => t.currentPosition > 30);
-        break;
-    }
-
-    // Filter by search
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(
-        (t) =>
-          t.keyword.toLowerCase().includes(query) ||
-          t.url.toLowerCase().includes(query)
-      );
-    }
-
-    // Sort
-    result.sort((a, b) => {
-      let comparison = 0;
-
-      switch (sortBy) {
-        case 'position':
-          comparison = a.currentPosition - b.currentPosition;
-          break;
-        case 'change':
-          const changeA = a.change ?? 0;
-          const changeB = b.change ?? 0;
-          comparison = changeB - changeA; // Higher improvement first
-          break;
-        case 'keyword':
-          comparison = a.keyword.localeCompare(b.keyword);
-          break;
-      }
-
-      return sortOrder === 'asc' ? comparison : -comparison;
-    });
-
-    return result;
-  }, [keywordTrends, searchQuery, sortBy, sortOrder, positionFilter]);
-
-  // Stats
+  // ── Stats ─────────────────────────────────────────────────────────────
   const stats = useMemo(() => {
     const total = keywordTrends.length;
     const top3 = keywordTrends.filter((t) => t.currentPosition <= 3).length;
     const top10 = keywordTrends.filter((t) => t.currentPosition <= 10).length;
-    const top20 = keywordTrends.filter((t) => t.currentPosition <= 20).length;
     const top30 = keywordTrends.filter((t) => t.currentPosition <= 30).length;
     const improved = keywordTrends.filter((t) => t.change !== null && t.change > 0).length;
     const declined = keywordTrends.filter((t) => t.change !== null && t.change < 0).length;
-
-    return { total, top3, top10, top20, top30, improved, declined };
+    const camKet = keywordTrends.filter((t) => t.keyword_type === 'KW Cam kết').length;
+    const blog = keywordTrends.filter((t) => t.keyword_type === 'KW Blog').length;
+    const opportunity = keywordTrends.filter((t) => t.currentPosition >= 11 && t.currentPosition <= 20).length;
+    return { total, top3, top10, top30, improved, declined, camKet, blog, opportunity };
   }, [keywordTrends]);
 
-  const getPositionColor = (position: number) => {
-    if (position <= 3) return 'text-success';
-    if (position <= 10) return 'text-accent';
-    if (position <= 20) return 'text-blue-400';
-    if (position <= 30) return 'text-warning';
-    return 'text-[#8888a0]';
+  // ── Filter + Sort ─────────────────────────────────────────────────────
+  const filtered = useMemo(() => {
+    let result = [...keywordTrends];
+
+    // Tab filter
+    switch (activeTab) {
+      case 'cam_ket': result = result.filter((t) => t.keyword_type === 'KW Cam kết'); break;
+      case 'blog': result = result.filter((t) => t.keyword_type === 'KW Blog'); break;
+      case 'opportunity': result = result.filter((t) => t.currentPosition >= 11 && t.currentPosition <= 20); break;
+      case 'declining': result = result.filter((t) => t.change !== null && t.change < 0); break;
+    }
+
+    // Search
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter((t) => t.keyword.toLowerCase().includes(q) || t.url.toLowerCase().includes(q));
+    }
+
+    // Sort
+    result.sort((a, b) => {
+      let cmp = 0;
+      if (sortBy === 'position') cmp = a.currentPosition - b.currentPosition;
+      else if (sortBy === 'change') cmp = (b.change ?? 0) - (a.change ?? 0);
+      else cmp = a.keyword.localeCompare(b.keyword);
+      return sortAsc ? cmp : -cmp;
+    });
+
+    return result;
+  }, [keywordTrends, activeTab, searchQuery, sortBy, sortAsc]);
+
+  // ── Column sort toggle ────────────────────────────────────────────────
+  const toggleSort = (col: 'position' | 'change' | 'keyword') => {
+    if (sortBy === col) setSortAsc(!sortAsc);
+    else { setSortBy(col); setSortAsc(col === 'position'); }
   };
 
-  const getChangeIcon = (change: number | null) => {
-    if (change === null) return <Minus className="w-4 h-4 text-[#8888a0]" />;
-    if (change > 0) return <ArrowUp className="w-4 h-4 text-success" />;
-    if (change < 0) return <ArrowDown className="w-4 h-4 text-danger" />;
-    return <Minus className="w-4 h-4 text-[#8888a0]" />;
-  };
+  // ── Dates info ────────────────────────────────────────────────────────
+  const dates = useMemo(() => {
+    const s = new Set(rankings.map((r) => r.date));
+    return Array.from(s).sort();
+  }, [rankings]);
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('vi-VN', { month: 'short', year: '2-digit' });
-  };
+  const latestDate = dates[dates.length - 1];
 
-  if (isLoading) {
-    return <PageLoading />;
-  }
+  if (isLoading) return <PageLoading />;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-5">
+      {/* ── Header ──────────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-primary)]">Keyword Ranking</h1>
-          <p className="text-[#8888a0] text-sm">Theo dõi xếp hạng từ khóa theo thời gian</p>
-        </div>
-
-        <button
-          onClick={fetchData}
-          className="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent/90 rounded-lg text-white font-medium transition-colors"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Làm mới
-        </button>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-[#8888a0] text-xs mb-1">Tổng từ khóa</p>
-          <p className="text-2xl font-bold text-[var(--text-primary)]">{stats.total}</p>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-[#8888a0] text-xs mb-1">Top 3</p>
-          <p className="text-2xl font-bold text-success">{stats.top3}</p>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-[#8888a0] text-xs mb-1">Top 10</p>
-          <p className="text-2xl font-bold text-accent">{stats.top10}</p>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-[#8888a0] text-xs mb-1">Top 20</p>
-          <p className="text-2xl font-bold text-blue-400">{stats.top20}</p>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-[#8888a0] text-xs mb-1">Top 30</p>
-          <p className="text-2xl font-bold text-warning">{stats.top30}</p>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-[#8888a0] text-xs mb-1 flex items-center gap-1">
-            <TrendingUp className="w-3 h-3 text-success" /> Tăng
+          <p className="text-[#8888a0] text-sm">
+            {stats.total > 0
+              ? `${stats.total} từ khóa · ${dates.length} lần check · Cập nhật: ${latestDate ? new Date(latestDate).toLocaleDateString('vi-VN') : '—'}`
+              : 'Chưa có dữ liệu. Cấu hình Google Sheet để bắt đầu.'}
           </p>
-          <p className="text-2xl font-bold text-success">{stats.improved}</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-[#8888a0] text-xs mb-1 flex items-center gap-1">
-            <TrendingDown className="w-3 h-3 text-danger" /> Giảm
-          </p>
-          <p className="text-2xl font-bold text-danger">{stats.declined}</p>
-        </div>
-      </div>
 
-      {/* Position Filter Tabs */}
-      <div className="flex flex-wrap items-center gap-2">
-        {[
-          { value: 'all', label: 'Tất cả', count: stats.total },
-          { value: 'top10', label: 'Top cao (1-10)', count: stats.top10, color: 'text-accent' },
-          { value: 'top3', label: 'Top 3', count: stats.top3, color: 'text-success' },
-          { value: 'top20', label: 'Top 20', count: stats.top20, color: 'text-blue-400' },
-          { value: 'top30', label: 'Top 30', count: stats.top30, color: 'text-warning' },
-          { value: 'below30', label: '> 30', count: stats.total - stats.top30, color: 'text-[#8888a0]' },
-        ].map((tab) => (
-          <button
-            key={tab.value}
-            onClick={() => setPositionFilter(tab.value as PositionFilter)}
-            className={cn(
-              'px-4 py-2 rounded-lg text-sm font-medium transition-all',
-              positionFilter === tab.value
-                ? 'bg-accent text-white shadow-lg'
-                : 'bg-card border border-border text-[var(--text-primary)] hover:bg-secondary'
-            )}
-          >
-            <span className={positionFilter !== tab.value ? tab.color : ''}>{tab.label}</span>
-            <span className={cn(
-              'ml-2 px-1.5 py-0.5 rounded text-xs',
-              positionFilter === tab.value ? 'bg-white/20' : 'bg-secondary'
-            )}>
-              {tab.count}
+        <div className="flex items-center gap-2">
+          {syncResult && (
+            <span className={cn('text-xs px-2 py-1 rounded animate-in fade-in', syncResult.success ? 'bg-emerald-400/10 text-emerald-400' : 'bg-red-400/10 text-red-400')}>
+              {syncResult.success ? <CheckCircle className="w-3 h-3 inline mr-1" /> : <AlertCircle className="w-3 h-3 inline mr-1" />}
+              {syncResult.message}
             </span>
+          )}
+          <button
+            onClick={handleSyncAll}
+            disabled={syncing}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 rounded-lg text-white font-medium text-sm transition-colors"
+          >
+            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            {syncing ? 'Syncing...' : sheetConfigs.length > 0 ? 'Sync' : 'Cấu hình Sheet'}
           </button>
-        ))}
+          <button
+            onClick={() => { setEditConfigs([...sheetConfigs]); setShowConfigModal(true); }}
+            className="p-2 hover:bg-secondary border border-border rounded-lg text-[#8888a0] transition-colors"
+            title="Cấu hình Sheets"
+          >
+            <Settings2 className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2 text-[#8888a0]">
-          <Filter className="w-4 h-4" />
-          <span className="text-sm">Lọc:</span>
-        </div>
-
-        <select
-          value={selectedProject}
-          onChange={(e) => setSelectedProject(e.target.value)}
-          className="px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm"
-        >
-          <option value="">Tất cả dự án</option>
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={`${sortBy}-${sortOrder}`}
-          onChange={(e) => {
-            const [by, order] = e.target.value.split('-');
-            setSortBy(by as 'position' | 'change' | 'keyword');
-            setSortOrder(order as 'asc' | 'desc');
-          }}
-          className="px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm"
-        >
-          <option value="position-asc">Vị trí: Thấp → Cao</option>
-          <option value="position-desc">Vị trí: Cao → Thấp</option>
-          <option value="change-desc">Thay đổi: Tăng nhiều nhất</option>
-          <option value="change-asc">Thay đổi: Giảm nhiều nhất</option>
-          <option value="keyword-asc">Từ khóa: A → Z</option>
-        </select>
-
-        <div className="flex-1 min-w-[200px]">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8888a0]" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm từ khóa..."
-              className="w-full pl-10 pr-4 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] placeholder-[#8888a0] text-sm"
-            />
+      {stats.total === 0 ? (
+        <EmptyState
+          icon={TrendingUp}
+          title="Chưa có dữ liệu keyword ranking"
+          description="Nhấn 'Cấu hình Sheet' để thêm Google Sheet URL, sau đó bấm Sync"
+        />
+      ) : (
+        <>
+          {/* ── Score Cards ──────────────────────────────────────────── */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <ScoreCard label="Top 3" value={stats.top3} total={stats.total} color="text-emerald-400" bgColor="bg-emerald-400" />
+            <ScoreCard label="Top 10" value={stats.top10} total={stats.total} color="text-accent" bgColor="bg-accent" />
+            <ScoreCard label="Tăng hạng" value={stats.improved} icon={<TrendingUp className="w-4 h-4 text-emerald-400" />} color="text-emerald-400" />
+            <ScoreCard label="Giảm hạng" value={stats.declined} icon={<TrendingDown className="w-4 h-4 text-red-400" />} color="text-red-400" />
           </div>
-        </div>
-      </div>
 
-      {/* Rankings Table */}
-      {filteredTrends.length > 0 ? (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* ── Tabs + Search + Project ──────────────────────────────── */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex items-center gap-1 bg-secondary/50 rounded-lg p-1">
+              {([
+                { key: 'all' as ViewTab, label: 'Tất cả', count: stats.total, icon: null as React.ReactNode },
+                { key: 'cam_ket' as ViewTab, label: 'Cam kết', count: stats.camKet, icon: <Target className="w-3 h-3" /> as React.ReactNode },
+                { key: 'blog' as ViewTab, label: 'Blog', count: stats.blog, icon: <Eye className="w-3 h-3" /> as React.ReactNode },
+                { key: 'opportunity' as ViewTab, label: 'Cơ hội', count: stats.opportunity, icon: <Zap className="w-3 h-3" /> as React.ReactNode },
+                { key: 'declining' as ViewTab, label: 'Giảm', count: stats.declined, icon: <TrendingDown className="w-3 h-3" /> as React.ReactNode },
+              ]).map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={cn(
+                    'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all',
+                    activeTab === tab.key
+                      ? 'bg-card text-[var(--text-primary)] shadow-sm'
+                      : 'text-[#8888a0] hover:text-[var(--text-primary)]'
+                  )}
+                >
+                  {tab.icon}
+                  {tab.label}
+                  <span className={cn('text-[10px] px-1 py-0.5 rounded', activeTab === tab.key ? 'bg-accent/15 text-accent' : 'bg-secondary')}>
+                    {tab.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2 flex-1">
+              <select
+                value={selectedProject}
+                onChange={(e) => setSelectedProject(e.target.value)}
+                className="px-3 py-1.5 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-xs"
+              >
+                <option value="">Tất cả dự án</option>
+                {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+
+              <div className="relative flex-1 max-w-xs">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8888a0]" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Tìm keyword / URL..."
+                  className="w-full pl-8 pr-3 py-1.5 bg-secondary border border-border rounded-lg text-[var(--text-primary)] placeholder-[#8888a0] text-xs"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ── Table ────────────────────────────────────────────────── */}
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-border bg-secondary/50">
-                  <th className="px-4 py-3 text-left text-xs font-medium text-[#8888a0]">#</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-[#8888a0]">Từ khóa</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-[#8888a0]">Vị trí</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-[#8888a0]">Thay đổi</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-[#8888a0]">Lịch sử (6 tháng)</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-[#8888a0]">URL</th>
+                <tr className="border-b border-border text-[10px] uppercase tracking-wider text-[#8888a0]">
+                  <th className="px-3 py-2.5 text-left w-10">#</th>
+                  <th className="px-3 py-2.5 text-left cursor-pointer hover:text-[var(--text-primary)]" onClick={() => toggleSort('keyword')}>
+                    Từ khóa {sortBy === 'keyword' && (sortAsc ? '↑' : '↓')}
+                  </th>
+                  <th className="px-3 py-2.5 text-center w-20 cursor-pointer hover:text-[var(--text-primary)]" onClick={() => toggleSort('position')}>
+                    Vị trí {sortBy === 'position' && (sortAsc ? '↑' : '↓')}
+                  </th>
+                  <th className="px-3 py-2.5 text-center w-20 cursor-pointer hover:text-[var(--text-primary)]" onClick={() => toggleSort('change')}>
+                    +/- {sortBy === 'change' && (sortAsc ? '↑' : '↓')}
+                  </th>
+                  <th className="px-3 py-2.5 text-left hidden md:table-cell">URL</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
-                {filteredTrends.map((trend, idx) => (
-                  <tr
+              <tbody className="divide-y divide-border/50">
+                {filtered.map((trend, idx) => (
+                  <KeywordRow
                     key={trend.keyword}
-                    className={cn(
-                      "hover:bg-secondary/30 transition-colors cursor-pointer",
-                      selectedKeyword?.keyword === trend.keyword && "bg-accent/10"
-                    )}
-                    onClick={() => setSelectedKeyword(selectedKeyword?.keyword === trend.keyword ? null : trend)}
-                  >
-                    <td className="px-4 py-3 text-[#8888a0] text-sm">{idx + 1}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[var(--text-primary)] font-medium">{trend.keyword}</span>
-                        {trend.history.length > 1 && (
-                          <span className="text-xs text-[#8888a0] bg-secondary px-1.5 py-0.5 rounded">
-                            {trend.history.length} lần check
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span
-                        className={cn(
-                          'text-lg font-bold font-mono',
-                          getPositionColor(trend.currentPosition)
-                        )}
-                      >
-                        {trend.currentPosition}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-center gap-1">
-                        {getChangeIcon(trend.change)}
-                        {trend.change !== null && (
-                          <span
-                            className={cn(
-                              'text-sm font-mono',
-                              trend.change > 0 ? 'text-success' : trend.change < 0 ? 'text-danger' : 'text-[#8888a0]'
-                            )}
-                          >
-                            {trend.change > 0 ? '+' : ''}{trend.change}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      {/* Mini sparkline preview */}
-                      <div className="flex items-center gap-1">
-                        <MiniSparkline history={trend.history} />
-                        <ChevronRight className={cn(
-                          "w-4 h-4 text-[#8888a0] transition-transform",
-                          selectedKeyword?.keyword === trend.keyword && "rotate-90"
-                        )} />
-                      </div>
-                    </td>
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      {trend.url && (
-                        <a
-                          href={trend.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-xs text-accent hover:underline max-w-[200px] truncate"
-                        >
-                          <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                          <span className="truncate">{trend.url.replace(/^https?:\/\//, '')}</span>
-                        </a>
-                      )}
-                    </td>
-                  </tr>
+                    trend={trend}
+                    idx={idx}
+                    expanded={expandedKw === trend.keyword}
+                    onToggle={() => setExpandedKw(expandedKw === trend.keyword ? null : trend.keyword)}
+                  />
                 ))}
               </tbody>
             </table>
+
+            {filtered.length === 0 && (
+              <div className="p-8 text-center text-[#8888a0] text-sm">Không có kết quả phù hợp</div>
+            )}
           </div>
-        </div>
-      ) : (
-        <EmptyState
-          icon={TrendingUp}
-          title="Chưa có dữ liệu ranking"
-          description="Đồng bộ dữ liệu keyword ranking từ Cài đặt để bắt đầu theo dõi"
-        />
+
+          <p className="text-[10px] text-[#666680] text-right">{filtered.length} / {stats.total} từ khóa</p>
+        </>
       )}
 
-      {/* Legend */}
-      <div className="flex flex-wrap items-center gap-4 text-xs text-[#8888a0]">
-        <span className="flex items-center gap-1">
-          <span className="w-3 h-3 rounded bg-success/30" /> Top 3
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="w-3 h-3 rounded bg-accent/30" /> Top 10
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="w-3 h-3 rounded bg-blue-400/30" /> Top 20
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="w-3 h-3 rounded bg-warning/30" /> Top 30
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="w-3 h-3 rounded bg-[#8888a0]/30" /> {'>'} 30
-        </span>
-      </div>
-
-      {/* Timeline Modal */}
-      {selectedKeyword && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          onClick={() => setSelectedKeyword(null)}
-        >
-          <div
-            className="bg-card border border-border rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-border bg-secondary/30">
+      {/* ── Sheet Config Modal ──────────────────────────────────────── */}
+      {showConfigModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowConfigModal(false)}>
+          <div className="bg-card border border-border rounded-2xl w-full max-w-2xl shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b border-border">
               <div>
-                <h2 className="text-xl font-bold text-[var(--text-primary)]">{selectedKeyword.keyword}</h2>
-                <div className="flex items-center gap-3 mt-1">
-                  <span className={cn(
-                    "text-2xl font-bold font-mono",
-                    getPositionColor(selectedKeyword.currentPosition)
-                  )}>
-                    Top {selectedKeyword.currentPosition}
-                  </span>
-                  {selectedKeyword.change !== null && (
-                    <span className={cn(
-                      "flex items-center gap-1 text-sm font-medium",
-                      selectedKeyword.change > 0 ? "text-success" : selectedKeyword.change < 0 ? "text-danger" : "text-[#8888a0]"
-                    )}>
-                      {selectedKeyword.change > 0 ? <ArrowUp className="w-4 h-4" /> : selectedKeyword.change < 0 ? <ArrowDown className="w-4 h-4" /> : <Minus className="w-4 h-4" />}
-                      {selectedKeyword.change > 0 ? "+" : ""}{selectedKeyword.change}
-                    </span>
-                  )}
-                </div>
+                <h2 className="text-base font-bold text-[var(--text-primary)]">Cấu hình Google Sheets</h2>
+                <p className="text-xs text-[#8888a0] mt-0.5">Sheet phải public. Cần cột: Keyword, Top/Position. Tùy chọn: URL, Date, Ranking, Type</p>
               </div>
+              <button onClick={() => setShowConfigModal(false)} className="p-1.5 hover:bg-secondary rounded-lg"><X className="w-4 h-4 text-[#8888a0]" /></button>
+            </div>
+
+            <div className="p-5 space-y-3 max-h-[50vh] overflow-y-auto">
+              {editConfigs.map((cfg, i) => (
+                <div key={i} className="flex gap-2 items-start bg-secondary/30 rounded-lg p-3">
+                  <div className="flex-1 space-y-1.5">
+                    <div className="flex gap-2">
+                      <input
+                        type="text" value={cfg.label}
+                        onChange={(e) => { const c = [...editConfigs]; c[i] = { ...c[i], label: e.target.value }; setEditConfigs(c); }}
+                        placeholder="Tên sheet"
+                        className="flex-1 px-2 py-1 bg-secondary border border-border rounded text-[var(--text-primary)] placeholder-[#8888a0] text-xs"
+                      />
+                      <select
+                        value={cfg.project_id}
+                        onChange={(e) => { const c = [...editConfigs]; c[i] = { ...c[i], project_id: e.target.value }; setEditConfigs(c); }}
+                        className="px-2 py-1 bg-secondary border border-border rounded text-[var(--text-primary)] text-xs"
+                      >
+                        <option value="">Dự án</option>
+                        {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      </select>
+                    </div>
+                    <input
+                      type="text" value={cfg.url}
+                      onChange={(e) => { const c = [...editConfigs]; c[i] = { ...c[i], url: e.target.value }; setEditConfigs(c); }}
+                      placeholder="https://docs.google.com/spreadsheets/d/..."
+                      className="w-full px-2 py-1 bg-secondary border border-border rounded text-[var(--text-primary)] placeholder-[#8888a0] text-[10px] font-mono"
+                    />
+                  </div>
+                  <button onClick={() => setEditConfigs(editConfigs.filter((_, j) => j !== i))} className="p-1.5 text-red-400 hover:bg-red-400/10 rounded">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
               <button
-                onClick={() => setSelectedKeyword(null)}
-                className="p-2 hover:bg-secondary rounded-lg transition-colors"
+                onClick={() => setEditConfigs([...editConfigs, { url: '', project_id: '', label: '' }])}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs text-accent hover:bg-accent/10 rounded-lg transition-colors w-full justify-center border border-dashed border-accent/30"
               >
-                <X className="w-5 h-5 text-[#8888a0]" />
+                <Plus className="w-3.5 h-3.5" /> Thêm sheet
               </button>
             </div>
 
-            {/* Timeline Chart */}
-            <div className="p-6" ref={timelineRef}>
-              <div className="flex items-center gap-2 mb-4 text-[#8888a0]">
-                <Calendar className="w-4 h-4" />
-                <span className="text-sm">Lịch sử xếp hạng</span>
-              </div>
-
-              {/* Chart Area */}
-              <div className="relative h-64 bg-secondary/30 rounded-xl p-4">
-                <TimelineChart
-                  history={selectedKeyword.history}
-                  formatDate={formatDate}
-                />
-              </div>
-
-              {/* Timeline Events */}
-              <div className="mt-6 relative">
-                <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
-                <div className="space-y-4">
-                  {[...selectedKeyword.history].reverse().map((h, idx) => {
-                    const prevItem = selectedKeyword.history[selectedKeyword.history.length - idx - 2];
-                    const change = prevItem ? prevItem.position - h.position : null;
-
-                    return (
-                      <div
-                        key={h.date}
-                        className="relative pl-10 animate-in slide-in-from-left duration-300"
-                        style={{ animationDelay: `${idx * 100}ms` }}
-                      >
-                        {/* Dot */}
-                        <div className={cn(
-                          "absolute left-2 w-4 h-4 rounded-full border-2 border-card",
-                          h.position <= 3 ? "bg-success" :
-                          h.position <= 10 ? "bg-accent" :
-                          h.position <= 20 ? "bg-blue-400" :
-                          h.position <= 30 ? "bg-warning" : "bg-[#8888a0]"
-                        )} />
-
-                        <div className="bg-secondary/50 rounded-lg p-3 flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-[#8888a0]">
-                              {new Date(h.date).toLocaleDateString('vi-VN', {
-                                weekday: 'short',
-                                day: 'numeric',
-                                month: 'short',
-                                year: 'numeric'
-                              })}
-                            </p>
-                            <p className={cn(
-                              "text-xl font-bold font-mono mt-1",
-                              getPositionColor(h.position)
-                            )}>
-                              Top {h.position}
-                            </p>
-                          </div>
-                          {change !== null && change !== 0 && (
-                            <div className={cn(
-                              "flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium",
-                              change > 0 ? "bg-success/20 text-success" : "bg-danger/20 text-danger"
-                            )}>
-                              {change > 0 ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
-                              {change > 0 ? "+" : ""}{change}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+            <div className="flex justify-end gap-2 p-5 border-t border-border">
+              <button onClick={() => setShowConfigModal(false)} className="px-3 py-1.5 text-xs text-[#8888a0] hover:bg-secondary rounded-lg">Hủy</button>
+              <button onClick={handleSaveConfigs} className="px-4 py-1.5 bg-accent hover:bg-accent/90 rounded-lg text-white text-xs font-medium">
+                Lưu
+              </button>
             </div>
-
-            {/* URL */}
-            {selectedKeyword.url && (
-              <div className="px-6 pb-6">
-                <a
-                  href={selectedKeyword.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-accent hover:underline"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  <span className="truncate">{selectedKeyword.url}</span>
-                </a>
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -607,180 +465,129 @@ export default function KeywordRankingPage() {
   );
 }
 
-// Mini Sparkline Component
-function MiniSparkline({
-  history,
-}: {
-  history: { date: string; position: number }[];
+// ---------------------------------------------------------------------------
+// ScoreCard
+// ---------------------------------------------------------------------------
+function ScoreCard({ label, value, total, color, bgColor, icon }: {
+  label: string; value: number; total?: number; color: string; bgColor?: string; icon?: React.ReactNode;
 }) {
-  if (history.length === 0) return null;
-
-  const maxPos = Math.max(...history.map(h => h.position), 30);
-  const width = 80;
-  const height = 24;
-  const padding = 2;
-
-  const points = history.map((h, i) => {
-    const x = padding + (i / (history.length - 1 || 1)) * (width - padding * 2);
-    const y = padding + (h.position / maxPos) * (height - padding * 2);
-    return { x, y, position: h.position };
-  });
-
-  const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-
+  const pct = total && total > 0 ? Math.round((value / total) * 100) : null;
   return (
-    <svg width={width} height={height} className="overflow-visible">
-      {/* Line */}
-      <path
-        d={pathD}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        className="text-accent"
-      />
-      {/* Dots */}
-      {points.map((p, i) => (
-        <circle
-          key={i}
-          cx={p.x}
-          cy={p.y}
-          r="3"
-          className={cn(
-            p.position <= 3 ? "fill-success" :
-            p.position <= 10 ? "fill-accent" :
-            p.position <= 20 ? "fill-blue-400" :
-            p.position <= 30 ? "fill-warning" : "fill-[#8888a0]"
-          )}
-        />
-      ))}
-    </svg>
+    <div className="bg-card border border-border rounded-xl p-4">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[#8888a0] text-xs">{label}</span>
+        {icon}
+      </div>
+      <div className="flex items-baseline gap-2">
+        <span className={cn('text-2xl font-bold font-mono', color)}>{value}</span>
+        {pct !== null && <span className="text-xs text-[#8888a0]">({pct}%)</span>}
+      </div>
+      {total && bgColor && (
+        <div className="mt-2 h-1 bg-secondary rounded-full overflow-hidden">
+          <div className={cn('h-full rounded-full transition-all', bgColor)} style={{ width: `${pct}%` }} />
+        </div>
+      )}
+    </div>
   );
 }
 
-// Timeline Chart Component
-function TimelineChart({
-  history,
-  formatDate
-}: {
-  history: { date: string; position: number }[];
-  formatDate: (date: string) => string;
+// ---------------------------------------------------------------------------
+// KeywordRow (with inline expand)
+// ---------------------------------------------------------------------------
+function KeywordRow({ trend, idx, expanded, onToggle }: {
+  trend: KeywordTrend; idx: number; expanded: boolean; onToggle: () => void;
 }) {
-  if (history.length === 0) return <div className="text-center text-[#8888a0]">Không có dữ liệu</div>;
+  return (
+    <>
+      <tr className={cn('hover:bg-secondary/30 transition-colors cursor-pointer text-sm', expanded && 'bg-accent/5')} onClick={onToggle}>
+        <td className="px-3 py-2.5 text-[#8888a0] text-xs font-mono">{idx + 1}</td>
+        <td className="px-3 py-2.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[var(--text-primary)] font-medium text-sm">{trend.keyword}</span>
+            {trend.keyword_type && (
+              <span className={cn(
+                'text-[10px] px-1.5 py-0.5 rounded-full border',
+                trend.keyword_type === 'KW Cam kết' ? 'bg-accent/10 text-accent border-accent/20' : 'bg-sky-400/10 text-sky-400 border-sky-400/20'
+              )}>
+                {trend.keyword_type === 'KW Cam kết' ? 'CK' : 'Blog'}
+              </span>
+            )}
+            <ChevronDown className={cn('w-3 h-3 text-[#8888a0] transition-transform', expanded && 'rotate-180')} />
+          </div>
+        </td>
+        <td className="px-3 py-2.5 text-center">
+          <span className={cn('inline-flex items-center justify-center w-9 h-7 rounded-md border text-sm font-bold font-mono', posBg(trend.currentPosition), posColor(trend.currentPosition))}>
+            {trend.currentPosition}
+          </span>
+        </td>
+        <td className="px-3 py-2.5 text-center">
+          <ChangeIndicator change={trend.change} />
+        </td>
+        <td className="px-3 py-2.5 hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
+          {trend.url ? (
+            <a href={trend.url} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1 text-[11px] text-accent hover:underline max-w-[280px] truncate">
+              <ExternalLink className="w-3 h-3 flex-shrink-0" />
+              <span className="truncate">{trend.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}</span>
+            </a>
+          ) : (
+            <span className="text-[11px] text-[#666680]">—</span>
+          )}
+        </td>
+      </tr>
 
-  const maxPos = Math.max(...history.map(h => h.position), 30);
-  const minPos = Math.min(...history.map(h => h.position));
-  const yRange = maxPos - minPos + 10;
+      {/* Expanded history */}
+      {expanded && (
+        <tr>
+          <td colSpan={5} className="px-3 py-3 bg-secondary/20">
+            <div className="flex items-center gap-4 flex-wrap">
+              <span className="text-[10px] text-[#8888a0] uppercase tracking-wider">Lịch sử:</span>
+              {trend.history.map((h, i) => {
+                const prev = trend.history[i - 1];
+                const delta = prev ? prev.position - h.position : null;
+                return (
+                  <div key={h.date} className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-[#8888a0]">{new Date(h.date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}</span>
+                    <span className={cn('text-xs font-bold font-mono', posColor(h.position))}>{h.position}</span>
+                    {delta !== null && delta !== 0 && (
+                      <span className={cn('text-[10px] font-mono', delta > 0 ? 'text-emerald-400' : 'text-red-400')}>
+                        {delta > 0 ? `+${delta}` : delta}
+                      </span>
+                    )}
+                    {i < trend.history.length - 1 && <span className="text-[#666680]">→</span>}
+                  </div>
+                );
+              })}
+            </div>
+            {/* Mobile URL */}
+            {trend.url && (
+              <a href={trend.url} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1 text-[11px] text-accent hover:underline mt-2 md:hidden">
+                <ExternalLink className="w-3 h-3" />
+                <span className="truncate">{trend.url.replace(/^https?:\/\//, '')}</span>
+              </a>
+            )}
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ChangeIndicator
+// ---------------------------------------------------------------------------
+function ChangeIndicator({ change }: { change: number | null }) {
+  if (change === null) return <Minus className="w-3.5 h-3.5 text-[#666680] mx-auto" />;
+  if (change === 0) return <span className="text-xs text-[#666680] font-mono">0</span>;
 
   return (
-    <div className="relative h-full">
-      {/* Y-axis labels */}
-      <div className="absolute left-0 top-0 bottom-8 w-10 flex flex-col justify-between text-xs text-[#8888a0]">
-        <span>1</span>
-        <span>{Math.round(maxPos / 2)}</span>
-        <span>{maxPos}</span>
-      </div>
-
-      {/* Chart */}
-      <div className="absolute left-12 right-0 top-0 bottom-8">
-        <svg width="100%" height="100%" className="overflow-visible" preserveAspectRatio="none">
-          {/* Grid lines */}
-          <line x1="0" y1="0" x2="100%" y2="0" stroke="currentColor" strokeOpacity="0.1" />
-          <line x1="0" y1="50%" x2="100%" y2="50%" stroke="currentColor" strokeOpacity="0.1" />
-          <line x1="0" y1="100%" x2="100%" y2="100%" stroke="currentColor" strokeOpacity="0.1" />
-
-          {/* Area fill */}
-          {history.length > 1 && (
-            <path
-              d={`
-                M 0 100%
-                ${history.map((h, i) => {
-                  const x = (i / (history.length - 1)) * 100;
-                  const y = ((h.position - 1) / (yRange - 1)) * 100;
-                  return `L ${x}% ${y}%`;
-                }).join(' ')}
-                L 100% 100%
-                Z
-              `}
-              fill="url(#gradient)"
-              className="opacity-30"
-            />
-          )}
-
-          {/* Gradient definition */}
-          <defs>
-            <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="rgb(var(--accent-rgb, 99 102 241))" />
-              <stop offset="100%" stopColor="rgb(var(--accent-rgb, 99 102 241))" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-
-          {/* Line */}
-          {history.length > 1 && (
-            <path
-              d={history.map((h, i) => {
-                const x = (i / (history.length - 1)) * 100;
-                const y = ((h.position - 1) / (yRange - 1)) * 100;
-                return `${i === 0 ? 'M' : 'L'} ${x}% ${y}%`;
-              }).join(' ')}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="text-accent"
-            />
-          )}
-
-          {/* Points */}
-          {history.map((h, i) => {
-            const x = history.length > 1 ? (i / (history.length - 1)) * 100 : 50;
-            const y = ((h.position - 1) / (yRange - 1)) * 100;
-            return (
-              <g key={i}>
-                <circle
-                  cx={`${x}%`}
-                  cy={`${y}%`}
-                  r="8"
-                  className={cn(
-                    h.position <= 3 ? "fill-success" :
-                    h.position <= 10 ? "fill-accent" :
-                    h.position <= 20 ? "fill-blue-400" :
-                    h.position <= 30 ? "fill-warning" : "fill-[#8888a0]"
-                  )}
-                  style={{
-                    animation: `pulse 2s ease-in-out ${i * 0.1}s infinite`
-                  }}
-                />
-                <text
-                  x={`${x}%`}
-                  y={`${y}%`}
-                  dy="-14"
-                  textAnchor="middle"
-                  className="text-xs fill-[var(--text-primary)] font-bold"
-                >
-                  {h.position}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
-      </div>
-
-      {/* X-axis labels */}
-      <div className="absolute left-12 right-0 bottom-0 h-6 flex justify-between text-xs text-[#8888a0]">
-        {history.map((h, i) => (
-          <span key={i} className="text-center" style={{ width: `${100 / history.length}%` }}>
-            {formatDate(h.date)}
-          </span>
-        ))}
-      </div>
-
-      <style jsx>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.7; }
-        }
-      `}</style>
-    </div>
+    <span className={cn(
+      'inline-flex items-center gap-0.5 text-xs font-mono font-medium',
+      change > 0 ? 'text-emerald-400' : 'text-red-400'
+    )}>
+      {change > 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+      {Math.abs(change)}
+    </span>
   );
 }

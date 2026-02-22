@@ -29,4 +29,6 @@ export const keywordRankings = sqliteTable('keyword_rankings', {
   date: text('date').notNull(),
   project_id: text('project_id').references(() => projects.id, { onDelete: 'set null' }),
   source: text('source').notNull().default('sheets'), // sheets | claude-code | gsc
+  ranking_tier: text('ranking_tier'), // Top 1-3, Top 4-5, Top 6-10, Out Top 10
+  keyword_type: text('keyword_type'), // KW Cam kết, KW Blog, etc.
 });
