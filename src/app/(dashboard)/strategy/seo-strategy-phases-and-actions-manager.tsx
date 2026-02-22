@@ -109,6 +109,34 @@ function serializeResult(r: StructuredResult): string {
   return JSON.stringify(r);
 }
 
+// Auto-parse raw AI output into structured result
+function autoParseAiOutput(raw: string): StructuredResult {
+  const lines = raw.trim().split('\n').filter(l => l.trim());
+  // Extract URLs
+  const urlMatch = raw.match(/https?:\/\/[^\s)<>\]]+/);
+  // Extract summary: look for "Hiện trạng" or "Đã thực hiện" section, or first non-heading line
+  let summary = '';
+  for (const line of lines) {
+    const cleaned = line.replace(/^[#*\->\s]+/, '').trim();
+    if (!cleaned || cleaned.startsWith('http')) continue;
+    if (/^(hiện trạng|tóm tắt|kết quả|đã thực hiện|summary)/i.test(cleaned)) {
+      // Take content after colon if exists
+      const after = cleaned.replace(/^[^:]+:\s*/, '');
+      if (after && after !== cleaned) { summary = after; break; }
+      continue;
+    }
+    if (!summary && cleaned.length > 10 && cleaned.length < 200) {
+      summary = cleaned;
+    }
+  }
+  return {
+    status: 'success',
+    url: urlMatch?.[0],
+    summary: summary || lines[0]?.replace(/^[#*\->\s]+/, '').trim().slice(0, 150),
+    details: raw.trim(),
+  };
+}
+
 const RESULT_STATUS_CONFIG = {
   success: { label: 'Thành công', color: 'text-green-400', bg: 'bg-green-500/15 border-green-500/30', icon: CircleCheck },
   partial: { label: 'Chưa hoàn tất', color: 'text-yellow-400', bg: 'bg-yellow-500/15 border-yellow-500/30', icon: CircleMinus },
@@ -458,6 +486,8 @@ function ActionRow({
   const [aiPrompt, setAiPrompt] = useState(action.ai_prompt ?? '');
   const [implNotes, setImplNotes] = useState(action.implementation_notes ?? '');
   const [result, setResult] = useState<StructuredResult>(() => parseResult(action.result));
+  const [pasteBuffer, setPasteBuffer] = useState('');
+  const [showResultDetail, setShowResultDetail] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -852,113 +882,131 @@ function ActionRow({
             />
           </div>
 
-          {/* Kết quả thực thi — Structured */}
+          {/* Kết quả thực thi — Smart Paste */}
           <div className="space-y-2.5 p-3 rounded-lg bg-green-500/5 border border-green-500/20">
             <div className="flex items-center justify-between">
               <label className="text-[10px] font-medium text-green-400 uppercase tracking-wide flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3" />
                 Kết quả thực thi
               </label>
-              {hasResult && (
-                <span className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border', RESULT_STATUS_CONFIG[result.status].bg, RESULT_STATUS_CONFIG[result.status].color)}>
-                  {(() => { const Icon = RESULT_STATUS_CONFIG[result.status].icon; return <Icon className="w-2.5 h-2.5" />; })()}
-                  {RESULT_STATUS_CONFIG[result.status].label}
-                </span>
-              )}
-            </div>
-
-            {/* Status radio */}
-            <div className="flex items-center gap-4">
-              {(Object.entries(RESULT_STATUS_CONFIG) as [StructuredResult['status'], typeof RESULT_STATUS_CONFIG.success][]).map(([key, cfg]) => (
-                <label key={key} className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="radio"
-                    name={`result-status-${action.id}`}
-                    value={key}
-                    checked={result.status === key}
-                    onChange={() => setResult(prev => ({ ...prev, status: key }))}
-                    className={cn('w-3 h-3', key === 'success' ? 'accent-green-400' : key === 'partial' ? 'accent-yellow-400' : 'accent-red-400')}
-                  />
-                  <cfg.icon className={cn('w-3 h-3', cfg.color)} />
-                  <span className={cn('text-xs', cfg.color)}>{cfg.label}</span>
-                </label>
-              ))}
-            </div>
-
-            {/* Link kết quả */}
-            <div className="space-y-1">
-              <label className="text-[10px] text-[#8888a0] flex items-center gap-1">
-                <ExternalLink className="w-2.5 h-2.5" />
-                Link kết quả (URL bài viết, trang đã sửa...)
-              </label>
-              <input
-                type="url"
-                value={result.url ?? ''}
-                onChange={(e) => setResult(prev => ({ ...prev, url: e.target.value || undefined }))}
-                placeholder="https://..."
-                className="w-full text-xs bg-secondary/50 border border-border rounded-md px-2.5 py-1.5 text-[var(--text-primary)] placeholder:text-[#8888a0]/40 focus:outline-none focus:border-green-500/40"
-              />
-            </div>
-
-            {/* Tóm tắt */}
-            <div className="space-y-1">
-              <label className="text-[10px] text-[#8888a0] flex items-center gap-1">
-                <FileText className="w-2.5 h-2.5" />
-                Tóm tắt kết quả
-              </label>
-              <input
-                type="text"
-                value={result.summary ?? ''}
-                onChange={(e) => setResult(prev => ({ ...prev, summary: e.target.value || undefined }))}
-                placeholder="VD: Đã tối ưu meta title cho 5 trang, tạo sitemap.xml mới..."
-                className="w-full text-xs bg-secondary/50 border border-border rounded-md px-2.5 py-1.5 text-[var(--text-primary)] placeholder:text-[#8888a0]/40 focus:outline-none focus:border-green-500/40"
-              />
-            </div>
-
-            {/* Before / After metrics */}
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <label className="text-[10px] text-[#8888a0] flex items-center gap-1">
+              <div className="flex items-center gap-2">
+                {hasResult && (
+                  <span className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border', RESULT_STATUS_CONFIG[result.status].bg, RESULT_STATUS_CONFIG[result.status].color)}>
+                    {(() => { const Icon = RESULT_STATUS_CONFIG[result.status].icon; return <Icon className="w-2.5 h-2.5" />; })()}
+                    {RESULT_STATUS_CONFIG[result.status].label}
+                  </span>
+                )}
+                <button
+                  onClick={(e) => { e.stopPropagation(); setShowResultDetail(!showResultDetail); }}
+                  className="text-[10px] text-[#8888a0] hover:text-green-400 transition-colors flex items-center gap-0.5"
+                >
                   <BarChart3 className="w-2.5 h-2.5" />
-                  Trước khi làm
-                </label>
-                <input
-                  type="text"
-                  value={result.metrics_before ?? ''}
-                  onChange={(e) => setResult(prev => ({ ...prev, metrics_before: e.target.value || undefined }))}
-                  placeholder="VD: PageSpeed 45, CTR 1.2%..."
-                  className="w-full text-xs bg-secondary/50 border border-border rounded-md px-2.5 py-1.5 text-[var(--text-primary)] placeholder:text-[#8888a0]/40 focus:outline-none focus:border-green-500/40"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] text-[#8888a0] flex items-center gap-1">
-                  <TrendingUp className="w-2.5 h-2.5" />
-                  Sau khi làm
-                </label>
-                <input
-                  type="text"
-                  value={result.metrics_after ?? ''}
-                  onChange={(e) => setResult(prev => ({ ...prev, metrics_after: e.target.value || undefined }))}
-                  placeholder="VD: PageSpeed 85, CTR 2.8%..."
-                  className="w-full text-xs bg-secondary/50 border border-border rounded-md px-2.5 py-1.5 text-[var(--text-primary)] placeholder:text-[#8888a0]/40 focus:outline-none focus:border-green-500/40"
-                />
+                  {showResultDetail ? 'Thu gọn' : 'Chi tiết'}
+                </button>
               </div>
             </div>
 
-            {/* Chi tiết (expandable) */}
-            <div className="space-y-1">
-              <label className="text-[10px] text-[#8888a0] flex items-center gap-1">
-                <List className="w-2.5 h-2.5" />
-                Chi tiết (paste kết quả AI hoặc ghi chú)
-              </label>
+            {/* Primary: Paste area with auto-fill */}
+            <div className="space-y-1.5">
               <textarea
-                value={result.details ?? ''}
-                onChange={(e) => setResult(prev => ({ ...prev, details: e.target.value || undefined }))}
-                placeholder="Paste kết quả từ Claude Chat, hoặc ghi chú chi tiết những gì đã thực hiện..."
-                rows={3}
+                value={pasteBuffer}
+                onChange={(e) => setPasteBuffer(e.target.value)}
+                placeholder="Paste kết quả từ Claude Chat vào đây → bấm Auto-fill..."
+                rows={4}
                 className="w-full text-xs bg-secondary/50 border border-border rounded-md px-2.5 py-2 text-[var(--text-primary)] placeholder:text-[#8888a0]/40 resize-none focus:outline-none focus:border-green-500/40"
               />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!pasteBuffer.trim()) return;
+                    const parsed = autoParseAiOutput(pasteBuffer);
+                    setResult(parsed);
+                    setPasteBuffer('');
+                  }}
+                  disabled={!pasteBuffer.trim()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:hover:bg-green-600 rounded-md text-white text-xs font-medium transition-colors"
+                >
+                  <Wand2 className="w-3 h-3" />
+                  Auto-fill
+                </button>
+                <span className="text-[10px] text-[#8888a0]">
+                  Tự trích xuất URL, tóm tắt, chi tiết từ kết quả AI
+                </span>
+              </div>
             </div>
+
+            {/* Auto-filled summary preview */}
+            {hasResult && !showResultDetail && (
+              <div className="space-y-1.5 p-2 rounded-md bg-secondary/30">
+                {result.summary && (
+                  <p className="text-xs text-[var(--text-primary)]"><span className="text-[#8888a0]">Tóm tắt:</span> {result.summary}</p>
+                )}
+                {result.url && (
+                  <p className="text-xs text-blue-400 flex items-center gap-1">
+                    <ExternalLink className="w-2.5 h-2.5 flex-shrink-0" />
+                    <a href={result.url} target="_blank" rel="noopener noreferrer" className="hover:underline truncate">{result.url}</a>
+                  </p>
+                )}
+                {result.details && (
+                  <p className="text-[10px] text-[#8888a0] line-clamp-2">{result.details.slice(0, 200)}...</p>
+                )}
+              </div>
+            )}
+
+            {/* Detailed fields — toggle */}
+            {showResultDetail && (
+              <div className="space-y-2 pt-1 border-t border-green-500/10">
+                {/* Status radio */}
+                <div className="flex items-center gap-4">
+                  {(Object.entries(RESULT_STATUS_CONFIG) as [StructuredResult['status'], typeof RESULT_STATUS_CONFIG.success][]).map(([key, cfg]) => (
+                    <label key={key} className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        name={`result-status-${action.id}`}
+                        value={key}
+                        checked={result.status === key}
+                        onChange={() => setResult(prev => ({ ...prev, status: key }))}
+                        className={cn('w-3 h-3', key === 'success' ? 'accent-green-400' : key === 'partial' ? 'accent-yellow-400' : 'accent-red-400')}
+                      />
+                      <cfg.icon className={cn('w-3 h-3', cfg.color)} />
+                      <span className={cn('text-xs', cfg.color)}>{cfg.label}</span>
+                    </label>
+                  ))}
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] text-[#8888a0] flex items-center gap-1"><ExternalLink className="w-2.5 h-2.5" />Link kết quả</label>
+                  <input type="url" value={result.url ?? ''} onChange={(e) => setResult(prev => ({ ...prev, url: e.target.value || undefined }))} placeholder="https://..."
+                    className="w-full text-xs bg-secondary/50 border border-border rounded-md px-2.5 py-1.5 text-[var(--text-primary)] placeholder:text-[#8888a0]/40 focus:outline-none focus:border-green-500/40" />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] text-[#8888a0] flex items-center gap-1"><FileText className="w-2.5 h-2.5" />Tóm tắt</label>
+                  <input type="text" value={result.summary ?? ''} onChange={(e) => setResult(prev => ({ ...prev, summary: e.target.value || undefined }))} placeholder="Đã tối ưu meta title cho 5 trang..."
+                    className="w-full text-xs bg-secondary/50 border border-border rounded-md px-2.5 py-1.5 text-[var(--text-primary)] placeholder:text-[#8888a0]/40 focus:outline-none focus:border-green-500/40" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-[#8888a0] flex items-center gap-1"><BarChart3 className="w-2.5 h-2.5" />Trước khi làm</label>
+                    <input type="text" value={result.metrics_before ?? ''} onChange={(e) => setResult(prev => ({ ...prev, metrics_before: e.target.value || undefined }))} placeholder="PageSpeed 45, CTR 1.2%..."
+                      className="w-full text-xs bg-secondary/50 border border-border rounded-md px-2.5 py-1.5 text-[var(--text-primary)] placeholder:text-[#8888a0]/40 focus:outline-none focus:border-green-500/40" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-[#8888a0] flex items-center gap-1"><TrendingUp className="w-2.5 h-2.5" />Sau khi làm</label>
+                    <input type="text" value={result.metrics_after ?? ''} onChange={(e) => setResult(prev => ({ ...prev, metrics_after: e.target.value || undefined }))} placeholder="PageSpeed 85, CTR 2.8%..."
+                      className="w-full text-xs bg-secondary/50 border border-border rounded-md px-2.5 py-1.5 text-[var(--text-primary)] placeholder:text-[#8888a0]/40 focus:outline-none focus:border-green-500/40" />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] text-[#8888a0] flex items-center gap-1"><List className="w-2.5 h-2.5" />Chi tiết đầy đủ</label>
+                  <textarea value={result.details ?? ''} onChange={(e) => setResult(prev => ({ ...prev, details: e.target.value || undefined }))} placeholder="Nội dung chi tiết..."
+                    rows={4} className="w-full text-xs bg-secondary/50 border border-border rounded-md px-2.5 py-2 text-[var(--text-primary)] placeholder:text-[#8888a0]/40 resize-none focus:outline-none focus:border-green-500/40" />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Action buttons */}
