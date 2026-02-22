@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   RefreshCw, Check, AlertCircle, Plus, Trash2, Save,
   FolderKanban, X, Edit3, Users, Wrench, FileSpreadsheet,
-  Globe, TrendingUp, Target, Wifi, WifiOff, Loader2,
+  Globe, TrendingUp, Target, Wifi, WifiOff, Loader2, Send,
 } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import { Project, Member } from '@/types';
@@ -57,6 +57,10 @@ export default function SettingsPage() {
   const [wpTestStatus, setWpTestStatus] = useState<'idle' | 'testing' | 'ok' | 'fail'>('idle');
   const [isTestingWp, setIsTestingWp] = useState(false);
 
+  // --- Telegram config state ---
+  const [telegramConfig, setTelegramConfig] = useState({ telegram_bot_token: '', telegram_chat_id: '' });
+  const [isSavingTelegram, setIsSavingTelegram] = useState(false);
+
   // ---------------------------------------------------------------------------
   // Fetch
   // ---------------------------------------------------------------------------
@@ -87,6 +91,11 @@ export default function SettingsPage() {
         wp_site_url: data.config?.wp_site_url ?? prev.wp_site_url,
         wp_username: data.config?.wp_username ?? prev.wp_username,
         wp_app_password: data.config?.wp_app_password ?? prev.wp_app_password,
+      }));
+      // Load Telegram config
+      setTelegramConfig(prev => ({
+        telegram_bot_token: data.config?.telegram_bot_token ?? prev.telegram_bot_token,
+        telegram_chat_id: data.config?.telegram_chat_id ?? prev.telegram_chat_id,
       }));
     } catch (err) { console.error('fetch config error', err); }
   }, []);
@@ -286,6 +295,23 @@ export default function SettingsPage() {
       setWpTestStatus('idle');
     } catch { showAlert(false, 'Lỗi khi lưu cấu hình WordPress'); }
     finally { setIsSavingWp(false); }
+  };
+
+  const handleSaveTelegramConfig = async () => {
+    setIsSavingTelegram(true);
+    try {
+      await Promise.all(
+        Object.entries(telegramConfig).map(([key, value]) =>
+          fetch('/api/v1/settings/config', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key, value }),
+          }),
+        ),
+      );
+      showAlert(true, 'Đã lưu cấu hình Telegram!');
+    } catch { showAlert(false, 'Lỗi khi lưu cấu hình Telegram'); }
+    finally { setIsSavingTelegram(false); }
   };
 
   const handleTestWpConnection = async () => {
@@ -631,6 +657,54 @@ export default function SettingsPage() {
                 Kiểm tra kết nối
               </button>
             </div>
+          </div>
+
+          {/* ---------------------------------------------------------------- */}
+          {/* Telegram Integration                                             */}
+          {/* ---------------------------------------------------------------- */}
+          <div className="border-t border-border pt-6 space-y-4">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-blue-400/10 rounded-xl flex items-center justify-center">
+                <Send className="w-5 h-5 text-blue-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-[var(--text-primary)]">Telegram</h3>
+                <p className="text-xs text-[#8888a0]">Gửi báo cáo tháng qua Telegram Bot</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm text-[#8888a0] mb-2">Bot Token</label>
+              <input
+                type="password"
+                value={telegramConfig.telegram_bot_token}
+                onChange={(e) => setTelegramConfig(c => ({ ...c, telegram_bot_token: e.target.value }))}
+                placeholder="1234567890:ABCdef..."
+                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] font-mono text-sm"
+              />
+              <p className="text-xs text-[#8888a0] mt-1">Lấy từ @BotFather trên Telegram</p>
+            </div>
+
+            <div>
+              <label className="block text-sm text-[#8888a0] mb-2">Chat ID / Group ID</label>
+              <input
+                type="text"
+                value={telegramConfig.telegram_chat_id}
+                onChange={(e) => setTelegramConfig(c => ({ ...c, telegram_chat_id: e.target.value }))}
+                placeholder="-1001234567890"
+                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] font-mono text-sm"
+              />
+              <p className="text-xs text-[#8888a0] mt-1">ID của chat hoặc group nhận báo cáo</p>
+            </div>
+
+            <button
+              onClick={handleSaveTelegramConfig}
+              disabled={isSavingTelegram}
+              className="flex items-center gap-2 px-6 py-2.5 bg-accent hover:bg-accent/90 disabled:bg-accent/50 rounded-lg text-white font-medium text-sm"
+            >
+              <Save className="w-4 h-4" />
+              {isSavingTelegram ? 'Đang lưu...' : 'Lưu Telegram'}
+            </button>
           </div>
         </div>
       )}

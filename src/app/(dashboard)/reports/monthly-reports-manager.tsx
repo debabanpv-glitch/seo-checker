@@ -77,6 +77,8 @@ export default function MonthlyReportsManager() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [sendingTelegramId, setSendingTelegramId] = useState<string | null>(null);
+  const [telegramFeedback, setTelegramFeedback] = useState<{ id: string; success: boolean; message: string } | null>(null);
 
   useEffect(() => {
     fetch('/api/v1/projects')
@@ -129,6 +131,29 @@ export default function MonthlyReportsManager() {
       console.error('Failed to update status:', err);
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  const handleSendTelegram = async (reportId: string) => {
+    setSendingTelegramId(reportId);
+    setTelegramFeedback(null);
+    try {
+      const res = await fetch('/api/v1/reports/send-telegram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report_id: reportId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTelegramFeedback({ id: reportId, success: true, message: 'Đã gửi Telegram thành công!' });
+      } else {
+        setTelegramFeedback({ id: reportId, success: false, message: data.error || 'Gửi Telegram thất bại.' });
+      }
+    } catch {
+      setTelegramFeedback({ id: reportId, success: false, message: 'Có lỗi kết nối.' });
+    } finally {
+      setSendingTelegramId(null);
+      setTimeout(() => setTelegramFeedback(null), 4000);
     }
   };
 
@@ -299,15 +324,34 @@ export default function MonthlyReportsManager() {
                     {!report.highlights && !report.next_month_plan && !report.technical_data?.seoScore && (
                       <p className="text-xs text-[#8888a0] italic">Chưa có nội dung chi tiết.</p>
                     )}
-                    {next && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {next && (
+                        <button
+                          onClick={() => handleStatusUpdate(report, next)}
+                          disabled={updatingId === report.id}
+                          className="px-3 py-1.5 bg-secondary hover:bg-border border border-border rounded-lg text-[var(--text-primary)] text-xs font-medium transition-colors disabled:opacity-50"
+                        >
+                          {updatingId === report.id ? 'Đang cập nhật...' : nextStatusLabel[report.status]}
+                        </button>
+                      )}
                       <button
-                        onClick={() => handleStatusUpdate(report, next)}
-                        disabled={updatingId === report.id}
-                        className="px-3 py-1.5 bg-secondary hover:bg-border border border-border rounded-lg text-[var(--text-primary)] text-xs font-medium transition-colors disabled:opacity-50"
+                        onClick={() => handleSendTelegram(report.id)}
+                        disabled={sendingTelegramId === report.id}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 rounded-lg text-blue-400 text-xs font-medium transition-colors disabled:opacity-50"
                       >
-                        {updatingId === report.id ? 'Đang cập nhật...' : nextStatusLabel[report.status]}
+                        {sendingTelegramId === report.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Send className="w-3 h-3" />
+                        )}
+                        {sendingTelegramId === report.id ? 'Đang gửi...' : 'Gửi Telegram'}
                       </button>
-                    )}
+                      {telegramFeedback?.id === report.id && (
+                        <span className={cn('text-xs', telegramFeedback.success ? 'text-green-400' : 'text-red-400')}>
+                          {telegramFeedback.message}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
