@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { handleApiError } from '@/lib/api-response';
 import { getAudits } from '@/lib/services/audit-results-crud.service';
 import { getPhases, getActions } from '@/lib/services/strategy-phases-and-actions-crud.service';
+import { getSnapshots } from '@/lib/services/gsc-snapshots-save-and-query.service';
+import { getRankingGrowth } from '@/lib/services/keyword.service';
 
 export const dynamic = 'force-dynamic';
 
@@ -97,6 +99,54 @@ export async function POST(request: NextRequest) {
       highlights.push(`Điểm chi tiết — ${scoreLines.join(' | ')}`);
     }
 
+    // --- GSC Traffic data ---
+    const gscSnapshots = getSnapshots(project_id);
+    const latestGsc = gscSnapshots[0]; // sorted desc by date
+    const prevGsc = gscSnapshots[1];
+
+    const trafficData = {
+      clicks: latestGsc?.clicks ?? 0,
+      impressions: latestGsc?.impressions ?? 0,
+      ctr: latestGsc?.ctr ?? 0,
+      avgPosition: latestGsc?.position ?? 0,
+      date: latestGsc?.date ?? null,
+      clicksDelta: prevGsc ? (latestGsc?.clicks ?? 0) - prevGsc.clicks : null,
+      impressionsDelta: prevGsc ? (latestGsc?.impressions ?? 0) - prevGsc.impressions : null,
+      ctrDelta: prevGsc ? ((latestGsc?.ctr ?? 0) - prevGsc.ctr) : null,
+      positionDelta: prevGsc ? (prevGsc.position - (latestGsc?.position ?? 0)) : null,
+    };
+
+    if (latestGsc) {
+      highlights.push(`Traffic: ${trafficData.clicks} clicks / ${trafficData.impressions} impressions (CTR ${(trafficData.ctr * 100).toFixed(1)}%)`);
+      if (trafficData.clicksDelta !== null) {
+        const sign = trafficData.clicksDelta >= 0 ? '+' : '';
+        highlights.push(`So với kỳ trước: ${sign}${trafficData.clicksDelta} clicks, ${trafficData.impressionsDelta! >= 0 ? '+' : ''}${trafficData.impressionsDelta} impressions`);
+      }
+    }
+
+    // --- Keyword ranking summary ---
+    const kwGrowth = getRankingGrowth(project_id, 90);
+    const latestKw = kwGrowth.snapshots[kwGrowth.snapshots.length - 1];
+    const keywordData = latestKw ? {
+      total: latestKw.total,
+      top3: latestKw.top3,
+      top10: latestKw.top10,
+      top20: latestKw.top20,
+      top30: latestKw.top30,
+      date: latestKw.date,
+      summary: kwGrowth.summary,
+    } : null;
+
+    if (latestKw) {
+      highlights.push(`Keywords: ${latestKw.top3} top 3 / ${latestKw.top10} top 10 / ${latestKw.total} tổng`);
+      if (kwGrowth.summary) {
+        const s = kwGrowth.summary;
+        if (s.top10Change !== 0) {
+          highlights.push(`Keyword trend: Top 10 ${s.top10Change > 0 ? '+' : ''}${s.top10Change}, Top 3 ${s.top3Change > 0 ? '+' : ''}${s.top3Change}`);
+        }
+      }
+    }
+
     // --- Next month plan from strategy ---
     const todoActions = allActions
       .filter((a) => a.status === 'todo')
@@ -114,6 +164,8 @@ export async function POST(request: NextRequest) {
       highlights: highlights.join('\n'),
       next_month_plan: nextMonthPlan,
       technical_data: technicalData,
+      traffic_data: trafficData,
+      keyword_data: keywordData,
       content_data: {
         totalPhases: phases.length,
         phasesSummary,
