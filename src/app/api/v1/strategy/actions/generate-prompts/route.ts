@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getActions, updateAction } from '@/lib/services';
+import { db } from '@/lib/db';
+import { projects } from '@/lib/db/schema/projects';
+import { strategyPhases, strategyActions } from '@/lib/db/schema/strategy';
+import { eq } from 'drizzle-orm';
 import { handleApiError } from '@/lib/api-response';
 import { generateDefaultAiPrompt } from '@/lib/utils/strategy-execution-prompt-builder';
 
@@ -14,7 +17,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'project_id is required' }, { status: 400 });
     }
 
-    const allActions = getActions(undefined, project_id);
+    // Get project info for context
+    const project = db.select().from(projects).where(eq(projects.id, project_id)).get();
+    const projectContext = {
+      projectName: project?.name,
+      projectDomain: project?.domain || project?.website || undefined,
+    };
+
+    // Get all phases for this project
+    const phases = db.select().from(strategyPhases).where(eq(strategyPhases.project_id, project_id)).all();
+    const phaseMap = new Map(phases.map(p => [p.id, p]));
+
+    // Get all actions for this project
+    const allActions = db.select().from(strategyActions).where(eq(strategyActions.project_id, project_id)).all();
 
     let updated = 0;
     let skipped = 0;
@@ -25,15 +40,27 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      const prompt = generateDefaultAiPrompt({
-        title: action.title,
-        description: action.description ?? undefined,
-        category: action.category ?? undefined,
-        priority: action.priority ?? undefined,
-        platform_type: action.platform_type ?? undefined,
-      });
+      const phase = phaseMap.get(action.phase_id);
 
-      updateAction(action.id, { ai_prompt: prompt });
+      const prompt = generateDefaultAiPrompt(
+        {
+          title: action.title,
+          description: action.description ?? undefined,
+          category: action.category ?? undefined,
+          priority: action.priority ?? undefined,
+          platform_type: action.platform_type ?? undefined,
+        },
+        {
+          ...projectContext,
+          phaseName: phase?.name,
+          phaseDescription: phase?.description ?? undefined,
+        },
+      );
+
+      db.update(strategyActions)
+        .set({ ai_prompt: prompt, updated_at: new Date().toISOString() })
+        .where(eq(strategyActions.id, action.id))
+        .run();
       updated++;
     }
 
