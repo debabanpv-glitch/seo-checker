@@ -11,7 +11,6 @@ import {
   ExternalLink,
   X,
   ChevronDown,
-  Upload,
   Loader2,
   CheckCircle,
   AlertCircle,
@@ -22,6 +21,10 @@ import {
   Target,
   Eye,
   Zap,
+  MousePointerClick,
+  BarChart2,
+  Percent,
+  Crosshair,
 } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
@@ -57,6 +60,27 @@ interface SheetConfig {
   url: string;
   project_id: string;
   label: string;
+}
+
+interface GscSnapshot {
+  id: string;
+  project_id: string;
+  date: string;
+  period: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+  top_queries: string | null;
+  top_pages: string | null;
+}
+
+interface TopQuery {
+  query: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
 }
 
 type ViewTab = 'all' | 'cam_ket' | 'blog' | 'opportunity' | 'declining';
@@ -101,21 +125,34 @@ export default function KeywordRankingPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<{ success: boolean; message: string } | null>(null);
 
+  // GSC state
+  const [gscSnapshots, setGscSnapshots] = useState<GscSnapshot[]>([]);
+
   // ── Data fetching ─────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [rankingsRes, projectsRes, configRes] = await Promise.all([
+      const fetches: Promise<Response>[] = [
         fetch(`/api/v1/keyword-rankings?limit=5000${selectedProject ? `&projectId=${selectedProject}` : ''}`),
         fetch('/api/v1/projects'),
         fetch('/api/v1/keyword-rankings/sync-all'),
-      ]);
+      ];
+      if (selectedProject) {
+        fetches.push(fetch(`/api/v1/gsc/snapshot?project_id=${selectedProject}&limit=2`));
+      }
+      const responses = await Promise.all(fetches);
       const [rankingsData, projectsData, configData] = await Promise.all([
-        rankingsRes.json(), projectsRes.json(), configRes.json(),
+        responses[0].json(), responses[1].json(), responses[2].json(),
       ]);
       setRankings(rankingsData.rankings || []);
       setProjects(projectsData.projects || []);
       setSheetConfigs(configData.configs || []);
+      if (selectedProject && responses[3]) {
+        const gscData = await responses[3].json();
+        setGscSnapshots(gscData.snapshots || []);
+      } else {
+        setGscSnapshots([]);
+      }
     } catch (error) {
       console.error('Failed to fetch:', error);
     } finally {
@@ -307,6 +344,11 @@ export default function KeywordRankingPage() {
             <ScoreCard label="Tăng hạng" value={stats.improved} icon={<TrendingUp className="w-4 h-4 text-emerald-400" />} color="text-emerald-400" />
             <ScoreCard label="Giảm hạng" value={stats.declined} icon={<TrendingDown className="w-4 h-4 text-red-400" />} color="text-red-400" />
           </div>
+
+          {/* ── GSC Traffic Overview ─────────────────────────────────── */}
+          {selectedProject && gscSnapshots.length > 0 && (
+            <GscTrafficSection snapshots={gscSnapshots} />
+          )}
 
           {/* ── Tabs + Search + Project ──────────────────────────────── */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
@@ -589,5 +631,170 @@ function ChangeIndicator({ change }: { change: number | null }) {
       {change > 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
       {Math.abs(change)}
     </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// GscTrafficSection — hiển thị traffic overview từ GSC snapshots
+// ---------------------------------------------------------------------------
+function GscTrafficSection({ snapshots }: { snapshots: GscSnapshot[] }) {
+  const latest = snapshots[0];
+  const previous = snapshots[1] ?? null;
+
+  const clicksDelta = previous ? latest.clicks - previous.clicks : null;
+  const impressionsDelta = previous ? latest.impressions - previous.impressions : null;
+  const ctrDelta = previous ? latest.ctr - previous.ctr : null;
+  // position: nhỏ hơn = tốt hơn → delta âm = tốt hơn
+  const positionDelta = previous ? latest.position - previous.position : null;
+
+  const topQueries: TopQuery[] = (() => {
+    try {
+      if (!latest.top_queries) return [];
+      const parsed = typeof latest.top_queries === 'string'
+        ? JSON.parse(latest.top_queries)
+        : latest.top_queries;
+      return Array.isArray(parsed) ? parsed.slice(0, 5) : [];
+    } catch {
+      return [];
+    }
+  })();
+
+  const formatDate = (d: string) => new Date(d).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  return (
+    <div className="space-y-3">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <BarChart2 className="w-4 h-4 text-[#8888a0]" />
+          <span className="text-xs font-semibold text-[#8888a0] uppercase tracking-wider">Google Search Console</span>
+          <span className="text-[10px] text-[#666680]">· {formatDate(latest.date)}</span>
+        </div>
+        {previous && (
+          <span className="text-[10px] text-[#666680]">So sánh với {formatDate(previous.date)}</span>
+        )}
+      </div>
+
+      {/* Traffic cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <TrafficCard
+          label="Clicks"
+          value={latest.clicks.toLocaleString('vi-VN')}
+          delta={clicksDelta}
+          positiveIsGood={true}
+          icon={<MousePointerClick className="w-4 h-4" />}
+          color="text-sky-400"
+          borderColor="border-sky-400/20"
+          bgColor="bg-sky-400/5"
+        />
+        <TrafficCard
+          label="Impressions"
+          value={latest.impressions.toLocaleString('vi-VN')}
+          delta={impressionsDelta}
+          positiveIsGood={true}
+          icon={<Eye className="w-4 h-4" />}
+          color="text-purple-400"
+          borderColor="border-purple-400/20"
+          bgColor="bg-purple-400/5"
+        />
+        <TrafficCard
+          label="CTR"
+          value={`${(latest.ctr * 100).toFixed(1)}%`}
+          delta={ctrDelta !== null ? +(ctrDelta * 100).toFixed(2) : null}
+          positiveIsGood={true}
+          deltaLabel="%"
+          icon={<Percent className="w-4 h-4" />}
+          color="text-amber-400"
+          borderColor="border-amber-400/20"
+          bgColor="bg-amber-400/5"
+        />
+        <TrafficCard
+          label="Vị trí TB"
+          value={latest.position.toFixed(1)}
+          delta={positionDelta !== null ? +positionDelta.toFixed(1) : null}
+          positiveIsGood={false}
+          deltaLabel=""
+          icon={<Crosshair className="w-4 h-4" />}
+          color="text-emerald-400"
+          borderColor="border-emerald-400/20"
+          bgColor="bg-emerald-400/5"
+        />
+      </div>
+
+      {/* Top queries */}
+      {topQueries.length > 0 && (
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-border">
+            <span className="text-[11px] font-semibold text-[#8888a0] uppercase tracking-wider">Top queries</span>
+          </div>
+          <div className="divide-y divide-border/50">
+            {topQueries.map((q, i) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-2 text-xs hover:bg-secondary/20 transition-colors">
+                <span className="text-[10px] text-[#666680] font-mono w-4 flex-shrink-0">{i + 1}</span>
+                <span className="flex-1 text-[var(--text-primary)] truncate">{q.query}</span>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <span className="flex items-center gap-1 text-sky-400">
+                    <MousePointerClick className="w-3 h-3" />
+                    <span className="font-mono">{q.clicks}</span>
+                  </span>
+                  <span className="text-[#8888a0] font-mono">{q.impressions} impr</span>
+                  <span className={cn(
+                    'font-mono text-[10px] px-1.5 py-0.5 rounded border',
+                    q.position <= 3 ? 'bg-emerald-400/10 border-emerald-400/20 text-emerald-400'
+                    : q.position <= 10 ? 'bg-accent/10 border-accent/20 text-accent'
+                    : 'bg-secondary border-border text-[#8888a0]'
+                  )}>
+                    #{q.position.toFixed(1)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// TrafficCard — card hiển thị 1 metric GSC với delta
+// ---------------------------------------------------------------------------
+function TrafficCard({
+  label, value, delta, positiveIsGood, deltaLabel = '', icon, color, borderColor, bgColor,
+}: {
+  label: string;
+  value: string;
+  delta: number | null;
+  positiveIsGood: boolean;
+  deltaLabel?: string;
+  icon: React.ReactNode;
+  color: string;
+  borderColor: string;
+  bgColor: string;
+}) {
+  const isImproved = delta !== null ? (positiveIsGood ? delta > 0 : delta < 0) : null;
+  const isWorse = delta !== null ? (positiveIsGood ? delta < 0 : delta > 0) : null;
+
+  return (
+    <div className={cn('border rounded-xl p-4 space-y-1', bgColor, borderColor)}>
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] text-[#8888a0]">{label}</span>
+        <span className={cn('opacity-60', color)}>{icon}</span>
+      </div>
+      <div className={cn('text-2xl font-bold font-mono', color)}>{value}</div>
+      {delta !== null && delta !== 0 && (
+        <div className={cn(
+          'flex items-center gap-0.5 text-[11px] font-mono',
+          isImproved ? 'text-emerald-400' : isWorse ? 'text-red-400' : 'text-[#666680]'
+        )}>
+          {isImproved ? <ArrowUp className="w-3 h-3" /> : isWorse ? <ArrowDown className="w-3 h-3" /> : null}
+          {delta > 0 ? '+' : ''}{delta}{deltaLabel}
+          <span className="text-[#666680] ml-1">vs kỳ trước</span>
+        </div>
+      )}
+      {(delta === null || delta === 0) && (
+        <div className="text-[11px] text-[#555570]">{delta === 0 ? 'Không đổi' : 'Chưa có kỳ trước'}</div>
+      )}
+    </div>
   );
 }
