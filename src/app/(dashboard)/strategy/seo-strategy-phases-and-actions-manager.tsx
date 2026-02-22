@@ -708,8 +708,8 @@ function ActionRow({
             </div>
           )}
 
-          {/* Copy Prompt — only when executor is ai and has prompt */}
-          {executorType === 'ai' && aiPrompt && (
+          {/* Copy Prompt — show whenever prompt exists */}
+          {aiPrompt && (
             <div className="flex items-center gap-2">
               <button
                 onClick={handleCopyPrompt}
@@ -1317,6 +1317,35 @@ export default function SeoStrategyPhasesAndActionsManager() {
     }));
   }, []);
 
+  const handleGeneratePrompts = async () => {
+    if (!selectedProjectId) return;
+    try {
+      const res = await fetch('/api/v1/strategy/actions/generate-prompts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project_id: selectedProjectId }),
+      });
+      const data = await res.json();
+      alert(`Đã generate ${data.updated} prompts (bỏ qua ${data.skipped})`);
+      // Refresh actions for all expanded phases by fetching directly
+      const phaseIds = Array.from(expandedPhases);
+      const results = await Promise.all(
+        phaseIds.map((phaseId) =>
+          fetch(`/api/v1/strategy/actions?phase_id=${phaseId}`).then((r) => r.json()).then((d) => ({ phaseId, actions: d.actions || [] }))
+        )
+      );
+      setActions((prev) => {
+        const next = { ...prev };
+        results.forEach(({ phaseId, actions: phaseActions }) => {
+          next[phaseId] = phaseActions;
+        });
+        return next;
+      });
+    } catch (err) {
+      console.error('Failed to generate prompts:', err);
+    }
+  };
+
   const sortedPhases = useMemo(() => [...phases].sort((a, b) => a.order_index - b.order_index), [phases]);
 
   if (isLoading && projects.length === 0) return <PageLoading />;
@@ -1347,6 +1376,15 @@ export default function SeoStrategyPhasesAndActionsManager() {
           >
             <Upload className="w-4 h-4 text-[#8888a0]" />
             Import từ Obsidian
+          </button>
+
+          {/* Generate AI Prompts */}
+          <button
+            onClick={handleGeneratePrompts}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-lg text-blue-400 text-sm font-medium transition-colors"
+          >
+            <Bot className="w-4 h-4" />
+            Generate Prompts
           </button>
 
           <button
