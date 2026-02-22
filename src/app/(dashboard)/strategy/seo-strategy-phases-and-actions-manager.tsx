@@ -37,12 +37,15 @@ import {
   Clipboard,
   ClipboardCheck,
   History,
+  Wand2,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
 import { Project } from '@/types';
 import { cn } from '@/lib/utils';
-import { buildExecutionPrompt } from '@/lib/utils/strategy-execution-prompt-builder';
+import { buildExecutionPrompt, generateDefaultAiPrompt } from '@/lib/utils/strategy-execution-prompt-builder';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -421,6 +424,7 @@ function ActionRow({
   const [resultText, setResultText] = useState(action.result ?? '');
   const [isCopied, setIsCopied] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const [executionLogs, setExecutionLogs] = useState<Array<{id: string; executor: string; status: string; started_at: string; result_text?: string}>>([]);
 
   const actionStatus = ACTION_STATUS_CONFIG[action.status] || ACTION_STATUS_CONFIG.todo;
@@ -431,6 +435,47 @@ function ActionRow({
   const isTechnical = TECHNICAL_CATEGORIES.has(action.category?.toLowerCase().replace(/[\s\-]/g, '_') ?? '');
 
   const dateInfo = action.due_date ? getRelativeDate(action.due_date) : null;
+
+  // Auto-generate prompt khi chuyển sang AI executor và prompt rỗng
+  const handleSetExecutorAi = () => {
+    setExecutorType('ai');
+    if (!aiPrompt.trim()) {
+      const generated = generateDefaultAiPrompt({
+        title: action.title,
+        description: action.description,
+        category: action.category,
+        priority: action.priority,
+        platform_type: platformType || undefined,
+      });
+      setAiPrompt(generated);
+    }
+  };
+
+  const handleGeneratePrompt = () => {
+    const generated = generateDefaultAiPrompt({
+      title: action.title,
+      description: action.description,
+      category: action.category,
+      priority: action.priority,
+      platform_type: platformType || undefined,
+    });
+    setAiPrompt(generated);
+  };
+
+  // Build full execution prompt for preview/copy
+  const fullPrompt = buildExecutionPrompt({
+    project: { name: projectName || '', domain: projectDomain },
+    phase: { name: phaseName || '', description: phaseDescription },
+    action: {
+      title: action.title,
+      description: action.description,
+      category: action.category,
+      priority: action.priority,
+      ai_prompt: aiPrompt,
+      platform_type: platformType || undefined,
+      implementation_notes: implNotes,
+    },
+  });
 
   const handleSaveDetail = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -457,20 +502,7 @@ function ActionRow({
 
   const handleCopyPrompt = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const prompt = buildExecutionPrompt({
-      project: { name: projectName || '', domain: projectDomain },
-      phase: { name: phaseName || '', description: phaseDescription },
-      action: {
-        title: action.title,
-        description: action.description,
-        category: action.category,
-        priority: action.priority,
-        ai_prompt: aiPrompt,
-        platform_type: platformType || undefined,
-        implementation_notes: implNotes,
-      },
-    });
-    await navigator.clipboard.writeText(prompt);
+    await navigator.clipboard.writeText(fullPrompt);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
   };
@@ -648,7 +680,7 @@ function ActionRow({
                     name={`executor-${action.id}`}
                     value="ai"
                     checked={executorType === 'ai'}
-                    onChange={() => setExecutorType('ai')}
+                    onChange={handleSetExecutorAi}
                     className="w-3 h-3 accent-blue-400"
                   />
                   <Bot className="w-3 h-3 text-blue-400" />
@@ -694,10 +726,19 @@ function ActionRow({
           {/* AI Prompt — only when executor is ai */}
           {executorType === 'ai' && (
             <div className="space-y-1">
-              <label className="text-[10px] font-medium text-blue-400 uppercase tracking-wide flex items-center gap-1">
-                <Bot className="w-3 h-3" />
-                AI Prompt
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-medium text-blue-400 uppercase tracking-wide flex items-center gap-1">
+                  <Bot className="w-3 h-3" />
+                  AI Prompt
+                </label>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleGeneratePrompt(); }}
+                  className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-blue-400 hover:bg-blue-500/20 transition-colors"
+                >
+                  <Wand2 className="w-3 h-3" />
+                  {aiPrompt ? 'Tạo lại' : 'Tạo prompt mẫu'}
+                </button>
+              </div>
               <textarea
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
@@ -708,22 +749,37 @@ function ActionRow({
             </div>
           )}
 
-          {/* Copy Prompt — show whenever prompt exists */}
-          {aiPrompt && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleCopyPrompt}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all',
-                  isCopied
-                    ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                    : 'bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30'
-                )}
-              >
-                {isCopied ? <ClipboardCheck className="w-3 h-3" /> : <Clipboard className="w-3 h-3" />}
-                {isCopied ? 'Đã copy!' : 'Copy Prompt'}
-              </button>
-              <span className="text-[10px] text-[#8888a0]">Paste vào Claude Chat để thực thi</span>
+          {/* Copy Prompt + Preview — show whenever AI executor */}
+          {executorType === 'ai' && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCopyPrompt}
+                  className={cn(
+                    'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all',
+                    isCopied
+                      ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                      : 'bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30'
+                  )}
+                >
+                  {isCopied ? <ClipboardCheck className="w-3 h-3" /> : <Clipboard className="w-3 h-3" />}
+                  {isCopied ? 'Đã copy!' : 'Copy Full Prompt'}
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setShowPreview(!showPreview); }}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium text-[#8888a0] hover:text-[var(--text-primary)] hover:bg-secondary/50 border border-border transition-colors"
+                >
+                  {showPreview ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                  {showPreview ? 'Ẩn preview' : 'Preview'}
+                </button>
+                <span className="text-[10px] text-[#8888a0]">Paste vào Claude Chat để thực thi</span>
+              </div>
+              {/* Full prompt preview */}
+              {showPreview && (
+                <pre className="text-[11px] leading-relaxed text-[#8888a0] bg-[#0d0d14] border border-border rounded-md p-3 max-h-64 overflow-auto whitespace-pre-wrap font-mono">
+                  {fullPrompt}
+                </pre>
+              )}
             </div>
           )}
 
