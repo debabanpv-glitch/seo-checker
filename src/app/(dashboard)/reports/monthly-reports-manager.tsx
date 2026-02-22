@@ -48,6 +48,32 @@ interface MonthlyReport {
     blockedActions?: number;
     todoActions?: number;
   };
+  traffic_data?: {
+    clicks?: number;
+    impressions?: number;
+    ctr?: number;
+    avgPosition?: number;
+    date?: string;
+    clicksDelta?: number;
+    impressionsDelta?: number;
+    ctrDelta?: number;
+    positionDelta?: number;
+  };
+  keyword_data?: {
+    total?: number;
+    top3?: number;
+    top10?: number;
+    top20?: number;
+    top30?: number;
+    date?: string;
+    summary?: {
+      top3Change?: number;
+      top10Change?: number;
+      top20Change?: number;
+      top30Change?: number;
+      totalChange?: number;
+    };
+  };
   created_at: string;
   updated_at: string;
 }
@@ -303,6 +329,76 @@ export default function MonthlyReportsManager() {
                       </div>
                     )}
 
+                    {/* Traffic data */}
+                    {report.traffic_data?.clicks != null && (
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-[#8888a0] flex items-center gap-1">
+                          <TrendingUp className="w-3 h-3" /> Traffic (Google Search Console)
+                        </p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          <MetricCard
+                            label="Clicks"
+                            value={report.traffic_data.clicks}
+                            delta={report.traffic_data.clicksDelta}
+                            format="number"
+                          />
+                          <MetricCard
+                            label="Impressions"
+                            value={report.traffic_data.impressions}
+                            delta={report.traffic_data.impressionsDelta}
+                            format="number"
+                          />
+                          <MetricCard
+                            label="CTR (%)"
+                            value={report.traffic_data.ctr}
+                            delta={report.traffic_data.ctrDelta}
+                            format="percent"
+                          />
+                          <MetricCard
+                            label="Avg Position"
+                            value={report.traffic_data.avgPosition}
+                            delta={report.traffic_data.positionDelta}
+                            format="position"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Keyword data */}
+                    {report.keyword_data?.total != null && (
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-[#8888a0] flex items-center gap-1">
+                          <BarChart3 className="w-3 h-3" /> Keyword Rankings
+                        </p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          <MetricCard
+                            label="Total KW"
+                            value={report.keyword_data.total}
+                            delta={report.keyword_data.summary?.totalChange}
+                            format="number"
+                          />
+                          <MetricCard
+                            label="Top 3"
+                            value={report.keyword_data.top3}
+                            delta={report.keyword_data.summary?.top3Change}
+                            format="number"
+                          />
+                          <MetricCard
+                            label="Top 10"
+                            value={report.keyword_data.top10}
+                            delta={report.keyword_data.summary?.top10Change}
+                            format="number"
+                          />
+                          <MetricCard
+                            label="Top 30"
+                            value={report.keyword_data.top30}
+                            delta={report.keyword_data.summary?.top30Change}
+                            format="number"
+                          />
+                        </div>
+                      </div>
+                    )}
+
                     {report.highlights && (
                       <div>
                         <p className="text-xs font-medium text-[#8888a0] mb-1 flex items-center gap-1">
@@ -386,6 +482,57 @@ function ScoreCard({ label, value }: { label: string; value?: number }) {
   );
 }
 
+function MetricCard({
+  label,
+  value,
+  delta,
+  format = 'number',
+}: {
+  label: string;
+  value?: number;
+  delta?: number;
+  format?: 'number' | 'percent' | 'position';
+}) {
+  if (value == null) return null;
+
+  const displayValue =
+    format === 'percent'
+      ? `${(value * 100).toFixed(1)}%`
+      : format === 'position'
+      ? value.toFixed(1)
+      : value.toLocaleString('vi-VN');
+
+  // For position: lower is better (delta < 0 = green)
+  const isPositive = format === 'position' ? (delta ?? 0) < 0 : (delta ?? 0) > 0;
+  const isNegative = format === 'position' ? (delta ?? 0) > 0 : (delta ?? 0) < 0;
+
+  const deltaDisplay =
+    delta == null || delta === 0
+      ? null
+      : format === 'percent'
+      ? `${delta > 0 ? '+' : ''}${(delta * 100).toFixed(1)}%`
+      : format === 'position'
+      ? `${delta > 0 ? '+' : ''}${delta.toFixed(1)}`
+      : `${delta > 0 ? '+' : ''}${delta.toLocaleString('vi-VN')}`;
+
+  return (
+    <div className="bg-secondary/50 border border-border rounded-lg px-2.5 py-2 text-center">
+      <p className="text-base font-bold text-[var(--text-primary)]">{displayValue}</p>
+      {deltaDisplay && (
+        <p
+          className={cn(
+            'text-[10px] font-medium',
+            isPositive ? 'text-green-400' : isNegative ? 'text-red-400' : 'text-[#8888a0]'
+          )}
+        >
+          {deltaDisplay}
+        </p>
+      )}
+      <p className="text-[10px] text-[#8888a0] mt-0.5">{label}</p>
+    </div>
+  );
+}
+
 function CreateReportModal({
   projects,
   onClose,
@@ -424,7 +571,7 @@ function CreateReportModal({
           highlights: data.highlights || prev.highlights,
           next_month_plan: data.next_month_plan || prev.next_month_plan,
         }));
-        setGeneratedData({ technical_data: data.technical_data, content_data: data.content_data });
+        setGeneratedData({ technical_data: data.technical_data, content_data: data.content_data, traffic_data: data.traffic_data, keyword_data: data.keyword_data });
       } else {
         setError(data.error || 'Tạo tự động thất bại.');
       }
@@ -435,7 +582,7 @@ function CreateReportModal({
     }
   };
 
-  const [generatedData, setGeneratedData] = useState<{ technical_data?: unknown; content_data?: unknown } | null>(null);
+  const [generatedData, setGeneratedData] = useState<{ technical_data?: unknown; content_data?: unknown; traffic_data?: unknown; keyword_data?: unknown } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -455,6 +602,8 @@ function CreateReportModal({
           next_month_plan: form.next_month_plan || undefined,
           technical_data: generatedData?.technical_data ?? undefined,
           content_data: generatedData?.content_data ?? undefined,
+          traffic_data: generatedData?.traffic_data ?? undefined,
+          keyword_data: generatedData?.keyword_data ?? undefined,
         }),
       });
       if (res.ok) {
