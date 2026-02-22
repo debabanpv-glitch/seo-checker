@@ -54,6 +54,11 @@ interface KeywordTrend {
   history: { date: string; position: number }[];
   ranking_tier?: string | null;
   keyword_type?: string | null;
+  // GSC traffic data (merged from top_queries)
+  gscClicks?: number;
+  gscImpressions?: number;
+  gscCtr?: number;
+  gscPosition?: number;
 }
 
 interface SheetConfig {
@@ -83,7 +88,24 @@ interface TopQuery {
   position: number;
 }
 
-type ViewTab = 'all' | 'cam_ket' | 'blog' | 'opportunity' | 'declining';
+type ViewTab = 'all' | 'cam_ket' | 'blog' | 'opportunity' | 'declining' | 'gsc_only';
+
+// Build a map of keyword → GSC traffic from top_queries JSON
+function buildGscQueryMap(snapshots: GscSnapshot[]): Map<string, TopQuery> {
+  const map = new Map<string, TopQuery>();
+  if (snapshots.length === 0) return map;
+  const latest = snapshots[0];
+  try {
+    const raw = latest.top_queries;
+    if (!raw) return map;
+    const queries: TopQuery[] = typeof raw === 'string' ? JSON.parse(raw) : (raw as TopQuery[]);
+    if (!Array.isArray(queries)) return map;
+    for (const q of queries) {
+      map.set(q.query.toLowerCase().trim(), q);
+    }
+  } catch { /* ignore */ }
+  return map;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -115,7 +137,7 @@ export default function KeywordRankingPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<ViewTab>('all');
   const [expandedKw, setExpandedKw] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'position' | 'change' | 'keyword'>('position');
+  const [sortBy, setSortBy] = useState<'position' | 'change' | 'keyword' | 'clicks'>('position');
   const [sortAsc, setSortAsc] = useState(true);
 
   // Sync state
@@ -192,6 +214,9 @@ export default function KeywordRankingPage() {
     setShowConfigModal(false);
   };
 
+  // ── GSC query map ────────────────────────────────────────────────────
+  const gscQueryMap = useMemo(() => buildGscQueryMap(gscSnapshots), [gscSnapshots]);
+
   // ── Process trends ────────────────────────────────────────────────────
   const keywordTrends = useMemo(() => {
     const keywordMap = new Map<string, KeywordRanking[]>();
@@ -217,6 +242,9 @@ export default function KeywordRankingPage() {
       });
       history.sort((a, b) => a.date.localeCompare(b.date));
 
+      // Merge GSC traffic data
+      const gscData = gscQueryMap.get(latest.keyword.toLowerCase().trim());
+
       trends.push({
         keyword: latest.keyword,
         url: latest.url,
@@ -226,10 +254,38 @@ export default function KeywordRankingPage() {
         history,
         ranking_tier: latest.ranking_tier,
         keyword_type: latest.keyword_type,
+        gscClicks: gscData?.clicks,
+        gscImpressions: gscData?.impressions,
+        gscCtr: gscData?.ctr,
+        gscPosition: gscData?.position,
       });
     });
     return trends;
-  }, [rankings]);
+  }, [rankings, gscQueryMap]);
+
+  // ── GSC-only queries (in console but not tracked in sheet) ───────────
+  const gscOnlyQueries = useMemo(() => {
+    if (gscQueryMap.size === 0) return [];
+    const trackedKeys = new Set(keywordTrends.map((t) => t.keyword.toLowerCase().trim()));
+    const result: KeywordTrend[] = [];
+    gscQueryMap.forEach((q, key) => {
+      if (!trackedKeys.has(key)) {
+        result.push({
+          keyword: q.query,
+          url: '',
+          currentPosition: Math.round(q.position * 10) / 10,
+          previousPosition: null,
+          change: null,
+          history: [],
+          gscClicks: q.clicks,
+          gscImpressions: q.impressions,
+          gscCtr: q.ctr,
+          gscPosition: q.position,
+        });
+      }
+    });
+    return result.sort((a, b) => (b.gscClicks ?? 0) - (a.gscClicks ?? 0));
+  }, [gscQueryMap, keywordTrends]);
 
   // ── Stats ─────────────────────────────────────────────────────────────
   const stats = useMemo(() => {
@@ -242,11 +298,34 @@ export default function KeywordRankingPage() {
     const camKet = keywordTrends.filter((t) => t.keyword_type === 'KW Cam kết').length;
     const blog = keywordTrends.filter((t) => t.keyword_type === 'KW Blog').length;
     const opportunity = keywordTrends.filter((t) => t.currentPosition >= 11 && t.currentPosition <= 20).length;
-    return { total, top3, top10, top30, improved, declined, camKet, blog, opportunity };
-  }, [keywordTrends]);
+    const totalClicks = keywordTrends.reduce((s, t) => s + (t.gscClicks ?? 0), 0);
+    const totalImpressions = keywordTrends.reduce((s, t) => s + (t.gscImpressions ?? 0), 0);
+    const hasGscData = gscQueryMap.size > 0;
+    const gscOnlyCount = gscOnlyQueries.length;
+    return { total, top3, top10, top30, improved, declined, camKet, blog, opportunity, totalClicks, totalImpressions, hasGscData, gscOnlyCount };
+  }, [keywordTrends, gscQueryMap, gscOnlyQueries]);
 
   // ── Filter + Sort ─────────────────────────────────────────────────────
   const filtered = useMemo(() => {
+    // GSC-only tab uses different data source
+    if (activeTab === 'gsc_only') {
+      let result = [...gscOnlyQueries];
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        result = result.filter((t) => t.keyword.toLowerCase().includes(q));
+      }
+      // Sort GSC-only by clicks desc by default
+      result.sort((a, b) => {
+        let cmp = 0;
+        if (sortBy === 'clicks') cmp = (b.gscClicks ?? 0) - (a.gscClicks ?? 0);
+        else if (sortBy === 'position') cmp = a.currentPosition - b.currentPosition;
+        else if (sortBy === 'keyword') cmp = a.keyword.localeCompare(b.keyword);
+        else cmp = (b.gscClicks ?? 0) - (a.gscClicks ?? 0);
+        return sortAsc ? cmp : -cmp;
+      });
+      return result;
+    }
+
     let result = [...keywordTrends];
 
     // Tab filter
@@ -268,15 +347,16 @@ export default function KeywordRankingPage() {
       let cmp = 0;
       if (sortBy === 'position') cmp = a.currentPosition - b.currentPosition;
       else if (sortBy === 'change') cmp = (b.change ?? 0) - (a.change ?? 0);
+      else if (sortBy === 'clicks') cmp = (b.gscClicks ?? 0) - (a.gscClicks ?? 0);
       else cmp = a.keyword.localeCompare(b.keyword);
       return sortAsc ? cmp : -cmp;
     });
 
     return result;
-  }, [keywordTrends, activeTab, searchQuery, sortBy, sortAsc]);
+  }, [keywordTrends, gscOnlyQueries, activeTab, searchQuery, sortBy, sortAsc]);
 
   // ── Column sort toggle ────────────────────────────────────────────────
-  const toggleSort = (col: 'position' | 'change' | 'keyword') => {
+  const toggleSort = (col: 'position' | 'change' | 'keyword' | 'clicks') => {
     if (sortBy === col) setSortAsc(!sortAsc);
     else { setSortBy(col); setSortAsc(col === 'position'); }
   };
@@ -338,11 +418,17 @@ export default function KeywordRankingPage() {
       ) : (
         <>
           {/* ── Score Cards ──────────────────────────────────────────── */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className={cn('grid gap-3', stats.hasGscData ? 'grid-cols-3 sm:grid-cols-6' : 'grid-cols-2 sm:grid-cols-4')}>
             <ScoreCard label="Top 3" value={stats.top3} total={stats.total} color="text-emerald-400" bgColor="bg-emerald-400" />
             <ScoreCard label="Top 10" value={stats.top10} total={stats.total} color="text-accent" bgColor="bg-accent" />
             <ScoreCard label="Tăng hạng" value={stats.improved} icon={<TrendingUp className="w-4 h-4 text-emerald-400" />} color="text-emerald-400" />
             <ScoreCard label="Giảm hạng" value={stats.declined} icon={<TrendingDown className="w-4 h-4 text-red-400" />} color="text-red-400" />
+            {stats.hasGscData && (
+              <>
+                <ScoreCard label="Clicks" value={stats.totalClicks} icon={<MousePointerClick className="w-4 h-4 text-sky-400" />} color="text-sky-400" />
+                <ScoreCard label="Impressions" value={stats.totalImpressions} icon={<Eye className="w-4 h-4 text-purple-400" />} color="text-purple-400" />
+              </>
+            )}
           </div>
 
           {/* ── GSC Traffic Overview ─────────────────────────────────── */}
@@ -352,13 +438,14 @@ export default function KeywordRankingPage() {
 
           {/* ── Tabs + Search + Project ──────────────────────────────── */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-            <div className="flex items-center gap-1 bg-secondary/50 rounded-lg p-1">
+            <div className="flex items-center gap-1 bg-secondary/50 rounded-lg p-1 overflow-x-auto">
               {([
                 { key: 'all' as ViewTab, label: 'Tất cả', count: stats.total, icon: null as React.ReactNode },
                 { key: 'cam_ket' as ViewTab, label: 'Cam kết', count: stats.camKet, icon: <Target className="w-3 h-3" /> as React.ReactNode },
                 { key: 'blog' as ViewTab, label: 'Blog', count: stats.blog, icon: <Eye className="w-3 h-3" /> as React.ReactNode },
                 { key: 'opportunity' as ViewTab, label: 'Cơ hội', count: stats.opportunity, icon: <Zap className="w-3 h-3" /> as React.ReactNode },
                 { key: 'declining' as ViewTab, label: 'Giảm', count: stats.declined, icon: <TrendingDown className="w-3 h-3" /> as React.ReactNode },
+                ...(stats.hasGscData ? [{ key: 'gsc_only' as ViewTab, label: 'GSC', count: stats.gscOnlyCount, icon: <BarChart2 className="w-3 h-3" /> as React.ReactNode }] : []),
               ]).map((tab) => (
                 <button
                   key={tab.key}
@@ -417,6 +504,16 @@ export default function KeywordRankingPage() {
                   <th className="px-3 py-2.5 text-center w-20 cursor-pointer hover:text-[var(--text-primary)]" onClick={() => toggleSort('change')}>
                     +/- {sortBy === 'change' && (sortAsc ? '↑' : '↓')}
                   </th>
+                  {stats.hasGscData && (
+                    <>
+                      <th className="px-3 py-2.5 text-center w-20 cursor-pointer hover:text-[var(--text-primary)] hidden sm:table-cell" onClick={() => toggleSort('clicks')}>
+                        Clicks {sortBy === 'clicks' && (sortAsc ? '↑' : '↓')}
+                      </th>
+                      <th className="px-3 py-2.5 text-center w-24 hidden lg:table-cell">
+                        Impr.
+                      </th>
+                    </>
+                  )}
                   <th className="px-3 py-2.5 text-left hidden md:table-cell">URL</th>
                 </tr>
               </thead>
@@ -428,6 +525,7 @@ export default function KeywordRankingPage() {
                     idx={idx}
                     expanded={expandedKw === trend.keyword}
                     onToggle={() => setExpandedKw(expandedKw === trend.keyword ? null : trend.keyword)}
+                    showGsc={stats.hasGscData}
                   />
                 ))}
               </tbody>
@@ -438,7 +536,10 @@ export default function KeywordRankingPage() {
             )}
           </div>
 
-          <p className="text-[10px] text-[#666680] text-right">{filtered.length} / {stats.total} từ khóa</p>
+          <p className="text-[10px] text-[#666680] text-right">
+            {filtered.length} / {activeTab === 'gsc_only' ? stats.gscOnlyCount : stats.total} từ khóa
+            {activeTab === 'gsc_only' && ' (chỉ từ Google Search Console)'}
+          </p>
         </>
       )}
 
@@ -536,9 +637,10 @@ function ScoreCard({ label, value, total, color, bgColor, icon }: {
 // ---------------------------------------------------------------------------
 // KeywordRow (with inline expand)
 // ---------------------------------------------------------------------------
-function KeywordRow({ trend, idx, expanded, onToggle }: {
-  trend: KeywordTrend; idx: number; expanded: boolean; onToggle: () => void;
+function KeywordRow({ trend, idx, expanded, onToggle, showGsc }: {
+  trend: KeywordTrend; idx: number; expanded: boolean; onToggle: () => void; showGsc?: boolean;
 }) {
+  const colSpan = showGsc ? 7 : 5;
   return (
     <>
       <tr className={cn('hover:bg-secondary/30 transition-colors cursor-pointer text-sm', expanded && 'bg-accent/5')} onClick={onToggle}>
@@ -565,6 +667,24 @@ function KeywordRow({ trend, idx, expanded, onToggle }: {
         <td className="px-3 py-2.5 text-center">
           <ChangeIndicator change={trend.change} />
         </td>
+        {showGsc && (
+          <>
+            <td className="px-3 py-2.5 text-center hidden sm:table-cell">
+              {trend.gscClicks !== undefined ? (
+                <span className="text-xs font-mono text-sky-400">{trend.gscClicks.toLocaleString('vi-VN')}</span>
+              ) : (
+                <span className="text-[10px] text-[#555570]">—</span>
+              )}
+            </td>
+            <td className="px-3 py-2.5 text-center hidden lg:table-cell">
+              {trend.gscImpressions !== undefined ? (
+                <span className="text-xs font-mono text-[#8888a0]">{trend.gscImpressions.toLocaleString('vi-VN')}</span>
+              ) : (
+                <span className="text-[10px] text-[#555570]">—</span>
+              )}
+            </td>
+          </>
+        )}
         <td className="px-3 py-2.5 hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
           {trend.url ? (
             <a href={trend.url} target="_blank" rel="noopener noreferrer"
@@ -581,7 +701,7 @@ function KeywordRow({ trend, idx, expanded, onToggle }: {
       {/* Expanded history */}
       {expanded && (
         <tr>
-          <td colSpan={5} className="px-3 py-3 bg-secondary/20">
+          <td colSpan={colSpan} className="px-3 py-3 bg-secondary/20">
             <div className="flex items-center gap-4 flex-wrap">
               <span className="text-[10px] text-[#8888a0] uppercase tracking-wider">Lịch sử:</span>
               {trend.history.map((h, i) => {
@@ -601,6 +721,17 @@ function KeywordRow({ trend, idx, expanded, onToggle }: {
                 );
               })}
             </div>
+            {/* GSC detail on expand */}
+            {showGsc && trend.gscClicks !== undefined && (
+              <div className="flex items-center gap-4 mt-2 sm:hidden">
+                <span className="text-[10px] text-[#8888a0] uppercase tracking-wider">GSC:</span>
+                <span className="text-xs text-sky-400 font-mono">{trend.gscClicks} clicks</span>
+                <span className="text-xs text-[#8888a0] font-mono">{trend.gscImpressions} impr</span>
+                {trend.gscCtr !== undefined && (
+                  <span className="text-xs text-amber-400 font-mono">CTR {(trend.gscCtr * 100).toFixed(1)}%</span>
+                )}
+              </div>
+            )}
             {/* Mobile URL */}
             {trend.url && (
               <a href={trend.url} target="_blank" rel="noopener noreferrer"
@@ -721,37 +852,7 @@ function GscTrafficSection({ snapshots }: { snapshots: GscSnapshot[] }) {
         />
       </div>
 
-      {/* Top queries */}
-      {topQueries.length > 0 && (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-border">
-            <span className="text-[11px] font-semibold text-[#8888a0] uppercase tracking-wider">Top queries</span>
-          </div>
-          <div className="divide-y divide-border/50">
-            {topQueries.map((q, i) => (
-              <div key={i} className="flex items-center gap-3 px-4 py-2 text-xs hover:bg-secondary/20 transition-colors">
-                <span className="text-[10px] text-[#666680] font-mono w-4 flex-shrink-0">{i + 1}</span>
-                <span className="flex-1 text-[var(--text-primary)] truncate">{q.query}</span>
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  <span className="flex items-center gap-1 text-sky-400">
-                    <MousePointerClick className="w-3 h-3" />
-                    <span className="font-mono">{q.clicks}</span>
-                  </span>
-                  <span className="text-[#8888a0] font-mono">{q.impressions} impr</span>
-                  <span className={cn(
-                    'font-mono text-[10px] px-1.5 py-0.5 rounded border',
-                    q.position <= 3 ? 'bg-emerald-400/10 border-emerald-400/20 text-emerald-400'
-                    : q.position <= 10 ? 'bg-accent/10 border-accent/20 text-accent'
-                    : 'bg-secondary border-border text-[#8888a0]'
-                  )}>
-                    #{q.position.toFixed(1)}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Top queries — hidden here, merged into keyword table */}
     </div>
   );
 }
