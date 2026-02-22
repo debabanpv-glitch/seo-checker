@@ -40,3 +40,18 @@ export const strategyActions = sqliteTable('strategy_actions', {
   created_at: text('created_at').notNull().default(sql`(datetime('now'))`),
   updated_at: text('updated_at').notNull().default(sql`(datetime('now'))`),
 });
+
+// --- strategy_execution_logs table ---
+export const strategyExecutionLogs = sqliteTable('strategy_execution_logs', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  action_id: text('action_id').notNull().references(() => strategyActions.id, { onDelete: 'cascade' }),
+  project_id: text('project_id').references(() => projects.id),
+  executor: text('executor').notNull().default('human'), // human | ai_chat | wp_api
+  started_at: text('started_at').notNull().default(sql`(datetime('now'))`),
+  completed_at: text('completed_at'),
+  status: text('status').notNull().default('running'), // running | success | failed
+  prompt_used: text('prompt_used'),
+  result_text: text('result_text'),
+  error: text('error'),
+  created_at: text('created_at').notNull().default(sql`(datetime('now'))`),
+});

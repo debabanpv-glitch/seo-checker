@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   RefreshCw, Check, AlertCircle, Plus, Trash2, Save,
   FolderKanban, X, Edit3, Users, Wrench, FileSpreadsheet,
-  Globe, TrendingUp, Target,
+  Globe, TrendingUp, Target, Wifi, WifiOff, Loader2,
 } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import { Project, Member } from '@/types';
@@ -51,6 +51,12 @@ export default function SettingsPage() {
   const [config, setConfig] = useState<AppConfig>({ screaming_frog_path: '/Users/puchinpham/Developer/SEO/', default_monthly_target: '20' });
   const [isSavingConfig, setIsSavingConfig] = useState(false);
 
+  // --- WordPress config state ---
+  const [wpConfig, setWpConfig] = useState({ wp_site_url: '', wp_username: '', wp_app_password: '' });
+  const [isSavingWp, setIsSavingWp] = useState(false);
+  const [wpTestStatus, setWpTestStatus] = useState<'idle' | 'testing' | 'ok' | 'fail'>('idle');
+  const [isTestingWp, setIsTestingWp] = useState(false);
+
   // ---------------------------------------------------------------------------
   // Fetch
   // ---------------------------------------------------------------------------
@@ -76,6 +82,12 @@ export default function SettingsPage() {
       const res = await fetch('/api/v1/settings/config');
       const data = await res.json();
       setConfig(prev => ({ ...prev, ...data.config }));
+      // Load WP config from the same config map
+      setWpConfig(prev => ({
+        wp_site_url: data.config?.wp_site_url ?? prev.wp_site_url,
+        wp_username: data.config?.wp_username ?? prev.wp_username,
+        wp_app_password: data.config?.wp_app_password ?? prev.wp_app_password,
+      }));
     } catch (err) { console.error('fetch config error', err); }
   }, []);
 
@@ -256,6 +268,38 @@ export default function SettingsPage() {
       showAlert(true, 'Đã lưu cấu hình!');
     } catch { showAlert(false, 'Lỗi khi lưu cấu hình'); }
     finally { setIsSavingConfig(false); }
+  };
+
+  const handleSaveWpConfig = async () => {
+    setIsSavingWp(true);
+    try {
+      await Promise.all(
+        Object.entries(wpConfig).map(([key, value]) =>
+          fetch('/api/v1/settings/config', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key, value }),
+          }),
+        ),
+      );
+      showAlert(true, 'Đã lưu cấu hình WordPress!');
+      setWpTestStatus('idle');
+    } catch { showAlert(false, 'Lỗi khi lưu cấu hình WordPress'); }
+    finally { setIsSavingWp(false); }
+  };
+
+  const handleTestWpConnection = async () => {
+    setIsTestingWp(true);
+    setWpTestStatus('testing');
+    try {
+      const res = await fetch('/api/v1/wordpress?action=test');
+      const data = await res.json();
+      setWpTestStatus(data.connected ? 'ok' : 'fail');
+    } catch {
+      setWpTestStatus('fail');
+    } finally {
+      setIsTestingWp(false);
+    }
   };
 
   // ---------------------------------------------------------------------------
@@ -504,6 +548,89 @@ export default function SettingsPage() {
               <Save className="w-4 h-4" />
               {isSavingConfig ? 'Đang lưu...' : 'Lưu cấu hình'}
             </button>
+          </div>
+
+          {/* ---------------------------------------------------------------- */}
+          {/* WordPress Integration                                            */}
+          {/* ---------------------------------------------------------------- */}
+          <div className="border-t border-border pt-6 space-y-4">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center">
+                <Globe className="w-5 h-5 text-blue-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-[var(--text-primary)]">WordPress</h3>
+                <p className="text-xs text-[#8888a0]">Kết nối WordPress REST API để quản lý bài viết</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm text-[#8888a0] mb-2">URL website WordPress</label>
+              <input
+                type="url"
+                value={wpConfig.wp_site_url}
+                onChange={(e) => setWpConfig(c => ({ ...c, wp_site_url: e.target.value }))}
+                placeholder="https://example.com"
+                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-[#8888a0] mb-2">Tên đăng nhập WP</label>
+                <input
+                  type="text"
+                  value={wpConfig.wp_username}
+                  onChange={(e) => setWpConfig(c => ({ ...c, wp_username: e.target.value }))}
+                  placeholder="admin"
+                  className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-[#8888a0] mb-2">Application Password</label>
+                <input
+                  type="password"
+                  value={wpConfig.wp_app_password}
+                  onChange={(e) => setWpConfig(c => ({ ...c, wp_app_password: e.target.value }))}
+                  placeholder="xxxx xxxx xxxx xxxx xxxx xxxx"
+                  className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] font-mono text-sm"
+                />
+                <p className="text-xs text-[#8888a0] mt-1">WP Admin → Users → Application Passwords</p>
+              </div>
+            </div>
+
+            {/* Connection test status */}
+            {wpTestStatus !== 'idle' && (
+              <div className={cn(
+                'flex items-center gap-2 px-3 py-2 rounded-lg text-sm',
+                wpTestStatus === 'ok' && 'bg-success/10 text-success',
+                wpTestStatus === 'fail' && 'bg-danger/10 text-danger',
+                wpTestStatus === 'testing' && 'bg-secondary text-[#8888a0]',
+              )}>
+                {wpTestStatus === 'ok' && <><Wifi className="w-4 h-4" />Kết nối thành công!</>}
+                {wpTestStatus === 'fail' && <><WifiOff className="w-4 h-4" />Kết nối thất bại. Kiểm tra URL và thông tin đăng nhập.</>}
+                {wpTestStatus === 'testing' && <><Loader2 className="w-4 h-4 animate-spin" />Đang kiểm tra kết nối...</>}
+              </div>
+            )}
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleSaveWpConfig}
+                disabled={isSavingWp}
+                className="flex items-center gap-2 px-6 py-2.5 bg-accent hover:bg-accent/90 disabled:bg-accent/50 rounded-lg text-white font-medium text-sm"
+              >
+                <Save className="w-4 h-4" />
+                {isSavingWp ? 'Đang lưu...' : 'Lưu WordPress'}
+              </button>
+              <button
+                onClick={handleTestWpConnection}
+                disabled={isTestingWp || !wpConfig.wp_site_url || !wpConfig.wp_username || !wpConfig.wp_app_password}
+                className="flex items-center gap-2 px-4 py-2.5 bg-secondary hover:bg-secondary/70 disabled:opacity-50 rounded-lg text-[var(--text-primary)] font-medium text-sm border border-border"
+              >
+                {isTestingWp ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wifi className="w-4 h-4" />}
+                Kiểm tra kết nối
+              </button>
+            </div>
           </div>
         </div>
       )}

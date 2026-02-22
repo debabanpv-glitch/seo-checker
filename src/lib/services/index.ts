@@ -11,5 +11,7 @@ export * from './claude-activities-log-and-query.service';
 export * from './notes-create-list-delete.service';
 export * from './gsc-snapshots-save-and-query.service';
 export * from './app-config-crud.service';
+export * from './wordpress-rest-api-v2-client.service';
 export * from './audit-results-crud.service';
 export * from './monthly-reports-crud.service';
+export * from './strategy-execution-log-crud.service';

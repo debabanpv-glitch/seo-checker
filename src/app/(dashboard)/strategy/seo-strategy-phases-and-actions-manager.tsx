@@ -34,11 +34,15 @@ import {
   User,
   Code,
   Save,
+  Clipboard,
+  ClipboardCheck,
+  History,
 } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
 import { Project } from '@/types';
 import { cn } from '@/lib/utils';
+import { buildExecutionPrompt } from '@/lib/utils/strategy-execution-prompt-builder';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -69,6 +73,7 @@ interface StrategyAction {
   ai_prompt?: string;
   platform_type?: 'wordpress' | 'nextjs' | 'custom' | 'other';
   implementation_notes?: string;
+  result?: string;
 }
 
 interface ObsidianAction {
@@ -393,11 +398,19 @@ function ActionRow({
   phaseId,
   onUpdateStatus,
   onUpdateAction,
+  projectName,
+  projectDomain,
+  phaseName,
+  phaseDescription,
 }: {
   action: StrategyAction;
   phaseId: string;
   onUpdateStatus: (actionId: string, phaseId: string, status: StrategyAction['status']) => void;
   onUpdateAction: (actionId: string, phaseId: string, data: Partial<StrategyAction>) => void;
+  projectName?: string;
+  projectDomain?: string;
+  phaseName?: string;
+  phaseDescription?: string;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -405,6 +418,10 @@ function ActionRow({
   const [platformType, setPlatformType] = useState<string>(action.platform_type ?? '');
   const [aiPrompt, setAiPrompt] = useState(action.ai_prompt ?? '');
   const [implNotes, setImplNotes] = useState(action.implementation_notes ?? '');
+  const [resultText, setResultText] = useState(action.result ?? '');
+  const [isCopied, setIsCopied] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [executionLogs, setExecutionLogs] = useState<Array<{id: string; executor: string; status: string; started_at: string; result_text?: string}>>([]);
 
   const actionStatus = ACTION_STATUS_CONFIG[action.status] || ACTION_STATUS_CONFIG.todo;
   const priority = PRIORITY_CONFIG[action.priority] || PRIORITY_CONFIG.medium;
@@ -435,6 +452,70 @@ function ActionRow({
       console.error('Failed to save action detail:', err);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleCopyPrompt = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const prompt = buildExecutionPrompt({
+      project: { name: projectName || '', domain: projectDomain },
+      phase: { name: phaseName || '', description: phaseDescription },
+      action: {
+        title: action.title,
+        description: action.description,
+        category: action.category,
+        priority: action.priority,
+        ai_prompt: aiPrompt,
+        platform_type: platformType || undefined,
+        implementation_notes: implNotes,
+      },
+    });
+    await navigator.clipboard.writeText(prompt);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  const handleSaveResult = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsSaving(true);
+    try {
+      await fetch(`/api/v1/strategy/actions/${action.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ result: resultText }),
+      });
+      onUpdateAction(action.id, phaseId, { result: resultText });
+
+      await fetch('/api/v1/strategy/executions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action_id: action.id,
+          executor: executorType === 'ai' ? 'ai_chat' : 'human',
+          result_text: resultText,
+          status: 'success',
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to save result:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleMarkDone = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await handleSaveResult(e);
+    onUpdateStatus(action.id, phaseId, 'done');
+  };
+
+  const fetchExecutionLogs = async () => {
+    try {
+      const res = await fetch(`/api/v1/strategy/executions?action_id=${action.id}`);
+      const data = await res.json();
+      setExecutionLogs(data.logs || []);
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -627,6 +708,25 @@ function ActionRow({
             </div>
           )}
 
+          {/* Copy Prompt — only when executor is ai and has prompt */}
+          {executorType === 'ai' && aiPrompt && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleCopyPrompt}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all',
+                  isCopied
+                    ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                    : 'bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30'
+                )}
+              >
+                {isCopied ? <ClipboardCheck className="w-3 h-3" /> : <Clipboard className="w-3 h-3" />}
+                {isCopied ? 'Đã copy!' : 'Copy Prompt'}
+              </button>
+              <span className="text-[10px] text-[#8888a0]">Paste vào Claude Chat để thực thi</span>
+            </div>
+          )}
+
           {/* Implementation notes */}
           <div className="space-y-1">
             <label className="text-[10px] font-medium text-[#8888a0] uppercase tracking-wide flex items-center gap-1">
@@ -642,17 +742,82 @@ function ActionRow({
             />
           </div>
 
-          {/* Save button */}
-          <div className="flex justify-end">
-            <button
-              onClick={handleSaveDetail}
-              disabled={isSaving}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent/90 disabled:opacity-60 rounded-md text-white text-xs font-medium transition-colors"
-            >
-              {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-              Lưu
-            </button>
+          {/* Kết quả thực thi */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-medium text-green-400 uppercase tracking-wide flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3" />
+              Kết quả thực thi
+            </label>
+            <textarea
+              value={resultText}
+              onChange={(e) => setResultText(e.target.value)}
+              placeholder="Paste kết quả từ Claude Chat vào đây..."
+              rows={4}
+              className="w-full text-xs bg-green-500/5 border border-green-500/20 rounded-md px-2.5 py-2 text-[var(--text-primary)] placeholder:text-[#8888a0]/60 resize-none focus:outline-none focus:border-green-500/40"
+            />
           </div>
+
+          {/* Action buttons */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!showHistory) fetchExecutionLogs();
+                  setShowHistory(!showHistory);
+                }}
+                className="flex items-center gap-1 text-[10px] text-[#8888a0] hover:text-[var(--text-primary)] transition-colors"
+              >
+                <History className="w-3 h-3" />
+                Lịch sử
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSaveDetail}
+                disabled={isSaving}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary hover:bg-border border border-border rounded-md text-[var(--text-primary)] text-xs font-medium transition-colors disabled:opacity-60"
+              >
+                {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                Lưu
+              </button>
+              {resultText && action.status !== 'done' && (
+                <button
+                  onClick={handleMarkDone}
+                  disabled={isSaving}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded-md text-white text-xs font-medium transition-colors disabled:opacity-60"
+                >
+                  <CheckCircle2 className="w-3 h-3" />
+                  Hoàn thành
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Execution History */}
+          {showHistory && (
+            <div className="mt-2 p-2 bg-secondary/30 rounded-md space-y-1.5">
+              <p className="text-[10px] font-medium text-[#8888a0] uppercase tracking-wide">Lịch sử thực thi</p>
+              {executionLogs.length === 0 ? (
+                <p className="text-[10px] text-[#8888a0]">Chưa có lịch sử</p>
+              ) : (
+                executionLogs.slice(0, 5).map((log) => (
+                  <div key={log.id} className="flex items-center justify-between text-[10px]">
+                    <div className="flex items-center gap-1.5">
+                      <span className={cn(
+                        'w-1.5 h-1.5 rounded-full',
+                        log.status === 'success' ? 'bg-green-400' : log.status === 'failed' ? 'bg-red-400' : 'bg-yellow-400 animate-pulse'
+                      )} />
+                      <span className="text-[#8888a0]">
+                        {log.executor === 'ai_chat' ? 'AI Chat' : log.executor === 'wp_api' ? 'WP API' : 'Thủ công'}
+                      </span>
+                    </div>
+                    <span className="text-[#8888a0]">{new Date(log.started_at).toLocaleDateString('vi-VN')}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -823,6 +988,8 @@ function PhaseCard({
   onBulkAddAction,
   onUpdateActionStatus,
   onUpdateActionDetail,
+  projectName,
+  projectDomain,
 }: {
   phase: StrategyPhase;
   phaseIndex: number;
@@ -835,6 +1002,8 @@ function PhaseCard({
   onBulkAddAction: () => void;
   onUpdateActionStatus: (actionId: string, phaseId: string, status: StrategyAction['status']) => void;
   onUpdateActionDetail: (actionId: string, phaseId: string, data: Partial<StrategyAction>) => void;
+  projectName?: string;
+  projectDomain?: string;
 }) {
   const statusConfig = PHASE_STATUS_CONFIG[phase.status] || PHASE_STATUS_CONFIG.planned;
   const StatusIcon = statusConfig.icon;
@@ -967,6 +1136,10 @@ function PhaseCard({
                         phaseId={phase.id}
                         onUpdateStatus={onUpdateActionStatus}
                         onUpdateAction={onUpdateActionDetail}
+                        projectName={projectName}
+                        projectDomain={projectDomain}
+                        phaseName={phase.name}
+                        phaseDescription={phase.description}
                       />
                     ))}
                   </div>
@@ -1253,23 +1426,28 @@ export default function SeoStrategyPhasesAndActionsManager() {
         />
       ) : viewMode === 'list' ? (
         <div className="space-y-0">
-          {sortedPhases.map((phase, idx) => (
-            <div key={phase.id} id={`phase-card-${phase.id}`}>
-              <PhaseCard
-                phase={phase}
-                phaseIndex={idx}
-                totalPhases={sortedPhases.length}
-                isExpanded={expandedPhases.has(phase.id)}
-                isLoadingActions={loadingPhases.has(phase.id)}
-                phaseActions={actions[phase.id] || []}
-                onToggle={() => togglePhase(phase.id)}
-                onAddAction={() => setShowAddAction(phase.id)}
-                onBulkAddAction={() => setShowBulkAddAction(phase.id)}
-                onUpdateActionStatus={handleUpdateActionStatus}
-                onUpdateActionDetail={handleUpdateActionDetail}
-              />
-            </div>
-          ))}
+          {sortedPhases.map((phase, idx) => {
+            const selectedProject = projects.find(p => p.id === selectedProjectId);
+            return (
+              <div key={phase.id} id={`phase-card-${phase.id}`}>
+                <PhaseCard
+                  phase={phase}
+                  phaseIndex={idx}
+                  totalPhases={sortedPhases.length}
+                  isExpanded={expandedPhases.has(phase.id)}
+                  isLoadingActions={loadingPhases.has(phase.id)}
+                  phaseActions={actions[phase.id] || []}
+                  onToggle={() => togglePhase(phase.id)}
+                  onAddAction={() => setShowAddAction(phase.id)}
+                  onBulkAddAction={() => setShowBulkAddAction(phase.id)}
+                  onUpdateActionStatus={handleUpdateActionStatus}
+                  onUpdateActionDetail={handleUpdateActionDetail}
+                  projectName={selectedProject?.name}
+                  projectDomain={selectedProject?.domain}
+                />
+              </div>
+            );
+          })}
         </div>
       ) : null}
 

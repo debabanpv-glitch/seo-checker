@@ -66,6 +66,7 @@ export default function DashboardSEOOverviewTab() {
   const [projects, setProjects] = useState<ProjectCard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [strategyPhases, setStrategyPhases] = useState<StrategyPhase[]>([]);
+  const [actionStats, setActionStats] = useState<{ total: number; done: number }>({ total: 0, done: 0 });
   const [activeProjectName, setActiveProjectName] = useState('');
 
   useEffect(() => {
@@ -89,6 +90,14 @@ export default function DashboardSEOOverviewTab() {
           const phasesRes = await fetch(`/api/v1/strategy/phases?project_id=${firstProject.id}`);
           const phasesData = await phasesRes.json();
           setStrategyPhases(phasesData.phases || []);
+          // Fetch action stats for this project
+          const actionsRes = await fetch(`/api/v1/strategy/actions?project_id=${firstProject.id}`);
+          const actionsData = await actionsRes.json();
+          const allActions = actionsData.actions || [];
+          setActionStats({
+            total: allActions.length,
+            done: allActions.filter((a: { status: string }) => a.status === 'done').length,
+          });
         }
       } catch {
         // Strategy phases optional
@@ -194,6 +203,7 @@ export default function DashboardSEOOverviewTab() {
                   {activeProjectName && ' · '}
                   {completedPhases}/{strategyPhases.length} phase hoàn thành
                   {inProgressPhases > 0 && ` · ${inProgressPhases} đang thực hiện`}
+                  {actionStats.total > 0 && ` · ${actionStats.done}/${actionStats.total} actions`}
                 </p>
               </div>
             </div>
