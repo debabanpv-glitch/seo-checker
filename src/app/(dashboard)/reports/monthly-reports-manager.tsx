@@ -11,6 +11,11 @@ import {
   Send,
   FileEdit,
   CheckCircle,
+  Wand2,
+  Loader2,
+  BarChart3,
+  Target,
+  TrendingUp,
 } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
@@ -25,6 +30,24 @@ interface MonthlyReport {
   status: 'draft' | 'generated' | 'sent';
   highlights?: string;
   next_month_plan?: string;
+  technical_data?: {
+    seoScore?: number;
+    totalUrls?: number;
+    contentScore?: number;
+    technicalScore?: number;
+    imagesScore?: number;
+    linksScore?: number;
+    eeatScore?: number;
+    aiReadinessScore?: number;
+  };
+  content_data?: {
+    totalPhases?: number;
+    totalActions?: number;
+    doneActions?: number;
+    doingActions?: number;
+    blockedActions?: number;
+    todoActions?: number;
+  };
   created_at: string;
   updated_at: string;
 }
@@ -212,9 +235,54 @@ export default function MonthlyReportsManager() {
                 {/* Expanded Detail */}
                 {isExpanded && (
                   <div className="px-4 pb-4 border-t border-border space-y-3 pt-3">
+                    {/* Score cards row */}
+                    {report.technical_data?.seoScore != null && (
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-[#8888a0] flex items-center gap-1">
+                          <BarChart3 className="w-3 h-3" /> SEO Scores
+                        </p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+                          <ScoreCard label="SEO" value={report.technical_data.seoScore} />
+                          <ScoreCard label="Content" value={report.technical_data.contentScore} />
+                          <ScoreCard label="Technical" value={report.technical_data.technicalScore} />
+                          <ScoreCard label="Images" value={report.technical_data.imagesScore} />
+                          <ScoreCard label="Links" value={report.technical_data.linksScore} />
+                          <ScoreCard label="E-E-A-T" value={report.technical_data.eeatScore} />
+                          <ScoreCard label="AI Ready" value={report.technical_data.aiReadinessScore} />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Strategy progress */}
+                    {report.content_data?.totalActions != null && report.content_data.totalActions > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-[#8888a0] flex items-center gap-1">
+                          <Target className="w-3 h-3" /> Tiến độ chiến lược
+                        </p>
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1 h-2 bg-secondary rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-green-500 rounded-full transition-all"
+                              style={{ width: `${Math.round(((report.content_data.doneActions ?? 0) / report.content_data.totalActions) * 100)}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-[var(--text-primary)] font-medium whitespace-nowrap">
+                            {report.content_data.doneActions}/{report.content_data.totalActions} done
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-3 text-[10px] text-[#8888a0]">
+                          {report.content_data.doingActions ? <span className="text-blue-400">{report.content_data.doingActions} đang làm</span> : null}
+                          {report.content_data.blockedActions ? <span className="text-red-400">{report.content_data.blockedActions} bị chặn</span> : null}
+                          {report.content_data.todoActions ? <span>{report.content_data.todoActions} chờ làm</span> : null}
+                        </div>
+                      </div>
+                    )}
+
                     {report.highlights && (
                       <div>
-                        <p className="text-xs font-medium text-[#8888a0] mb-1">Điểm nổi bật</p>
+                        <p className="text-xs font-medium text-[#8888a0] mb-1 flex items-center gap-1">
+                          <TrendingUp className="w-3 h-3" /> Điểm nổi bật
+                        </p>
                         <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">
                           {report.highlights}
                         </p>
@@ -228,7 +296,7 @@ export default function MonthlyReportsManager() {
                         </p>
                       </div>
                     )}
-                    {!report.highlights && !report.next_month_plan && (
+                    {!report.highlights && !report.next_month_plan && !report.technical_data?.seoScore && (
                       <p className="text-xs text-[#8888a0] italic">Chưa có nội dung chi tiết.</p>
                     )}
                     {next && (
@@ -263,6 +331,17 @@ export default function MonthlyReportsManager() {
   );
 }
 
+function ScoreCard({ label, value }: { label: string; value?: number }) {
+  if (value == null) return null;
+  const color = value >= 80 ? 'text-green-400' : value >= 60 ? 'text-yellow-400' : 'text-red-400';
+  return (
+    <div className="bg-secondary/50 border border-border rounded-lg px-2.5 py-2 text-center">
+      <p className={cn('text-lg font-bold', color)}>{value}</p>
+      <p className="text-[10px] text-[#8888a0]">{label}</p>
+    </div>
+  );
+}
+
 function CreateReportModal({
   projects,
   onClose,
@@ -281,7 +360,38 @@ function CreateReportModal({
     next_month_plan: '',
   });
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
+
+  const handleAutoGenerate = async () => {
+    if (!form.project_id) { setError('Vui lòng chọn dự án trước.'); return; }
+    setGenerating(true);
+    setError('');
+    try {
+      const res = await fetch('/api/v1/reports/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project_id: form.project_id }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setForm((prev) => ({
+          ...prev,
+          highlights: data.highlights || prev.highlights,
+          next_month_plan: data.next_month_plan || prev.next_month_plan,
+        }));
+        setGeneratedData({ technical_data: data.technical_data, content_data: data.content_data });
+      } else {
+        setError(data.error || 'Tạo tự động thất bại.');
+      }
+    } catch {
+      setError('Có lỗi khi tạo tự động.');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const [generatedData, setGeneratedData] = useState<{ technical_data?: unknown; content_data?: unknown } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -296,9 +406,11 @@ function CreateReportModal({
           project_id: form.project_id,
           month: form.month,
           year: form.year,
-          status: 'draft',
+          status: generatedData ? 'generated' : 'draft',
           highlights: form.highlights || undefined,
           next_month_plan: form.next_month_plan || undefined,
+          technical_data: generatedData?.technical_data ?? undefined,
+          content_data: generatedData?.content_data ?? undefined,
         }),
       });
       if (res.ok) {
@@ -367,6 +479,17 @@ function CreateReportModal({
               </select>
             </div>
           </div>
+
+          {/* Auto-generate button */}
+          <button
+            type="button"
+            onClick={handleAutoGenerate}
+            disabled={generating || !form.project_id}
+            className="w-full flex items-center justify-center gap-2 py-2.5 bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 rounded-lg text-blue-400 text-sm font-medium transition-colors disabled:opacity-50"
+          >
+            {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+            {generating ? 'Đang tổng hợp dữ liệu...' : 'Tự động tạo từ Audit + Strategy'}
+          </button>
 
           <div>
             <label className="block text-sm text-[#8888a0] mb-1.5">Điểm nổi bật</label>
