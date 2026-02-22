@@ -10,10 +10,25 @@ export const dynamic = 'force-dynamic';
 
 interface AuditSummary {
   total_urls?: number;
+  seo_score?: number;
+  // SF crawl format
   status_200?: number;
   status_301?: number;
   status_404?: number;
   avg_speed?: number;
+  // Auditor format
+  status_3xx?: number;
+  status_4xx?: number;
+  avg_response_ms?: number;
+  status_codes?: Record<string, number>;
+  // Category scores (auditor)
+  content_score?: number;
+  technical_score?: number;
+  images_score?: number;
+  links_score?: number;
+  eeat_score?: number;
+  ai_readiness_score?: number;
+  // Shared
   orphan_pages?: number;
   indexable?: number;
   [key: string]: unknown;
@@ -52,24 +67,48 @@ export function GET() {
       }
 
       const summary = (latestAudit?.summary || {}) as AuditSummary;
+      const isAuditor = latestAudit?.audit_type === 'seo_master_auditor';
+
+      // Use auditor seo_score when available, fallback to seo_results avg
+      const healthScore = isAuditor ? (summary.seo_score || 0) : avgScore;
+
+      // Map status codes: auditor uses status_3xx/status_4xx, SF uses status_301/status_404
+      const sc = summary.status_codes || {};
+      const status200 = summary.status_200 || sc['200'] || 0;
+      const status301 = summary.status_301 || summary.status_3xx || sc['301'] || 0;
+      const status404 = summary.status_404 || summary.status_4xx || sc['404'] || 0;
+
+      // Auditor stores ms, SF stores seconds
+      const avgSpeed = isAuditor
+        ? +((summary.avg_response_ms || 0) / 1000).toFixed(1)
+        : (summary.avg_speed || 0);
 
       return {
         id: project.id,
         name: project.name,
         slug: project.slug,
         domain: project.domain,
-        healthScore: avgScore,
+        healthScore,
         checkedPages,
         auditDate: latestAudit?.audit_date || null,
+        auditType: latestAudit?.audit_type || null,
         stats: {
           totalPages: summary.total_urls || 0,
-          status200: summary.status_200 || 0,
-          status301: summary.status_301 || 0,
-          status404: summary.status_404 || 0,
-          avgSpeed: summary.avg_speed || 0,
+          status200,
+          status301,
+          status404,
+          avgSpeed,
           orphanPages: summary.orphan_pages || 0,
           indexable: summary.indexable || 0,
         },
+        categoryScores: isAuditor ? {
+          content: summary.content_score || 0,
+          technical: summary.technical_score || 0,
+          images: summary.images_score || 0,
+          links: summary.links_score || 0,
+          eeat: summary.eeat_score || 0,
+          aiReadiness: summary.ai_readiness_score || 0,
+        } : null,
       };
     });
 

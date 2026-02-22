@@ -21,6 +21,15 @@ import { PageLoading } from '@/components/LoadingSpinner';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+interface CategoryScores {
+  content: number;
+  technical: number;
+  images: number;
+  links: number;
+  eeat: number;
+  aiReadiness: number;
+}
+
 interface ProjectCard {
   id: string;
   name: string;
@@ -29,6 +38,7 @@ interface ProjectCard {
   healthScore: number;
   checkedPages: number;
   auditDate: string | null;
+  auditType: string | null;
   stats: {
     totalPages: number;
     status200: number;
@@ -38,6 +48,7 @@ interface ProjectCard {
     orphanPages: number;
     indexable: number;
   };
+  categoryScores: CategoryScores | null;
 }
 
 interface StrategyPhase {
@@ -355,27 +366,42 @@ function ProjectSEOCard({ project }: { project: ProjectCard }) {
             </div>
           </div>
 
-          {/* Bottom Grid Stats */}
-          <div className="grid grid-cols-3 gap-2 pt-3 border-t border-border">
-            <MiniStat
-              label="404"
-              value={stats.status404}
-              color={stats.status404 > 0 ? 'text-danger' : 'text-success'}
-              bg={stats.status404 > 0 ? 'bg-danger/8' : 'bg-success/8'}
-            />
-            <MiniStat
-              label="Speed"
-              value={stats.avgSpeed > 0 ? `${stats.avgSpeed.toFixed(1)}s` : '--'}
-              color={stats.avgSpeed > 5 ? 'text-danger' : stats.avgSpeed > 3 ? 'text-warning' : 'text-success'}
-              bg={stats.avgSpeed > 5 ? 'bg-danger/8' : stats.avgSpeed > 3 ? 'bg-warning/8' : 'bg-success/8'}
-            />
-            <MiniStat
-              label="Orphan"
-              value={stats.orphanPages}
-              color={stats.orphanPages > 0 ? 'text-warning' : 'text-success'}
-              bg={stats.orphanPages > 0 ? 'bg-warning/8' : 'bg-success/8'}
-            />
-          </div>
+          {/* Category Scores or Fallback Stats */}
+          {project.categoryScores ? (
+            <div className="pt-3 border-t border-border space-y-1.5">
+              {([
+                ['Content', project.categoryScores.content],
+                ['Technical', project.categoryScores.technical],
+                ['Images', project.categoryScores.images],
+                ['Links', project.categoryScores.links],
+                ['E-E-A-T', project.categoryScores.eeat],
+                ['AI Ready', project.categoryScores.aiReadiness],
+              ] as [string, number][]).map(([label, score]) => (
+                <ScoreBar key={label} label={label} score={score} />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-2 pt-3 border-t border-border">
+              <MiniStat
+                label="404"
+                value={stats.status404}
+                color={stats.status404 > 0 ? 'text-danger' : 'text-success'}
+                bg={stats.status404 > 0 ? 'bg-danger/8' : 'bg-success/8'}
+              />
+              <MiniStat
+                label="Speed"
+                value={stats.avgSpeed > 0 ? `${stats.avgSpeed.toFixed(1)}s` : '--'}
+                color={stats.avgSpeed > 5 ? 'text-danger' : stats.avgSpeed > 3 ? 'text-warning' : 'text-success'}
+                bg={stats.avgSpeed > 5 ? 'bg-danger/8' : stats.avgSpeed > 3 ? 'bg-warning/8' : 'bg-success/8'}
+              />
+              <MiniStat
+                label="Orphan"
+                value={stats.orphanPages}
+                color={stats.orphanPages > 0 ? 'text-warning' : 'text-success'}
+                bg={stats.orphanPages > 0 ? 'bg-warning/8' : 'bg-success/8'}
+              />
+            </div>
+          )}
 
           {/* Audit Date */}
           {project.auditDate && (
@@ -439,6 +465,20 @@ function MiniStat({
     <div className={`text-center py-2 px-1 rounded-lg ${bg}`}>
       <p className={`text-sm font-bold ${color}`}>{value}</p>
       <p className="text-[10px] text-[#8888a0] mt-0.5">{label}</p>
+    </div>
+  );
+}
+
+function ScoreBar({ label, score }: { label: string; score: number }) {
+  const color = score >= 80 ? 'bg-success' : score >= 60 ? 'bg-warning' : 'bg-danger';
+  const textColor = score >= 80 ? 'text-success' : score >= 60 ? 'text-warning' : 'text-danger';
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] text-[#8888a0] w-14 flex-shrink-0">{label}</span>
+      <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
+        <div className={`h-full rounded-full ${color}`} style={{ width: `${score}%` }} />
+      </div>
+      <span className={`text-[10px] font-semibold w-7 text-right ${textColor}`}>{score}</span>
     </div>
   );
 }
