@@ -396,7 +396,7 @@ export async function POST(request: NextRequest) {
     // --- Save audit ---
     const today = new Date().toISOString().split('T')[0];
     const audit = createAudit({
-      project_id: resolvedProjectId,
+      project_id: resolvedProjectId ?? undefined,
       audit_type: 'seo_master_auditor',
       audit_date: today,
       summary,
