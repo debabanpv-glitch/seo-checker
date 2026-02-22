@@ -46,6 +46,21 @@ export interface AuditSummary {
   security_headers: number;
   schema_coverage: number;
   redirect_chains: number;
+  // Category scores (from seo_master_auditor)
+  seo_score: number;
+  content_score: number;
+  technical_score: number;
+  images_score: number;
+  links_score: number;
+  eeat_score: number;
+  ai_readiness_score: number;
+  title_issues: { total: number; missing: number; tooLong: number; tooShort: number } | null;
+  meta_issues: { total: number; missing: number; tooLong: number; tooShort: number } | null;
+  h1_issues: { total: number; missing: number; multiple: number } | null;
+  top_issues: Array<{ type: string; count: number; severity: string }>;
+  score_distribution: { good: number; average: number; poor: number } | null;
+  images_missing_alt: number;
+  total_images: number;
 }
 
 export interface SeoStats {

@@ -56,12 +56,27 @@ const SEVERITY_COLOR: Record<string, string> = {
 export default function ProjectSeoOverviewTab({ data }: { data: DashboardData }) {
   const { latestAudit, seoStats } = data;
 
-  const overallPct =
-    seoStats.totalPages > 0
-      ? Math.round(seoStats.avgScore)
-      : 0;
-
   const la = latestAudit;
+  const isAuditor = la?.audit_type === 'seo_master_auditor';
+
+  // Use auditor seo_score when available, fallback to seoStats avgScore
+  const overallPct = isAuditor
+    ? (la?.seo_score ?? 0)
+    : seoStats.totalPages > 0 ? Math.round(seoStats.avgScore) : 0;
+
+  // Category scores: prefer auditor data, fallback to seoStats
+  const catScores = {
+    content: isAuditor ? (la?.content_score ?? 0) : seoStats.avgContentScore,
+    technical: isAuditor ? (la?.technical_score ?? 0) : seoStats.avgTechnicalScore,
+    images: isAuditor ? (la?.images_score ?? 0) : seoStats.avgImagesScore,
+    links: isAuditor ? (la?.links_score ?? 0) : 0,
+    eeat: isAuditor ? (la?.eeat_score ?? 0) : 0,
+    aiReadiness: isAuditor ? (la?.ai_readiness_score ?? 0) : 0,
+  };
+
+  // Use auditor top_issues and score_distribution when available
+  const topIssues = isAuditor && la?.top_issues?.length ? la.top_issues : seoStats.topIssues;
+  const scoreDist = isAuditor && la?.score_distribution ? la.score_distribution : seoStats.scoreDistribution;
 
   return (
     <div className="space-y-5">
@@ -77,21 +92,24 @@ export default function ProjectSeoOverviewTab({ data }: { data: DashboardData })
         </div>
         <div className="flex-1 w-full space-y-4">
           <h3 className="text-sm font-semibold text-[var(--text-primary)]">Điểm theo danh mục</h3>
-          <ScoreBar label="Nội dung" score={seoStats.avgContentScore} maxScore={100} />
-          <ScoreBar label="Kỹ thuật" score={seoStats.avgTechnicalScore} maxScore={100} />
-          <ScoreBar label="Hình ảnh" score={seoStats.avgImagesScore} maxScore={100} />
+          <ScoreBar label="Nội dung" score={catScores.content} maxScore={100} />
+          <ScoreBar label="Kỹ thuật" score={catScores.technical} maxScore={100} />
+          <ScoreBar label="Hình ảnh" score={catScores.images} maxScore={100} />
+          <ScoreBar label="Liên kết" score={catScores.links} maxScore={100} />
+          <ScoreBar label="E-E-A-T" score={catScores.eeat} maxScore={100} />
+          <ScoreBar label="AI Ready" score={catScores.aiReadiness} maxScore={100} />
           <div className="pt-2 flex gap-4 text-xs text-[#8888a0]">
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-success inline-block" />
-              Tốt: {seoStats.scoreDistribution.good}
+              Tốt: {scoreDist.good}
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-warning inline-block" />
-              TB: {seoStats.scoreDistribution.average}
+              TB: {scoreDist.average}
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-danger inline-block" />
-              Kém: {seoStats.scoreDistribution.poor}
+              Kém: {scoreDist.poor}
             </span>
           </div>
         </div>
@@ -128,11 +146,11 @@ export default function ProjectSeoOverviewTab({ data }: { data: DashboardData })
       </div>
 
       {/* Top Issues */}
-      {seoStats.topIssues.length > 0 && (
+      {topIssues.length > 0 && (
         <div className="bg-card border border-border rounded-xl p-5">
           <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Vấn đề phổ biến nhất</h3>
           <div className="space-y-3">
-            {seoStats.topIssues.map((issue, i) => (
+            {topIssues.map((issue, i) => (
               <div key={i} className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <span
