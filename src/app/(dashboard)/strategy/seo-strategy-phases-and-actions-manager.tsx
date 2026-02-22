@@ -40,6 +40,11 @@ import {
   Wand2,
   Eye,
   EyeOff,
+  ExternalLink,
+  BarChart3,
+  CircleCheck,
+  CircleAlert,
+  CircleMinus,
 } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
@@ -78,6 +83,37 @@ interface StrategyAction {
   implementation_notes?: string;
   result?: string;
 }
+
+interface StructuredResult {
+  status: 'success' | 'partial' | 'failed';
+  url?: string;
+  summary?: string;
+  details?: string;
+  metrics_before?: string;
+  metrics_after?: string;
+}
+
+function parseResult(raw?: string): StructuredResult {
+  if (!raw) return { status: 'success' };
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && parsed.status) return parsed;
+  } catch {
+    // Legacy plain text — migrate to structured
+    return { status: 'success', details: raw };
+  }
+  return { status: 'success' };
+}
+
+function serializeResult(r: StructuredResult): string {
+  return JSON.stringify(r);
+}
+
+const RESULT_STATUS_CONFIG = {
+  success: { label: 'Thành công', color: 'text-green-400', bg: 'bg-green-500/15 border-green-500/30', icon: CircleCheck },
+  partial: { label: 'Chưa hoàn tất', color: 'text-yellow-400', bg: 'bg-yellow-500/15 border-yellow-500/30', icon: CircleMinus },
+  failed: { label: 'Thất bại', color: 'text-red-400', bg: 'bg-red-500/15 border-red-500/30', icon: CircleAlert },
+};
 
 interface ObsidianAction {
   title: string;
@@ -421,7 +457,7 @@ function ActionRow({
   const [platformType, setPlatformType] = useState<string>(action.platform_type ?? '');
   const [aiPrompt, setAiPrompt] = useState(action.ai_prompt ?? '');
   const [implNotes, setImplNotes] = useState(action.implementation_notes ?? '');
-  const [resultText, setResultText] = useState(action.result ?? '');
+  const [result, setResult] = useState<StructuredResult>(() => parseResult(action.result));
   const [isCopied, setIsCopied] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -507,16 +543,19 @@ function ActionRow({
     setTimeout(() => setIsCopied(false), 2000);
   };
 
+  const hasResult = !!(result.summary || result.details || result.url);
+
   const handleSaveResult = async (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsSaving(true);
+    const serialized = serializeResult(result);
     try {
       await fetch(`/api/v1/strategy/actions/${action.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ result: resultText }),
+        body: JSON.stringify({ result: serialized }),
       });
-      onUpdateAction(action.id, phaseId, { result: resultText });
+      onUpdateAction(action.id, phaseId, { result: serialized });
 
       await fetch('/api/v1/strategy/executions', {
         method: 'POST',
@@ -524,8 +563,8 @@ function ActionRow({
         body: JSON.stringify({
           action_id: action.id,
           executor: executorType === 'ai' ? 'ai_chat' : 'human',
-          result_text: resultText,
-          status: 'success',
+          result_text: result.summary || result.details || '',
+          status: result.status === 'failed' ? 'failed' : 'success',
         }),
       });
     } catch (err) {
@@ -607,13 +646,28 @@ function ActionRow({
                 {platformType === 'wordpress' ? 'WP' : platformType === 'nextjs' ? 'Next' : platformType === 'custom' ? 'Custom' : 'Khác'}
               </span>
             )}
+            {/* Result badge */}
+            {hasResult && (
+              <span className={cn('inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium flex-shrink-0 border', RESULT_STATUS_CONFIG[result.status].bg, RESULT_STATUS_CONFIG[result.status].color)}>
+                {(() => { const Icon = RESULT_STATUS_CONFIG[result.status].icon; return <Icon className="w-2.5 h-2.5" />; })()}
+                {result.status === 'success' ? 'Done' : result.status === 'partial' ? 'Partial' : 'Failed'}
+              </span>
+            )}
             {/* Expand caret */}
             <span className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-[#8888a0]">
               {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             </span>
           </div>
 
-          {action.description && (
+          {/* Result summary preview on collapsed row */}
+          {!isExpanded && hasResult && result.summary && (
+            <p className="text-[11px] text-green-400/70 mt-0.5 line-clamp-1 flex items-center gap-1">
+              <CheckCircle2 className="w-2.5 h-2.5 flex-shrink-0" />
+              {result.summary}
+            </p>
+          )}
+
+          {action.description && !(!isExpanded && hasResult && result.summary) && (
             <p className="text-xs text-[#8888a0] mt-0.5 line-clamp-1">{action.description}</p>
           )}
 
@@ -798,19 +852,113 @@ function ActionRow({
             />
           </div>
 
-          {/* Kết quả thực thi */}
-          <div className="space-y-1">
-            <label className="text-[10px] font-medium text-green-400 uppercase tracking-wide flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3" />
-              Kết quả thực thi
-            </label>
-            <textarea
-              value={resultText}
-              onChange={(e) => setResultText(e.target.value)}
-              placeholder="Paste kết quả từ Claude Chat vào đây..."
-              rows={4}
-              className="w-full text-xs bg-green-500/5 border border-green-500/20 rounded-md px-2.5 py-2 text-[var(--text-primary)] placeholder:text-[#8888a0]/60 resize-none focus:outline-none focus:border-green-500/40"
-            />
+          {/* Kết quả thực thi — Structured */}
+          <div className="space-y-2.5 p-3 rounded-lg bg-green-500/5 border border-green-500/20">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] font-medium text-green-400 uppercase tracking-wide flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" />
+                Kết quả thực thi
+              </label>
+              {hasResult && (
+                <span className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border', RESULT_STATUS_CONFIG[result.status].bg, RESULT_STATUS_CONFIG[result.status].color)}>
+                  {(() => { const Icon = RESULT_STATUS_CONFIG[result.status].icon; return <Icon className="w-2.5 h-2.5" />; })()}
+                  {RESULT_STATUS_CONFIG[result.status].label}
+                </span>
+              )}
+            </div>
+
+            {/* Status radio */}
+            <div className="flex items-center gap-4">
+              {(Object.entries(RESULT_STATUS_CONFIG) as [StructuredResult['status'], typeof RESULT_STATUS_CONFIG.success][]).map(([key, cfg]) => (
+                <label key={key} className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="radio"
+                    name={`result-status-${action.id}`}
+                    value={key}
+                    checked={result.status === key}
+                    onChange={() => setResult(prev => ({ ...prev, status: key }))}
+                    className={cn('w-3 h-3', key === 'success' ? 'accent-green-400' : key === 'partial' ? 'accent-yellow-400' : 'accent-red-400')}
+                  />
+                  <cfg.icon className={cn('w-3 h-3', cfg.color)} />
+                  <span className={cn('text-xs', cfg.color)}>{cfg.label}</span>
+                </label>
+              ))}
+            </div>
+
+            {/* Link kết quả */}
+            <div className="space-y-1">
+              <label className="text-[10px] text-[#8888a0] flex items-center gap-1">
+                <ExternalLink className="w-2.5 h-2.5" />
+                Link kết quả (URL bài viết, trang đã sửa...)
+              </label>
+              <input
+                type="url"
+                value={result.url ?? ''}
+                onChange={(e) => setResult(prev => ({ ...prev, url: e.target.value || undefined }))}
+                placeholder="https://..."
+                className="w-full text-xs bg-secondary/50 border border-border rounded-md px-2.5 py-1.5 text-[var(--text-primary)] placeholder:text-[#8888a0]/40 focus:outline-none focus:border-green-500/40"
+              />
+            </div>
+
+            {/* Tóm tắt */}
+            <div className="space-y-1">
+              <label className="text-[10px] text-[#8888a0] flex items-center gap-1">
+                <FileText className="w-2.5 h-2.5" />
+                Tóm tắt kết quả
+              </label>
+              <input
+                type="text"
+                value={result.summary ?? ''}
+                onChange={(e) => setResult(prev => ({ ...prev, summary: e.target.value || undefined }))}
+                placeholder="VD: Đã tối ưu meta title cho 5 trang, tạo sitemap.xml mới..."
+                className="w-full text-xs bg-secondary/50 border border-border rounded-md px-2.5 py-1.5 text-[var(--text-primary)] placeholder:text-[#8888a0]/40 focus:outline-none focus:border-green-500/40"
+              />
+            </div>
+
+            {/* Before / After metrics */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-[10px] text-[#8888a0] flex items-center gap-1">
+                  <BarChart3 className="w-2.5 h-2.5" />
+                  Trước khi làm
+                </label>
+                <input
+                  type="text"
+                  value={result.metrics_before ?? ''}
+                  onChange={(e) => setResult(prev => ({ ...prev, metrics_before: e.target.value || undefined }))}
+                  placeholder="VD: PageSpeed 45, CTR 1.2%..."
+                  className="w-full text-xs bg-secondary/50 border border-border rounded-md px-2.5 py-1.5 text-[var(--text-primary)] placeholder:text-[#8888a0]/40 focus:outline-none focus:border-green-500/40"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] text-[#8888a0] flex items-center gap-1">
+                  <TrendingUp className="w-2.5 h-2.5" />
+                  Sau khi làm
+                </label>
+                <input
+                  type="text"
+                  value={result.metrics_after ?? ''}
+                  onChange={(e) => setResult(prev => ({ ...prev, metrics_after: e.target.value || undefined }))}
+                  placeholder="VD: PageSpeed 85, CTR 2.8%..."
+                  className="w-full text-xs bg-secondary/50 border border-border rounded-md px-2.5 py-1.5 text-[var(--text-primary)] placeholder:text-[#8888a0]/40 focus:outline-none focus:border-green-500/40"
+                />
+              </div>
+            </div>
+
+            {/* Chi tiết (expandable) */}
+            <div className="space-y-1">
+              <label className="text-[10px] text-[#8888a0] flex items-center gap-1">
+                <List className="w-2.5 h-2.5" />
+                Chi tiết (paste kết quả AI hoặc ghi chú)
+              </label>
+              <textarea
+                value={result.details ?? ''}
+                onChange={(e) => setResult(prev => ({ ...prev, details: e.target.value || undefined }))}
+                placeholder="Paste kết quả từ Claude Chat, hoặc ghi chú chi tiết những gì đã thực hiện..."
+                rows={3}
+                className="w-full text-xs bg-secondary/50 border border-border rounded-md px-2.5 py-2 text-[var(--text-primary)] placeholder:text-[#8888a0]/40 resize-none focus:outline-none focus:border-green-500/40"
+              />
+            </div>
           </div>
 
           {/* Action buttons */}
@@ -837,7 +985,7 @@ function ActionRow({
                 {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
                 Lưu
               </button>
-              {resultText && action.status !== 'done' && (
+              {hasResult && action.status !== 'done' && (
                 <button
                   onClick={handleMarkDone}
                   disabled={isSaving}
