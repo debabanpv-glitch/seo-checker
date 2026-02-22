@@ -55,7 +55,7 @@ claude
 # PHAN 2: KEYWORDS (Nghien cuu tu khoa)
 # ═══════════════════════════════════════════
 
-## Mo: http://localhost:3001/keywords
+## Mo: http://localhost:3001/keyword-ranking
 
 ## Muc nay lam gi:
 - Xem danh sach TAT CA keywords dang theo doi
@@ -82,7 +82,7 @@ Log hoat dong qua POST http://localhost:3001/api/v1/claude/log
 
 **Buoc 2:** Cho Claude Code chay (2-5 phut)
 
-**Buoc 3:** Mo browser → http://localhost:3001/keywords → Filter "Samco Tech"
+**Buoc 3:** Mo browser → http://localhost:3001/keyword-ranking → Filter "Samco Tech"
 → Thay 50 keywords moi voi volume, difficulty, intent
 
 ---
@@ -97,7 +97,7 @@ Update vao DB: POST http://localhost:3001/api/v1/keyword-rankings/bulk
 So sanh voi data cu trong DB, highlight keywords thay doi > 5 vi tri.
 ```
 
-**Buoc 2:** Xem → http://localhost:3001/keywords
+**Buoc 2:** Xem → http://localhost:3001/keyword-ranking
 → Cot "THAY DOI" hien xanh (len) hoac do (xuong)
 
 ---
@@ -550,7 +550,7 @@ POST /api/v1/tasks, /api/v1/notes, /api/v1/claude/log
 
 ## Muc nay lam gi:
 - Xem lich su TAT CA viec Claude Code da lam
-- Filter theo: loai (audit/keywords/content...) va du an
+- Filter theo: loai (audit/keyword-ranking/content...) va du an
 - Khong can go gi — data tu vao khi Claude Code chay tasks
 
 ## Khi nao data vao:

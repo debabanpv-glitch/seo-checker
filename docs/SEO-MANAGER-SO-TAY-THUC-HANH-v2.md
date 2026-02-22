@@ -55,7 +55,7 @@ claude
 # PHẦN 2: KEYWORDS (Nghiên cứu từ khóa)
 # ═══════════════════════════════════════════
 
-## Mở: http://localhost:3001/keywords
+## Mở: http://localhost:3001/keyword-ranking
 
 ## Mục này làm gì:
 - Xem danh sách TẤT CẢ keywords đang theo dõi
@@ -82,7 +82,7 @@ Log hoạt động qua POST http://localhost:3001/api/v1/claude/log
 
 **Bước 2:** Chờ Claude Code chạy (2-5 phút)
 
-**Bước 3:** Mở browser → http://localhost:3001/keywords → Filter "Samco Tech"
+**Bước 3:** Mở browser → http://localhost:3001/keyword-ranking → Filter "Samco Tech"
 → Thấy 50 keywords mới với volume, difficulty, intent
 
 ---
@@ -97,7 +97,7 @@ Update vào DB: POST http://localhost:3001/api/v1/keyword-rankings/bulk
 So sánh với data cũ trong DB, highlight keywords thay đổi > 5 vị trí.
 ```
 
-**Bước 2:** Xem → http://localhost:3001/keywords
+**Bước 2:** Xem → http://localhost:3001/keyword-ranking
 → Cột "THAY ĐỔI" hiện xanh (lên) hoặc đỏ (xuống)
 
 ---
