@@ -179,6 +179,20 @@ export default function HealthCheckDashboard() {
         lines.push('');
       }
 
+      // Tiến độ dự án
+      if (p.progressReport) {
+        const pr = p.progressReport;
+        lines.push(`### Tiến độ dự án`);
+        lines.push(`- Bắt đầu: ${new Date(pr.startDate).toLocaleDateString('vi-VN')} → Hạn: ${new Date(pr.deadline).toLocaleDateString('vi-VN')}`);
+        lines.push(`- Thời gian: ${pr.daysElapsed} ngày đã qua / ${pr.daysRemaining} ngày còn lại (${pr.timelineProgress}%)`);
+        lines.push(`- Tiến độ KPI tổng: ${pr.overallKpiPercent}% ${pr.onTrack ? '✓ Đúng tiến độ' : '⚠ Chậm tiến độ'}`);
+        for (const k of pr.kpiProgress) {
+          lines.push(`  - ${k.label}: ${k.current}/${k.target} (${k.percent}%)`);
+        }
+        lines.push(`- **Dự báo:** ${pr.forecast}`);
+        lines.push('');
+      }
+
       // Độ mới dữ liệu
       lines.push(`### Dữ liệu`);
       lines.push(`- Audit: ${p.dataAge.lastAudit ?? 'Chưa có'}`);

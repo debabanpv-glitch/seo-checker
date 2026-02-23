@@ -9,6 +9,7 @@ import { getAudits } from './audit-results-crud.service';
 import { getSnapshots } from './gsc-snapshots-save-and-query.service';
 import { getRankingGrowth } from './keyword.service';
 import { getPhases, getActions } from './strategy-phases-and-actions-crud.service';
+import { getAppConfig } from './app-config-crud.service';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -75,6 +76,25 @@ export interface KeywordData {
   top10Change: number;
 }
 
+export interface ProjectGoal {
+  start_date: string;
+  deadline: string;
+  duration_months: number;
+  targets: { weekly_clicks: number; top10_keywords: number; strategy_completion: number; seo_score: number };
+}
+
+export interface ProgressReport {
+  startDate: string;
+  deadline: string;
+  daysElapsed: number;
+  daysRemaining: number;
+  timelineProgress: number; // 0-100%
+  kpiProgress: { label: string; current: number; target: number; percent: number }[];
+  overallKpiPercent: number;
+  onTrack: boolean; // kpiProgress >= timelineProgress
+  forecast: string; // expert forecast
+}
+
 export interface ProjectHealthAssessment {
   id: string;
   name: string;
@@ -103,6 +123,7 @@ export interface ProjectHealthAssessment {
     phases: StrategyPhaseData[];
     nextActions: StrategyActionData[];
   } | null;
+  progressReport: ProgressReport | null;
 }
 
 export interface HealthCheckResponse {
@@ -341,7 +362,59 @@ function generatePriorityActions(warnings: Warning[], actions: { title: string; 
 // Main: assess single project
 // ---------------------------------------------------------------------------
 
-function assessProject(project: { id: string; name: string; slug: string | null; domain: string | null }): ProjectHealthAssessment {
+function buildProgressReport(
+  goal: ProjectGoal, seoScore: number | null, clicks: number | null,
+  top10: number | null, strategyProgress: number,
+): ProgressReport {
+  const start = new Date(goal.start_date).getTime();
+  const end = new Date(goal.deadline).getTime();
+  const now = Date.now();
+  const daysElapsed = Math.max(0, Math.floor((now - start) / 86400000));
+  const daysRemaining = Math.max(0, Math.floor((end - now) / 86400000));
+  const totalDays = Math.max(1, Math.floor((end - start) / 86400000));
+  const timelineProgress = clamp(Math.round((daysElapsed / totalDays) * 100));
+
+  const t = goal.targets;
+  const kpis: ProgressReport['kpiProgress'] = [];
+
+  if (t.weekly_clicks > 0) {
+    const cur = clicks ?? 0;
+    kpis.push({ label: 'Traffic (clicks/tuần)', current: cur, target: t.weekly_clicks, percent: clamp(Math.round((cur / t.weekly_clicks) * 100)) });
+  }
+  if (t.top10_keywords > 0) {
+    const cur = top10 ?? 0;
+    kpis.push({ label: 'Keywords Top 10', current: cur, target: t.top10_keywords, percent: clamp(Math.round((cur / t.top10_keywords) * 100)) });
+  }
+  if (t.seo_score > 0) {
+    const cur = seoScore ?? 0;
+    kpis.push({ label: 'SEO Score', current: cur, target: t.seo_score, percent: clamp(Math.round((cur / t.seo_score) * 100)) });
+  }
+  if (t.strategy_completion > 0) {
+    kpis.push({ label: 'Chiến lược hoàn thành', current: strategyProgress, target: t.strategy_completion, percent: clamp(Math.round((strategyProgress / t.strategy_completion) * 100)) });
+  }
+
+  const overallKpiPercent = kpis.length > 0 ? Math.round(kpis.reduce((s, k) => s + k.percent, 0) / kpis.length) : 0;
+  const onTrack = overallKpiPercent >= timelineProgress;
+
+  // Forecast
+  let forecast: string;
+  const ratio = timelineProgress > 0 ? overallKpiPercent / timelineProgress : 0;
+  if (daysRemaining === 0) {
+    forecast = overallKpiPercent >= 80 ? 'Đã đạt phần lớn mục tiêu.' : 'Hết hạn — chưa đạt mục tiêu.';
+  } else if (ratio >= 1.2) {
+    forecast = `Vượt tiến độ (${overallKpiPercent}% KPI vs ${timelineProgress}% thời gian). Khả năng đạt mục tiêu CAO.`;
+  } else if (ratio >= 0.8) {
+    forecast = `Đúng tiến độ (${overallKpiPercent}% KPI vs ${timelineProgress}% thời gian). Cần duy trì tốc độ hiện tại.`;
+  } else if (ratio >= 0.5) {
+    forecast = `Chậm tiến độ (${overallKpiPercent}% KPI vs ${timelineProgress}% thời gian). Cần tăng tốc — còn ${daysRemaining} ngày.`;
+  } else {
+    forecast = `RẤT CHẬM (${overallKpiPercent}% KPI vs ${timelineProgress}% thời gian). Cần hành động khẩn cấp — còn ${daysRemaining} ngày.`;
+  }
+
+  return { startDate: goal.start_date, deadline: goal.deadline, daysElapsed, daysRemaining, timelineProgress, kpiProgress: kpis, overallKpiPercent, onTrack, forecast };
+}
+
+function assessProject(project: { id: string; name: string; slug: string | null; domain: string | null }, goal?: ProjectGoal): ProjectHealthAssessment {
   // 1. Fetch all data
   const audits = getAudits(project.id);
   const latestAudit = audits[0] ?? null;
@@ -500,6 +573,11 @@ function assessProject(project: { id: string; name: string; slug: string | null;
     nextActions,
   } : null;
 
+  // 11. Progress report (if goal exists)
+  const progressReport = goal
+    ? buildProgressReport(goal, seoScore, gscLatest?.clicks ?? null, kwLast?.top10 ?? null, strategyProgress)
+    : null;
+
   return {
     id: project.id,
     name: project.name,
@@ -516,6 +594,7 @@ function assessProject(project: { id: string; name: string; slug: string | null;
     trafficData,
     keywordData,
     strategyData,
+    progressReport,
   };
 }
 
@@ -526,8 +605,13 @@ function assessProject(project: { id: string; name: string; slug: string | null;
 export function getAllProjectsHealthCheck(): HealthCheckResponse {
   const allProjects = getProjects().filter((p) => p.status === 'active');
 
+  // Load project goals from app_config
+  const goalsRow = getAppConfig('project_goals');
+  const goals: (ProjectGoal & { project_id: string })[] = goalsRow?.value ? JSON.parse(goalsRow.value) : [];
+  const goalsMap = new Map(goals.map(g => [g.project_id, g]));
+
   const assessments = allProjects.map((p) =>
-    assessProject({ id: p.id, name: p.name, slug: p.slug, domain: p.domain }),
+    assessProject({ id: p.id, name: p.name, slug: p.slug, domain: p.domain }, goalsMap.get(p.id)),
   );
 
   // Sort worst-first
