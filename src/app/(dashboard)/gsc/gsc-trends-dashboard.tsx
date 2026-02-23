@@ -156,7 +156,7 @@ export default function GscTrendsDashboard() {
             className="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent/90 rounded-lg text-white text-sm font-medium"
           >
             <Plus className="w-4 h-4" />
-            Snapshot
+            Thêm dữ liệu
           </button>
         </div>
       </div>
@@ -174,7 +174,7 @@ export default function GscTrendsDashboard() {
           {/* KPI Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <KpiCard
-              label="Clicks"
+              label="Lượt click"
               value={fmtNum(latest.clicks)}
               icon={MousePointerClick}
               color="bg-blue-500/20 text-blue-400"
@@ -182,7 +182,7 @@ export default function GscTrendsDashboard() {
               subtitle={prev ? `Kỳ trước: ${fmtNum(prev.clicks)}` : undefined}
             />
             <KpiCard
-              label="Impressions"
+              label="Hiển thị"
               value={fmtNum(latest.impressions)}
               icon={Eye}
               color="bg-purple-500/20 text-purple-400"

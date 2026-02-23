@@ -83,14 +83,14 @@ export function BacklinksDetailTable({ backlinks }: Props) {
             <tr className="border-b border-border text-[10px] uppercase tracking-wider text-[#8888a0]">
               <th className="px-3 py-2.5 text-left w-10">#</th>
               <th className="px-3 py-2.5 text-left cursor-pointer hover:text-[var(--text-primary)]" onClick={() => toggleSort('source_domain')}>
-                Source Domain <SortIcon col="source_domain" />
+                Tên miền nguồn <SortIcon col="source_domain" />
               </th>
               <th className="px-3 py-2.5 text-left cursor-pointer hover:text-[var(--text-primary)]" onClick={() => toggleSort('keyword')}>
-                Keyword <SortIcon col="keyword" />
+                Từ khóa <SortIcon col="keyword" />
               </th>
-              <th className="px-3 py-2.5 text-left hidden md:table-cell">Target URL</th>
+              <th className="px-3 py-2.5 text-left hidden md:table-cell">URL đích</th>
               <th className="px-3 py-2.5 text-center w-24 cursor-pointer hover:text-[var(--text-primary)]" onClick={() => toggleSort('status')}>
-                Status <SortIcon col="status" />
+                Trạng thái <SortIcon col="status" />
               </th>
               <th className="px-3 py-2.5 text-center w-20 cursor-pointer hover:text-[var(--text-primary)]" onClick={() => toggleSort('dofollow')}>
                 Follow <SortIcon col="dofollow" />

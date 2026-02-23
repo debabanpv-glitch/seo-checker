@@ -20,14 +20,14 @@ interface Project {
 }
 
 const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
-  { id: 'seo-check',   label: 'SEO Check',   icon: <Search className="w-4 h-4" /> },
-  { id: 'crawl-data',  label: 'Crawl Data',  icon: <HardDrive className="w-4 h-4" /> },
-  { id: 'overview',    label: 'Overview',    icon: <BarChart2 className="w-4 h-4" /> },
+  { id: 'seo-check',   label: 'Kiểm tra SEO', icon: <Search className="w-4 h-4" /> },
+  { id: 'crawl-data',  label: 'Dữ liệu Crawl', icon: <HardDrive className="w-4 h-4" /> },
+  { id: 'overview',    label: 'Tổng quan',   icon: <BarChart2 className="w-4 h-4" /> },
   { id: 'eeat',        label: 'E-E-A-T',     icon: <Shield className="w-4 h-4" /> },
-  { id: 'links',       label: 'Links',       icon: <Link2 className="w-4 h-4" /> },
-  { id: 'content',     label: 'Content',     icon: <FileText className="w-4 h-4" /> },
-  { id: 'technical',   label: 'Technical',   icon: <Zap className="w-4 h-4" /> },
-  { id: 'action-plan', label: 'Action Plan', icon: <Target className="w-4 h-4" /> },
+  { id: 'links',       label: 'Liên kết',    icon: <Link2 className="w-4 h-4" /> },
+  { id: 'content',     label: 'Nội dung',    icon: <FileText className="w-4 h-4" /> },
+  { id: 'technical',   label: 'Kỹ thuật',    icon: <Zap className="w-4 h-4" /> },
+  { id: 'action-plan', label: 'Kế hoạch',    icon: <Target className="w-4 h-4" /> },
 ];
 
 // Tabs that support projectId filtering

@@ -108,7 +108,7 @@ export default function KeywordRankingPage() {
       if (data.success) fetchData();
       setTimeout(() => setSyncResult(null), 5000);
     } catch {
-      setSyncResult({ success: false, message: 'Loi ket noi' });
+      setSyncResult({ success: false, message: 'Lỗi kết nối' });
     } finally {
       setSyncing(false);
     }
@@ -265,7 +265,7 @@ export default function KeywordRankingPage() {
       {/* ── Header ──────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Keyword Ranking</h1>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Thứ hạng từ khóa</h1>
           {stats.total > 0 ? (
             <div className="flex items-center gap-2 flex-wrap mt-0.5">
               <span className="text-[#8888a0] text-sm">{stats.total} từ khóa</span>
@@ -305,26 +305,26 @@ export default function KeywordRankingPage() {
           <button onClick={handleSyncAll} disabled={syncing}
             className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 rounded-lg text-white font-medium text-sm transition-colors">
             {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-            {syncing ? 'Syncing...' : sheetConfigs.length > 0 ? 'Sync' : 'Cau hinh Sheet'}
+            {syncing ? 'Đang đồng bộ...' : sheetConfigs.length > 0 ? 'Đồng bộ' : 'Cấu hình Sheet'}
           </button>
           <button onClick={() => { setEditConfigs([...sheetConfigs]); setShowConfigModal(true); }}
-            className="p-2 hover:bg-secondary border border-border rounded-lg text-[#8888a0] transition-colors" title="Cau hinh Sheets">
+            className="p-2 hover:bg-secondary border border-border rounded-lg text-[#8888a0] transition-colors" title="Cấu hình Sheets">
             <Settings2 className="w-4 h-4" />
           </button>
         </div>
       </div>
 
       {stats.total === 0 ? (
-        <EmptyState icon={TrendingUp} title="Chua co du lieu keyword ranking"
-          description="Nhan 'Cau hinh Sheet' de them Google Sheet URL, sau do bam Sync" />
+        <EmptyState icon={TrendingUp} title="Chưa có dữ liệu thứ hạng từ khóa"
+          description="Nhấn 'Cấu hình Sheet' để thêm Google Sheet URL, sau đó bấm Đồng bộ" />
       ) : (
         <>
           {/* ── Score Cards ──────────────────────────────────────────── */}
           <div className={cn('grid gap-3', stats.hasGscData ? 'grid-cols-3 sm:grid-cols-6' : 'grid-cols-2 sm:grid-cols-4')}>
             <ScoreCard label="Top 3" value={stats.top3} total={stats.total} color="text-emerald-400" bgColor="bg-emerald-400" />
             <ScoreCard label="Top 10" value={stats.top10} total={stats.total} color="text-accent" bgColor="bg-accent" />
-            <ScoreCard label="Tang hang" value={stats.improved} icon={<TrendingUp className="w-4 h-4 text-emerald-400" />} color="text-emerald-400" />
-            <ScoreCard label="Giam hang" value={stats.declined} icon={<TrendingDown className="w-4 h-4 text-red-400" />} color="text-red-400" />
+            <ScoreCard label="Tăng hạng" value={stats.improved} icon={<TrendingUp className="w-4 h-4 text-emerald-400" />} color="text-emerald-400" />
+            <ScoreCard label="Giảm hạng" value={stats.declined} icon={<TrendingDown className="w-4 h-4 text-red-400" />} color="text-red-400" />
             {stats.hasGscData && (
               <>
                 <ScoreCard label="Clicks" value={stats.totalClicks} icon={<MousePointerClick className="w-4 h-4 text-sky-400" />} color="text-sky-400" />
@@ -342,11 +342,11 @@ export default function KeywordRankingPage() {
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             <div className="flex items-center gap-1 bg-secondary/50 rounded-lg p-1 overflow-x-auto">
               {([
-                { key: 'all' as ViewTab, label: 'Tat ca', count: stats.total, icon: null as React.ReactNode },
-                { key: 'cam_ket' as ViewTab, label: 'Cam ket', count: stats.camKet, icon: <Target className="w-3 h-3" /> as React.ReactNode },
+                { key: 'all' as ViewTab, label: 'Tất cả', count: stats.total, icon: null as React.ReactNode },
+                { key: 'cam_ket' as ViewTab, label: 'Cam kết', count: stats.camKet, icon: <Target className="w-3 h-3" /> as React.ReactNode },
                 { key: 'blog' as ViewTab, label: 'Blog', count: stats.blog, icon: <Eye className="w-3 h-3" /> as React.ReactNode },
-                { key: 'opportunity' as ViewTab, label: 'Co hoi', count: stats.opportunity, icon: <Zap className="w-3 h-3" /> as React.ReactNode },
-                { key: 'declining' as ViewTab, label: 'Giam', count: stats.declined, icon: <TrendingDown className="w-3 h-3" /> as React.ReactNode },
+                { key: 'opportunity' as ViewTab, label: 'Cơ hội', count: stats.opportunity, icon: <Zap className="w-3 h-3" /> as React.ReactNode },
+                { key: 'declining' as ViewTab, label: 'Giảm', count: stats.declined, icon: <TrendingDown className="w-3 h-3" /> as React.ReactNode },
                 ...(stats.hasGscData ? [{ key: 'gsc_only' as ViewTab, label: 'GSC', count: stats.gscOnlyCount, icon: <BarChart2 className="w-3 h-3" /> as React.ReactNode }] : []),
               ]).map((tab) => (
                 <button key={tab.key} onClick={() => setActiveTab(tab.key)}
@@ -361,13 +361,13 @@ export default function KeywordRankingPage() {
             <div className="flex items-center gap-2 flex-1">
               <select value={selectedProject} onChange={(e) => setSelectedProject(e.target.value)}
                 className="px-3 py-1.5 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-xs">
-                <option value="">Tat ca du an</option>
+                <option value="">Tất cả dự án</option>
                 {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
               <div className="relative flex-1 max-w-xs">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8888a0]" />
                 <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Tim keyword / URL..."
+                  placeholder="Tìm keyword / URL..."
                   className="w-full pl-8 pr-3 py-1.5 bg-secondary border border-border rounded-lg text-[var(--text-primary)] placeholder-[#8888a0] text-xs" />
               </div>
             </div>
@@ -380,10 +380,10 @@ export default function KeywordRankingPage() {
                 <tr className="border-b border-border text-[10px] uppercase tracking-wider text-[#8888a0]">
                   <th className="px-3 py-2.5 text-left w-10">#</th>
                   <th className="px-3 py-2.5 text-left cursor-pointer hover:text-[var(--text-primary)]" onClick={() => toggleSort('keyword')}>
-                    Tu khoa {sortBy === 'keyword' && (sortAsc ? '↑' : '↓')}
+                    Từ khóa {sortBy === 'keyword' && (sortAsc ? '↑' : '↓')}
                   </th>
                   <th className="px-3 py-2.5 text-center w-20 cursor-pointer hover:text-[var(--text-primary)]" onClick={() => toggleSort('position')}>
-                    Vi tri {sortBy === 'position' && (sortAsc ? '↑' : '↓')}
+                    Vị trí {sortBy === 'position' && (sortAsc ? '↑' : '↓')}
                   </th>
                   <th className="px-3 py-2.5 text-center w-20 cursor-pointer hover:text-[var(--text-primary)]" onClick={() => toggleSort('change')}>
                     +/- {sortBy === 'change' && (sortAsc ? '↑' : '↓')}
@@ -409,13 +409,13 @@ export default function KeywordRankingPage() {
               </tbody>
             </table>
             {filtered.length === 0 && (
-              <div className="p-8 text-center text-[#8888a0] text-sm">Khong co ket qua phu hop</div>
+              <div className="p-8 text-center text-[#8888a0] text-sm">Không có kết quả phù hợp</div>
             )}
           </div>
 
           <p className="text-[10px] text-[#666680] text-right">
-            {filtered.length} / {activeTab === 'gsc_only' ? stats.gscOnlyCount : stats.total} tu khoa
-            {activeTab === 'gsc_only' && ' (chi tu Google Search Console)'}
+            {filtered.length} / {activeTab === 'gsc_only' ? stats.gscOnlyCount : stats.total} từ khóa
+            {activeTab === 'gsc_only' && ' (chỉ từ Google Search Console)'}
           </p>
         </>
       )}

@@ -154,7 +154,7 @@ export default function DashboardSEOOverviewTab() {
         <div className="bg-card border border-border rounded-xl p-4 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-success/5 to-transparent pointer-events-none" />
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[#8888a0] text-xs">Health Score TB</span>
+            <span className="text-[#8888a0] text-xs">Điểm sức khỏe TB</span>
             <div className="p-1.5 bg-success/10 rounded-lg"><Activity className="w-3.5 h-3.5 text-success" /></div>
           </div>
           <p className={`text-2xl font-bold ${avgHealth >= 70 ? 'text-success' : avgHealth >= 50 ? 'text-warning' : 'text-danger'}`}>{avgHealth}</p>
@@ -184,7 +184,7 @@ export default function DashboardSEOOverviewTab() {
           <p className={`text-2xl font-bold ${avgSpeed > 5 ? 'text-danger' : avgSpeed > 3 ? 'text-warning' : 'text-success'}`}>
             {avgSpeed > 0 ? `${avgSpeed}s` : '--'}
           </p>
-          <p className="text-xs text-[#8888a0] mt-0.5">page load time</p>
+          <p className="text-xs text-[#8888a0] mt-0.5">thời gian tải trang</p>
         </div>
       </div>
 
@@ -197,13 +197,13 @@ export default function DashboardSEOOverviewTab() {
                 <Layers className="w-4 h-4 text-accent" />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-[var(--text-primary)]">SEO Strategy Roadmap</h3>
+                <h3 className="text-sm font-semibold text-[var(--text-primary)]">Lộ trình chiến lược SEO</h3>
                 <p className="text-xs text-[#8888a0]">
                   {activeProjectName && <span className="text-accent font-medium">{activeProjectName}</span>}
                   {activeProjectName && ' · '}
                   {completedPhases}/{strategyPhases.length} phase hoàn thành
                   {inProgressPhases > 0 && ` · ${inProgressPhases} đang thực hiện`}
-                  {actionStats.total > 0 && ` · ${actionStats.done}/${actionStats.total} actions`}
+                  {actionStats.total > 0 && ` · ${actionStats.done}/${actionStats.total} việc`}
                 </p>
               </div>
             </div>
@@ -380,12 +380,12 @@ function ProjectSEOCard({ project }: { project: ProjectCard }) {
           {project.categoryScores ? (
             <div className="pt-3 border-t border-border space-y-1.5">
               {([
-                ['Content', project.categoryScores.content],
-                ['Technical', project.categoryScores.technical],
-                ['Images', project.categoryScores.images],
-                ['Links', project.categoryScores.links],
+                ['Nội dung', project.categoryScores.content],
+                ['Kỹ thuật', project.categoryScores.technical],
+                ['Hình ảnh', project.categoryScores.images],
+                ['Liên kết', project.categoryScores.links],
                 ['E-E-A-T', project.categoryScores.eeat],
-                ['AI Ready', project.categoryScores.aiReadiness],
+                ['AI', project.categoryScores.aiReadiness],
               ] as [string, number][]).map(([label, score]) => (
                 <ScoreBar key={label} label={label} score={score} />
               ))}
@@ -399,13 +399,13 @@ function ProjectSEOCard({ project }: { project: ProjectCard }) {
                 bg={stats.status404 > 0 ? 'bg-danger/8' : 'bg-success/8'}
               />
               <MiniStat
-                label="Speed"
+                label="Tốc độ"
                 value={stats.avgSpeed > 0 ? `${stats.avgSpeed.toFixed(1)}s` : '--'}
                 color={stats.avgSpeed > 5 ? 'text-danger' : stats.avgSpeed > 3 ? 'text-warning' : 'text-success'}
                 bg={stats.avgSpeed > 5 ? 'bg-danger/8' : stats.avgSpeed > 3 ? 'bg-warning/8' : 'bg-success/8'}
               />
               <MiniStat
-                label="Orphan"
+                label="Mồ côi"
                 value={stats.orphanPages}
                 color={stats.orphanPages > 0 ? 'text-warning' : 'text-success'}
                 bg={stats.orphanPages > 0 ? 'bg-warning/8' : 'bg-success/8'}

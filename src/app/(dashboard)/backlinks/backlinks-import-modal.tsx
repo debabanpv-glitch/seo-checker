@@ -53,7 +53,7 @@ export function BacklinksImportModal({ projects, onImported, onClose }: Props) {
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
       <div className="bg-card border border-border rounded-xl w-full max-w-lg p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-[var(--text-primary)]">Import Backlinks</h2>
+          <h2 className="text-lg font-bold text-[var(--text-primary)]">Nhập Backlinks</h2>
           <button onClick={onClose} className="p-1 hover:bg-secondary rounded"><X className="w-4 h-4" /></button>
         </div>
 
@@ -70,7 +70,7 @@ export function BacklinksImportModal({ projects, onImported, onClose }: Props) {
         <div className="flex gap-2">
           <button onClick={() => setMode('upload')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${mode === 'upload' ? 'bg-accent/15 text-accent' : 'text-[#8888a0] hover:text-[var(--text-primary)]'}`}>
-            <Upload className="w-3.5 h-3.5" /> Upload file
+            <Upload className="w-3.5 h-3.5" /> Tải file lên
           </button>
           <button onClick={() => setMode('path')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${mode === 'path' ? 'bg-accent/15 text-accent' : 'text-[#8888a0] hover:text-[var(--text-primary)]'}`}>
@@ -98,7 +98,7 @@ export function BacklinksImportModal({ projects, onImported, onClose }: Props) {
         {/* Result */}
         {result && (
           <div className={`p-3 rounded-lg text-sm ${result.imported > 0 ? 'bg-emerald-400/10 text-emerald-400' : 'bg-red-400/10 text-red-400'}`}>
-            <p>Imported: {result.imported} / {result.total} | Skipped: {result.skipped}</p>
+            <p>Đã nhập: {result.imported} / {result.total} | Bỏ qua: {result.skipped}</p>
             {result.errors.length > 0 && (
               <p className="text-xs mt-1 opacity-80">{result.errors[0]}</p>
             )}

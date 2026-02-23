@@ -583,7 +583,7 @@ export default function DashboardContentManagementTab({ selectedMonth, selectedY
             {overview?.seo?.keywords?.top10 || 0}
             <span className="text-sm font-normal text-[#8888a0]">/{overview?.seo?.keywords?.total || 0}</span>
           </p>
-          <p className="text-xs text-[#8888a0] mt-0.5">Top 10 Keywords</p>
+          <p className="text-xs text-[#8888a0] mt-0.5">Top 10 từ khóa</p>
           {overview?.seo?.decliningKeywords && overview.seo.decliningKeywords.length > 0 && (
             <p className="text-xs text-danger mt-1.5 flex items-center gap-1"><TrendingDown className="w-3 h-3" />{overview.seo.decliningKeywords.length} giảm</p>
           )}
@@ -598,7 +598,7 @@ export default function DashboardContentManagementTab({ selectedMonth, selectedY
             {overview?.seo?.audit?.avgScore || 0}
             <span className="text-sm font-normal text-[#8888a0]">/100</span>
           </p>
-          <p className="text-xs text-[#8888a0] mt-0.5">SEO Score TB</p>
+          <p className="text-xs text-[#8888a0] mt-0.5">Điểm SEO TB</p>
           {overview?.seo?.audit && overview.seo.audit.failed > 0 && (
             <p className="text-xs text-warning mt-1.5 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{overview.seo.audit.failed} cần fix</p>
           )}
@@ -727,7 +727,7 @@ export default function DashboardContentManagementTab({ selectedMonth, selectedY
           <div className="bg-card border border-border rounded-xl p-4">
             <div className="flex items-center gap-2 mb-3">
               <div className="p-1.5 bg-warning/10 rounded-lg"><Zap className="w-4 h-4 text-warning" /></div>
-              <h3 className="text-sm font-semibold text-[var(--text-primary)]">Workflow Pipeline</h3>
+              <h3 className="text-sm font-semibold text-[var(--text-primary)]">Quy trình sản xuất</h3>
             </div>
             {bottleneck ? (
               <div className="space-y-1.5">
@@ -747,7 +747,7 @@ export default function DashboardContentManagementTab({ selectedMonth, selectedY
                     <div className="mt-2 pt-2 border-t border-border grid grid-cols-3 gap-2 text-center">
                       <div>
                         <p className="text-success font-bold">{publishedCount}</p>
-                        <p className="text-[10px] text-[#8888a0]">Published</p>
+                        <p className="text-[10px] text-[#8888a0]">Đã xuất bản</p>
                       </div>
                       <div>
                         <p className="text-warning font-bold">{totalInProgress}</p>
@@ -768,7 +768,7 @@ export default function DashboardContentManagementTab({ selectedMonth, selectedY
           <div className="bg-card border border-border rounded-xl p-4">
             <div className="flex items-center gap-2 mb-3">
               <div className="p-1.5 bg-yellow-500/10 rounded-lg"><Trophy className="w-4 h-4 text-yellow-500" /></div>
-              <h3 className="text-sm font-semibold text-[var(--text-primary)]">Top Performers</h3>
+              <h3 className="text-sm font-semibold text-[var(--text-primary)]">Nhân viên xuất sắc</h3>
             </div>
             <div className="space-y-2">
               {leaderboard.length > 0 ? leaderboard.map((item) => (

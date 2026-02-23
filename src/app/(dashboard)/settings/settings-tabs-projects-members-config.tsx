@@ -401,7 +401,7 @@ export default function SettingsPage() {
                   <th className="text-left px-4 py-3 text-[#8888a0] font-medium">Tên dự án</th>
                   <th className="text-left px-4 py-3 text-[#8888a0] font-medium hidden md:table-cell">Domain</th>
                   <th className="text-left px-4 py-3 text-[#8888a0] font-medium hidden md:table-cell">Sheet</th>
-                  <th className="text-center px-4 py-3 text-[#8888a0] font-medium">Target</th>
+                  <th className="text-center px-4 py-3 text-[#8888a0] font-medium">Mục tiêu</th>
                   <th className="text-right px-4 py-3 text-[#8888a0] font-medium w-24"></th>
                 </tr>
               </thead>
@@ -472,8 +472,8 @@ export default function SettingsPage() {
               <thead>
                 <tr className="border-b border-border bg-secondary/30">
                   <th className="text-left px-4 py-3 text-[#8888a0] font-medium">Tên</th>
-                  <th className="text-left px-4 py-3 text-[#8888a0] font-medium hidden md:table-cell">Nickname</th>
-                  <th className="text-left px-4 py-3 text-[#8888a0] font-medium">Role</th>
+                  <th className="text-left px-4 py-3 text-[#8888a0] font-medium hidden md:table-cell">Biệt danh</th>
+                  <th className="text-left px-4 py-3 text-[#8888a0] font-medium">Vai trò</th>
                   <th className="text-left px-4 py-3 text-[#8888a0] font-medium hidden md:table-cell">Dự án</th>
                   <th className="text-right px-4 py-3 text-[#8888a0] font-medium">Đơn giá</th>
                   <th className="text-right px-4 py-3 text-[#8888a0] font-medium w-24"></th>
@@ -542,7 +542,7 @@ export default function SettingsPage() {
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm text-[#8888a0] mb-2">Screaming Frog data path</label>
+              <label className="block text-sm text-[#8888a0] mb-2">Đường dẫn dữ liệu Screaming Frog</label>
               <input
                 type="text"
                 value={config.screaming_frog_path}
@@ -553,7 +553,7 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <label className="block text-sm text-[#8888a0] mb-2">Monthly target mặc định</label>
+              <label className="block text-sm text-[#8888a0] mb-2">Mục tiêu bài/tháng mặc định</label>
               <input
                 type="number"
                 value={config.default_monthly_target}
@@ -561,7 +561,7 @@ export default function SettingsPage() {
                 className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] font-mono text-sm"
                 min="1"
               />
-              <p className="text-xs text-[#8888a0] mt-1">Số bài target mặc định cho dự án mới</p>
+              <p className="text-xs text-[#8888a0] mt-1">Số bài mục tiêu mặc định cho dự án mới</p>
             </div>
           </div>
 
@@ -613,7 +613,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm text-[#8888a0] mb-2">Application Password</label>
+                <label className="block text-sm text-[#8888a0] mb-2">Mật khẩu ứng dụng</label>
                 <input
                   type="password"
                   value={wpConfig.wp_app_password}
@@ -621,7 +621,7 @@ export default function SettingsPage() {
                   placeholder="xxxx xxxx xxxx xxxx xxxx xxxx"
                   className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] font-mono text-sm"
                 />
-                <p className="text-xs text-[#8888a0] mt-1">WP Admin → Users → Application Passwords</p>
+                <p className="text-xs text-[#8888a0] mt-1">WP Admin → Người dùng → Mật khẩu ứng dụng</p>
               </div>
             </div>
 
@@ -674,7 +674,7 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <label className="block text-sm text-[#8888a0] mb-2">Bot Token</label>
+              <label className="block text-sm text-[#8888a0] mb-2">Mã Bot Token</label>
               <input
                 type="password"
                 value={telegramConfig.telegram_bot_token}
@@ -686,7 +686,7 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <label className="block text-sm text-[#8888a0] mb-2">Chat ID / Group ID</label>
+              <label className="block text-sm text-[#8888a0] mb-2">Chat ID / ID Nhóm</label>
               <input
                 type="text"
                 value={telegramConfig.telegram_chat_id}
@@ -808,7 +808,7 @@ export default function SettingsPage() {
                     placeholder="Nguyễn Văn A" className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm" />
                 </div>
                 <div>
-                  <label className="block text-sm text-[#8888a0] mb-2">Nickname</label>
+                  <label className="block text-sm text-[#8888a0] mb-2">Biệt danh</label>
                   <input type="text" value={memberForm.nickname} onChange={(e) => setMemberForm(f => ({ ...f, nickname: e.target.value }))}
                     placeholder="VanA" className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm" />
                 </div>
@@ -816,13 +816,13 @@ export default function SettingsPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-[#8888a0] mb-2">Role</label>
+                  <label className="block text-sm text-[#8888a0] mb-2">Vai trò</label>
                   <select value={memberForm.role} onChange={(e) => setMemberForm(f => ({ ...f, role: e.target.value }))}
                     className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm">
-                    <option>Content Writer</option>
-                    <option>SEO Specialist</option>
-                    <option>Editor</option>
-                    <option>Manager</option>
+                    <option value="Content Writer">Viết nội dung</option>
+                    <option value="SEO Specialist">Chuyên viên SEO</option>
+                    <option value="Editor">Biên tập</option>
+                    <option value="Manager">Quản lý</option>
                   </select>
                 </div>
                 <div>

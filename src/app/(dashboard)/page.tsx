@@ -48,7 +48,7 @@ export default function DashboardPage() {
               )}
             >
               <FileText className="w-3.5 h-3.5" />
-              Content
+              Nội dung
             </button>
             <button
               onClick={() => setActiveTab('seo')}
@@ -60,7 +60,7 @@ export default function DashboardPage() {
               )}
             >
               <Globe className="w-3.5 h-3.5" />
-              SEO
+              Tổng quan SEO
             </button>
           </div>
         </div>

@@ -129,7 +129,7 @@ export default function BacklinksPage() {
               <button onClick={handleCheckStatus} disabled={checking}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-sky-400 hover:bg-sky-400/10 border border-border rounded-lg transition-colors disabled:opacity-50">
                 {checking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ScanSearch className="w-3.5 h-3.5" />}
-                {checking ? 'Checking...' : 'Check Status'}
+                {checking ? 'Đang kiểm tra...' : 'Kiểm tra link'}
               </button>
               <button onClick={handleDelete} disabled={deleting}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-400 hover:bg-red-400/10 border border-border rounded-lg transition-colors">
@@ -140,7 +140,7 @@ export default function BacklinksPage() {
           )}
           <button onClick={() => setShowImport(true)}
             className="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent/90 rounded-lg text-white font-medium text-sm transition-colors">
-            <Upload className="w-4 h-4" /> Import
+            <Upload className="w-4 h-4" /> Nhập dữ liệu
           </button>
         </div>
       </div>
@@ -156,16 +156,16 @@ export default function BacklinksPage() {
           {/* Check summary bar */}
           {(checkSummary && checkSummary.total > 0 && checkSummary.unchecked < checkSummary.total) && (
             <div className="flex items-center gap-3 px-4 py-2.5 bg-card border border-border rounded-xl text-xs">
-              <span className="text-[#8888a0]">Link Check:</span>
-              <span className="text-emerald-400">{checkSummary.alive} song</span>
+              <span className="text-[#8888a0]">Kiểm tra link:</span>
+              <span className="text-emerald-400">{checkSummary.alive} sống</span>
               <span className="text-[#555570]">·</span>
-              <span className="text-red-400">{checkSummary.dead} chet</span>
+              <span className="text-red-400">{checkSummary.dead} chết</span>
               <span className="text-[#555570]">·</span>
-              <span className="text-yellow-400">{checkSummary.errors} loi</span>
+              <span className="text-yellow-400">{checkSummary.errors} lỗi</span>
               <span className="text-[#555570]">·</span>
-              <span className="text-[#8888a0]">{checkSummary.unchecked} chua check</span>
+              <span className="text-[#8888a0]">{checkSummary.unchecked} chưa check</span>
               {checkSummary.anchorMissing > 0 && (
-                <><span className="text-[#555570]">·</span><span className="text-orange-400">{checkSummary.anchorMissing} mat anchor</span></>
+                <><span className="text-[#555570]">·</span><span className="text-orange-400">{checkSummary.anchorMissing} mất anchor</span></>
               )}
             </div>
           )}

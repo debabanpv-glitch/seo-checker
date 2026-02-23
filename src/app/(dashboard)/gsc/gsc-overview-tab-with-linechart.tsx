@@ -54,8 +54,8 @@ export function LineChart({ snapshots }: { snapshots: GscSnapshot[] }) {
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-[var(--text-primary)]">Xu hướng</h2>
         <div className="flex items-center gap-4 text-[10px]">
-          <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-blue-500 rounded inline-block" /> Clicks</span>
-          <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-purple-500 rounded inline-block" /> Impressions</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-blue-500 rounded inline-block" /> Lượt click</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-purple-500 rounded inline-block" /> Hiển thị</span>
         </div>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
@@ -156,7 +156,7 @@ export function OverviewTab({
       {/* Top Queries */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-[var(--text-primary)]">Top Queries</h3>
+          <h3 className="text-sm font-semibold text-[var(--text-primary)]">Từ khóa hàng đầu</h3>
           <span className="text-[10px] text-[#8888a0]">{topQueries.length} từ khóa</span>
         </div>
         <div className="overflow-x-auto">
@@ -193,7 +193,7 @@ export function OverviewTab({
       {/* Top Pages */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-[var(--text-primary)]">Top Pages</h3>
+          <h3 className="text-sm font-semibold text-[var(--text-primary)]">Trang hàng đầu</h3>
           <span className="text-[10px] text-[#8888a0]">{topPages.length} trang</span>
         </div>
         <div className="overflow-x-auto">

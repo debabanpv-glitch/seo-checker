@@ -144,7 +144,7 @@ export default function KeywordInsightsMainDashboard() {
       ) : (
         <>
           {/* Summary stats */}
-          <SummaryStatsBar summary={data.summary} />
+          <SummaryStatsBar summary={data.summary} meta={data.meta} />
 
           {/* Section tabs */}
           <div className="flex bg-card border border-border rounded-lg overflow-hidden text-sm w-fit">

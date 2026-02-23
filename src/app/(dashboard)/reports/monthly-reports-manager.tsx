@@ -290,16 +290,16 @@ export default function MonthlyReportsManager() {
                     {report.technical_data?.seoScore != null && (
                       <div className="space-y-2">
                         <p className="text-xs font-medium text-[#8888a0] flex items-center gap-1">
-                          <BarChart3 className="w-3 h-3" /> SEO Scores
+                          <BarChart3 className="w-3 h-3" /> Điểm SEO
                         </p>
                         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
                           <ScoreCard label="SEO" value={report.technical_data.seoScore} />
-                          <ScoreCard label="Content" value={report.technical_data.contentScore} />
-                          <ScoreCard label="Technical" value={report.technical_data.technicalScore} />
-                          <ScoreCard label="Images" value={report.technical_data.imagesScore} />
-                          <ScoreCard label="Links" value={report.technical_data.linksScore} />
+                          <ScoreCard label="Nội dung" value={report.technical_data.contentScore} />
+                          <ScoreCard label="Kỹ thuật" value={report.technical_data.technicalScore} />
+                          <ScoreCard label="Hình ảnh" value={report.technical_data.imagesScore} />
+                          <ScoreCard label="Liên kết" value={report.technical_data.linksScore} />
                           <ScoreCard label="E-E-A-T" value={report.technical_data.eeatScore} />
-                          <ScoreCard label="AI Ready" value={report.technical_data.aiReadinessScore} />
+                          <ScoreCard label="AI" value={report.technical_data.aiReadinessScore} />
                         </div>
                       </div>
                     )}
@@ -318,7 +318,7 @@ export default function MonthlyReportsManager() {
                             />
                           </div>
                           <span className="text-xs text-[var(--text-primary)] font-medium whitespace-nowrap">
-                            {report.content_data.doneActions}/{report.content_data.totalActions} done
+                            {report.content_data.doneActions}/{report.content_data.totalActions} xong
                           </span>
                         </div>
                         <div className="flex flex-wrap gap-3 text-[10px] text-[#8888a0]">
@@ -333,17 +333,17 @@ export default function MonthlyReportsManager() {
                     {report.traffic_data?.clicks != null && (
                       <div className="space-y-2">
                         <p className="text-xs font-medium text-[#8888a0] flex items-center gap-1">
-                          <TrendingUp className="w-3 h-3" /> Traffic (Google Search Console)
+                          <TrendingUp className="w-3 h-3" /> Lưu lượng (Google Search Console)
                         </p>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                           <MetricCard
-                            label="Clicks"
+                            label="Lượt click"
                             value={report.traffic_data.clicks}
                             delta={report.traffic_data.clicksDelta}
                             format="number"
                           />
                           <MetricCard
-                            label="Impressions"
+                            label="Hiển thị"
                             value={report.traffic_data.impressions}
                             delta={report.traffic_data.impressionsDelta}
                             format="number"
@@ -355,7 +355,7 @@ export default function MonthlyReportsManager() {
                             format="percent"
                           />
                           <MetricCard
-                            label="Avg Position"
+                            label="Vị trí TB"
                             value={report.traffic_data.avgPosition}
                             delta={report.traffic_data.positionDelta}
                             format="position"
@@ -368,11 +368,11 @@ export default function MonthlyReportsManager() {
                     {report.keyword_data?.total != null && (
                       <div className="space-y-2">
                         <p className="text-xs font-medium text-[#8888a0] flex items-center gap-1">
-                          <BarChart3 className="w-3 h-3" /> Keyword Rankings
+                          <BarChart3 className="w-3 h-3" /> Thứ hạng từ khóa
                         </p>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                           <MetricCard
-                            label="Total KW"
+                            label="Tổng KW"
                             value={report.keyword_data.total}
                             delta={report.keyword_data.summary?.totalChange}
                             format="number"

@@ -91,12 +91,12 @@ export function AddSnapshotModal({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm text-[#8888a0] mb-1">Clicks</label>
+              <label className="block text-sm text-[#8888a0] mb-1">Lượt click</label>
               <input type="number" value={form.clicks} onChange={(e) => setForm({ ...form, clicks: e.target.value })}
                 className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm" placeholder="0" />
             </div>
             <div>
-              <label className="block text-sm text-[#8888a0] mb-1">Impressions</label>
+              <label className="block text-sm text-[#8888a0] mb-1">Hiển thị</label>
               <input type="number" value={form.impressions} onChange={(e) => setForm({ ...form, impressions: e.target.value })}
                 className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-sm" placeholder="0" />
             </div>

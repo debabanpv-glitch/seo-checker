@@ -208,7 +208,7 @@ export default function HealthCheckDashboard() {
 
   if (isLoading) return <PageLoading />;
   if (!data || data.projects.length === 0) {
-    return <EmptyState icon={ShieldCheck} title="Chua co du lieu" description="Them du an va import du lieu de bat dau danh gia" />;
+    return <EmptyState icon={ShieldCheck} title="Chưa có dữ liệu" description="Thêm dự án và import dữ liệu để bắt đầu đánh giá" />;
   }
 
   const { projects, meta } = data;
@@ -220,20 +220,20 @@ export default function HealthCheckDashboard() {
         <div>
           <h1 className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-accent" />
-            Health Check
+            Kiểm tra sức khỏe
           </h1>
           <p className="text-xs text-[#8888a0] mt-0.5">
-            {meta.totalProjects} du an
-            {meta.criticalCount > 0 && <span className="text-red-400 font-medium"> · {meta.criticalCount} critical</span>}
-            {meta.healthyCount > 0 && <span className="text-emerald-400 font-medium"> · {meta.healthyCount} healthy</span>}
+            {meta.totalProjects} dự án
+            {meta.criticalCount > 0 && <span className="text-red-400 font-medium"> · {meta.criticalCount} nghiêm trọng</span>}
+            {meta.healthyCount > 0 && <span className="text-emerald-400 font-medium"> · {meta.healthyCount} khỏe mạnh</span>}
           </p>
         </div>
         <button onClick={exportToClipboard} className={cn('flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-sm transition-colors', copied ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400' : 'bg-card border-border text-[#8888a0] hover:text-[var(--text-primary)]')}>
           {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-          {copied ? 'Da copy!' : 'Xuat bao cao'}
+          {copied ? 'Đã copy!' : 'Xuất báo cáo'}
         </button>
         <button onClick={fetchData} className="flex items-center gap-1.5 px-3 py-1.5 bg-card border border-border rounded-lg text-[#8888a0] hover:text-[var(--text-primary)] text-sm transition-colors">
-          <RefreshCw className="w-3.5 h-3.5" /> Refresh
+          <RefreshCw className="w-3.5 h-3.5" /> Làm mới
         </button>
       </div>
 
@@ -243,7 +243,7 @@ export default function HealthCheckDashboard() {
       ))}
 
       <p className="text-[10px] text-[#555570] text-right">
-        Cap nhat: {new Date(meta.generatedAt).toLocaleString('vi-VN')}
+        Cập nhật: {new Date(meta.generatedAt).toLocaleString('vi-VN')}
       </p>
     </div>
   );
@@ -292,7 +292,7 @@ function ProjectHealthCard({ project: p, isExpanded, onToggle }: {
                 <SeverityBadge key={i} warning={w} />
               ))}
               {p.warnings.length > 3 && (
-                <span className="text-[10px] text-[#8888a0] px-2 py-0.5">+{p.warnings.length - 3} khac</span>
+                <span className="text-[10px] text-[#8888a0] px-2 py-0.5">+{p.warnings.length - 3} khác</span>
               )}
             </div>
           </div>
@@ -304,17 +304,17 @@ function ProjectHealthCard({ project: p, isExpanded, onToggle }: {
         <div className="border-t border-border px-5 py-4 space-y-4 bg-secondary/10">
           {/* Category Scores */}
           <div>
-            <h3 className="text-[11px] text-[#8888a0] uppercase tracking-wider font-semibold mb-2">Diem theo danh muc</h3>
+            <h3 className="text-[11px] text-[#8888a0] uppercase tracking-wider font-semibold mb-2">Điểm theo danh mục</h3>
             <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-2">
-              <CategoryBar label="Technical" score={p.categoryScores.technical} />
-              <CategoryBar label="Content" score={p.categoryScores.content} />
-              <CategoryBar label="Images" score={p.categoryScores.images} />
-              <CategoryBar label="Links" score={p.categoryScores.links} />
+              <CategoryBar label="Kỹ thuật" score={p.categoryScores.technical} />
+              <CategoryBar label="Nội dung" score={p.categoryScores.content} />
+              <CategoryBar label="Hình ảnh" score={p.categoryScores.images} />
+              <CategoryBar label="Liên kết" score={p.categoryScores.links} />
               <CategoryBar label="E-E-A-T" score={p.categoryScores.eeat} />
-              <CategoryBar label="AI Ready" score={p.categoryScores.aiReadiness} />
+              <CategoryBar label="AI" score={p.categoryScores.aiReadiness} />
               <CategoryBar label="Traffic" score={p.categoryScores.traffic} />
-              <CategoryBar label="Keywords" score={p.categoryScores.keywords} />
-              <CategoryBar label="Strategy" score={p.categoryScores.strategy} />
+              <CategoryBar label="Từ khóa" score={p.categoryScores.keywords} />
+              <CategoryBar label="Chiến lược" score={p.categoryScores.strategy} />
             </div>
           </div>
 
@@ -322,7 +322,7 @@ function ProjectHealthCard({ project: p, isExpanded, onToggle }: {
           {p.warnings.length > 0 && (
             <div>
               <h3 className="text-[11px] text-[#8888a0] uppercase tracking-wider font-semibold mb-2">
-                Tat ca canh bao ({p.warnings.length})
+                Tất cả cảnh báo ({p.warnings.length})
               </h3>
               <div className="space-y-1.5">
                 {p.warnings.map((w, i) => <WarningRow key={i} warning={w} />)}
@@ -333,7 +333,7 @@ function ProjectHealthCard({ project: p, isExpanded, onToggle }: {
           {/* Priority Actions */}
           {p.priorityActions.length > 0 && (
             <div>
-              <h3 className="text-[11px] text-[#8888a0] uppercase tracking-wider font-semibold mb-2">Uu tien xu ly</h3>
+              <h3 className="text-[11px] text-[#8888a0] uppercase tracking-wider font-semibold mb-2">Ưu tiên xử lý</h3>
               <ol className="space-y-1">
                 {p.priorityActions.map((a, i) => (
                   <li key={i} className="flex items-center gap-2 text-sm">
@@ -352,7 +352,7 @@ function ProjectHealthCard({ project: p, isExpanded, onToggle }: {
           <div className="flex flex-wrap gap-3">
             <DataAgeTag label="Audit" date={p.dataAge.lastAudit} />
             <DataAgeTag label="GSC" date={p.dataAge.lastGscSnapshot} />
-            <DataAgeTag label="Keywords" date={p.dataAge.lastKeywordSync} />
+            <DataAgeTag label="Từ khóa" date={p.dataAge.lastKeywordSync} />
           </div>
         </div>
       )}
@@ -420,14 +420,14 @@ function CategoryBar({ label, score }: { label: string; score: number | null }) 
 
 function DataAgeTag({ label, date }: { label: string; date: string | null }) {
   if (!date) return (
-    <span className="text-[10px] text-[#555570]">{label}: <span className="text-red-400">chua co</span></span>
+    <span className="text-[10px] text-[#555570]">{label}: <span className="text-red-400">chưa có</span></span>
   );
   const d = new Date(date);
   const days = Math.floor((Date.now() - d.getTime()) / 86400000);
   const color = days <= 7 ? 'text-emerald-400' : days <= 30 ? 'text-yellow-400' : 'text-red-400';
   return (
     <span className="text-[10px] text-[#8888a0]">
-      {label}: <span className={cn('font-mono', color)}>{days}d ago</span>
+      {label}: <span className={cn('font-mono', color)}>{days} ngày trước</span>
       <span className="text-[#555570] ml-1">({d.toLocaleDateString('vi-VN')})</span>
     </span>
   );
