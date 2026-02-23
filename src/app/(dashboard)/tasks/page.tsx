@@ -17,8 +17,9 @@ import TasksAddFormDialog from './tasks-add-form-dialog';
 import { CATEGORIES } from './tasks-add-form-dialog';
 import { TasksWeekView, TasksMonthView } from './tasks-week-view-grouped-by-day-and-month-view-grouped-by-category';
 import TasksAllTabWithFiltersSearchAndSortableTable from './tasks-all-tab-with-filters-search-and-sortable-table';
+import TasksStrategyActionsTab from './tasks-strategy-actions-tab';
 
-type ActiveTab = 'week' | 'month' | 'all';
+type ActiveTab = 'week' | 'month' | 'all' | 'strategy';
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
@@ -184,6 +185,7 @@ export default function TasksPage() {
     { id: 'week', label: 'Tuần này' },
     { id: 'month', label: 'Tháng này' },
     { id: 'all', label: 'Tổng' },
+    { id: 'strategy', label: 'Chiến lược' },
   ];
 
   if (isLoading) return <PageLoading />;
@@ -298,6 +300,7 @@ export default function TasksPage() {
           pics={pics}
         />
       )}
+      {activeTab === 'strategy' && <TasksStrategyActionsTab projects={projects} />}
     </div>
   );
 }
