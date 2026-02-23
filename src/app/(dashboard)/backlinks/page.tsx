@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link2, Upload, Trash2, Loader2 } from 'lucide-react';
+import { Link2, Upload, Trash2, Loader2, ScanSearch } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
 import type { Project } from '@/types';
-import type { Backlink, BacklinkStats } from './backlinks-types-and-helpers';
+import type { Backlink, BacklinkStats, CheckSummary } from './backlinks-types-and-helpers';
 import { BacklinksImportModal } from './backlinks-import-modal';
 import { BacklinksStatsCards } from './backlinks-stats-cards';
 import { BacklinksKeywordSummaryTable } from './backlinks-keyword-summary-table';
@@ -20,6 +20,9 @@ export default function BacklinksPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [showImport, setShowImport] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [checkSummary, setCheckSummary] = useState<CheckSummary | null>(null);
+  const [checkProgress, setCheckProgress] = useState('');
 
   // GSC data for keyword positions
   const [gscSnapshots, setGscSnapshots] = useState<{ top_queries?: { query: string; clicks: number; impressions: number; position: number }[] }[]>([]);
@@ -32,20 +35,19 @@ export default function BacklinksPage() {
         fetch(`/api/v1/backlinks${qs}`),
         fetch(`/api/v1/backlinks?mode=stats${selectedProject ? `&project_id=${selectedProject}` : ''}`),
         fetch('/api/v1/projects'),
+        fetch(`/api/v1/backlinks/check${qs}`),
       ];
       if (selectedProject) {
         fetches.push(fetch(`/api/v1/gsc/snapshot?project_id=${selectedProject}&limit=1`));
       }
       const responses = await Promise.all(fetches);
-      const [blData, statsData, projData] = await Promise.all([
-        responses[0].json(), responses[1].json(), responses[2].json(),
-      ]);
-      setBacklinks(blData.backlinks ?? []);
-      setStats(statsData);
-      setProjects(projData.projects ?? []);
-      if (selectedProject && responses[3]) {
-        const gscData = await responses[3].json();
-        setGscSnapshots(gscData.snapshots ?? []);
+      const jsons = await Promise.all(responses.map((r) => r.json()));
+      setBacklinks(jsons[0].backlinks ?? []);
+      setStats(jsons[1]);
+      setProjects(jsons[2].projects ?? []);
+      setCheckSummary(jsons[3]);
+      if (selectedProject && jsons[4]) {
+        setGscSnapshots(jsons[4].snapshots ?? []);
       } else {
         setGscSnapshots([]);
       }
@@ -83,6 +85,27 @@ export default function BacklinksPage() {
     }
   };
 
+  const handleCheckStatus = async () => {
+    if (!confirm('Check status tất cả backlinks? Quá trình này có thể mất vài phút.')) return;
+    setChecking(true);
+    setCheckProgress('Đang kiểm tra...');
+    try {
+      const res = await fetch('/api/v1/backlinks/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project_id: selectedProject || undefined, concurrency: 3 }),
+      });
+      const result = await res.json();
+      setCheckProgress(`Xong: ${result.alive} sống, ${result.dead} chết, ${result.errors} lỗi / ${result.total} URLs`);
+      fetchData();
+      setTimeout(() => setCheckProgress(''), 8000);
+    } catch {
+      setCheckProgress('Lỗi kết nối');
+    } finally {
+      setChecking(false);
+    }
+  };
+
   if (isLoading) return <PageLoading />;
 
   return (
@@ -102,11 +125,18 @@ export default function BacklinksPage() {
             {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
           {backlinks.length > 0 && (
-            <button onClick={handleDelete} disabled={deleting}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-400 hover:bg-red-400/10 border border-border rounded-lg transition-colors">
-              {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-              Xóa
-            </button>
+            <>
+              <button onClick={handleCheckStatus} disabled={checking}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-sky-400 hover:bg-sky-400/10 border border-border rounded-lg transition-colors disabled:opacity-50">
+                {checking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ScanSearch className="w-3.5 h-3.5" />}
+                {checking ? 'Checking...' : 'Check Status'}
+              </button>
+              <button onClick={handleDelete} disabled={deleting}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-400 hover:bg-red-400/10 border border-border rounded-lg transition-colors">
+                {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                Xóa
+              </button>
+            </>
           )}
           <button onClick={() => setShowImport(true)}
             className="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent/90 rounded-lg text-white font-medium text-sm transition-colors">
@@ -122,6 +152,26 @@ export default function BacklinksPage() {
         <>
           {/* Stats */}
           <BacklinksStatsCards stats={stats} />
+
+          {/* Check summary bar */}
+          {(checkSummary && checkSummary.total > 0 && checkSummary.unchecked < checkSummary.total) && (
+            <div className="flex items-center gap-3 px-4 py-2.5 bg-card border border-border rounded-xl text-xs">
+              <span className="text-[#8888a0]">Link Check:</span>
+              <span className="text-emerald-400">{checkSummary.alive} song</span>
+              <span className="text-[#555570]">·</span>
+              <span className="text-red-400">{checkSummary.dead} chet</span>
+              <span className="text-[#555570]">·</span>
+              <span className="text-yellow-400">{checkSummary.errors} loi</span>
+              <span className="text-[#555570]">·</span>
+              <span className="text-[#8888a0]">{checkSummary.unchecked} chua check</span>
+              {checkSummary.anchorMissing > 0 && (
+                <><span className="text-[#555570]">·</span><span className="text-orange-400">{checkSummary.anchorMissing} mat anchor</span></>
+              )}
+            </div>
+          )}
+          {checkProgress && (
+            <div className="px-4 py-2 bg-sky-400/10 border border-sky-400/20 rounded-xl text-xs text-sky-400">{checkProgress}</div>
+          )}
 
           {/* Keyword summary + Domain chart */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

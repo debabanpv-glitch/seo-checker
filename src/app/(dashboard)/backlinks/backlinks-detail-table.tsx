@@ -10,7 +10,14 @@ interface Props {
   backlinks: Backlink[];
 }
 
-type SortKey = 'keyword' | 'source_domain' | 'end_date' | 'dofollow';
+type SortKey = 'keyword' | 'source_domain' | 'end_date' | 'dofollow' | 'status';
+
+const STATUS_CONFIG = {
+  alive: { label: 'Sống', color: 'text-emerald-400 bg-emerald-400/10', dot: 'bg-emerald-400' },
+  dead: { label: 'Chết', color: 'text-red-400 bg-red-400/10', dot: 'bg-red-400' },
+  error: { label: 'Lỗi', color: 'text-yellow-400 bg-yellow-400/10', dot: 'bg-yellow-400' },
+  unknown: { label: 'Chưa check', color: 'text-[#666680] bg-secondary', dot: 'bg-[#666680]' },
+} as const;
 
 export function BacklinksDetailTable({ backlinks }: Props) {
   const [search, setSearch] = useState('');
@@ -36,6 +43,7 @@ export function BacklinksDetailTable({ backlinks }: Props) {
       else if (sortBy === 'source_domain') cmp = a.source_domain.localeCompare(b.source_domain);
       else if (sortBy === 'end_date') cmp = (a.end_date ?? '').localeCompare(b.end_date ?? '');
       else if (sortBy === 'dofollow') cmp = (a.dofollow ? 1 : 0) - (b.dofollow ? 1 : 0);
+      else if (sortBy === 'status') cmp = a.status.localeCompare(b.status);
       return sortAsc ? cmp : -cmp;
     });
     return items;
@@ -81,6 +89,9 @@ export function BacklinksDetailTable({ backlinks }: Props) {
                 Keyword <SortIcon col="keyword" />
               </th>
               <th className="px-3 py-2.5 text-left hidden md:table-cell">Target URL</th>
+              <th className="px-3 py-2.5 text-center w-24 cursor-pointer hover:text-[var(--text-primary)]" onClick={() => toggleSort('status')}>
+                Status <SortIcon col="status" />
+              </th>
               <th className="px-3 py-2.5 text-center w-20 cursor-pointer hover:text-[var(--text-primary)]" onClick={() => toggleSort('dofollow')}>
                 Follow <SortIcon col="dofollow" />
               </th>
@@ -118,6 +129,19 @@ export function BacklinksDetailTable({ backlinks }: Props) {
                       {truncate(b.target_url.replace(/^https?:\/\//, ''), 35)}
                       <ExternalLink className="w-3 h-3 flex-shrink-0" />
                     </a>
+                  </td>
+                  <td className="px-3 py-2 text-center">
+                    {(() => {
+                      const cfg = STATUS_CONFIG[b.status];
+                      return (
+                        <span className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium', cfg.color)}
+                          title={b.status === 'alive' && !b.anchor_found ? 'Link OK nhưng không tìm thấy anchor text' : b.check_error ?? ''}>
+                          <span className={cn('w-1.5 h-1.5 rounded-full', cfg.dot)} />
+                          {cfg.label}
+                          {b.status === 'alive' && !b.anchor_found && <span className="text-yellow-400" title="Anchor text không tìm thấy">!</span>}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="px-3 py-2 text-center">
                     {b.dofollow

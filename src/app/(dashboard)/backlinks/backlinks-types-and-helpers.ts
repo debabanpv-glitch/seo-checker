@@ -14,7 +14,22 @@ export interface Backlink {
   ads_id: number | null;
   start_date: string | null;
   end_date: string | null;
+  status: 'unknown' | 'alive' | 'dead' | 'error';
+  last_checked_at: string | null;
+  http_status: number | null;
+  anchor_found: boolean;
+  link_found: boolean;
+  check_error: string | null;
   created_at: string;
+}
+
+export interface CheckSummary {
+  total: number;
+  alive: number;
+  dead: number;
+  errors: number;
+  unchecked: number;
+  anchorMissing: number;
 }
 
 export interface BacklinkStats {

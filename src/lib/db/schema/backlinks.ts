@@ -17,6 +17,13 @@ export const backlinks = sqliteTable('backlinks', {
   ads_id: integer('ads_id'),
   start_date: text('start_date'),
   end_date: text('end_date'),
+  // Status check fields
+  status: text('status').notNull().default('unknown'), // unknown | alive | dead | error
+  last_checked_at: text('last_checked_at'),
+  http_status: integer('http_status'),
+  anchor_found: integer('anchor_found', { mode: 'boolean' }).notNull().default(false),
+  link_found: integer('link_found', { mode: 'boolean' }).notNull().default(false),
+  check_error: text('check_error'),
   created_at: text('created_at').notNull().default(sql`(datetime('now'))`),
 });
 
