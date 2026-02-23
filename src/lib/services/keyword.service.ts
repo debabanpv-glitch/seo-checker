@@ -414,6 +414,20 @@ export function getRankingDetails(projectId: string, view: string = 'keywords') 
 }
 
 // ---------------------------------------------------------------------------
+// Toggle tracked status for a keyword
+// ---------------------------------------------------------------------------
+
+export function toggleTracked(keyword: string, projectId: string, isTracked: boolean) {
+  db.update(keywordRankings)
+    .set({ is_tracked: isTracked })
+    .where(and(
+      eq(keywordRankings.keyword, keyword),
+      eq(keywordRankings.project_id, projectId),
+    ))
+    .run();
+}
+
+// ---------------------------------------------------------------------------
 // CSV parsing helpers (used by keyword-rankings/sync route)
 // ---------------------------------------------------------------------------
 

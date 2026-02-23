@@ -18,6 +18,8 @@ export const modules: ModuleConfig[] = [
   { id: 'seo-audit', name: 'SEO Audit',   icon: 'Search',          path: '/seo-audit',       order: 5,  group: 'core',      enabled: true },
   { id: 'keywords',  name: 'Keywords',    icon: 'TrendingUp',      path: '/keyword-ranking', order: 6,  group: 'core',      enabled: true },
   { id: 'health-check', name: 'Health Check', icon: 'ShieldCheck', path: '/health-check', order: 7, group: 'core', enabled: true },
+  { id: 'keyword-insights', name: 'KW Insights', icon: 'Lightbulb', path: '/keyword-insights', order: 8, group: 'core', enabled: true },
+  { id: 'backlinks', name: 'Backlinks', icon: 'Link2', path: '/backlinks', order: 9, group: 'core', enabled: true },
   // EXTENSIONS
   { id: 'strategy',      name: 'Chiến lược',     icon: 'Target',          path: '/strategy',        order: 10, group: 'extension', enabled: true },
   { id: 'claude-log',   name: 'Claude Log',     icon: 'Bot',             path: '/claude-log',      order: 11, group: 'extension', enabled: true },
