@@ -66,7 +66,7 @@ export default function GscTrendsDashboard() {
     if (!selectedProjectId) return;
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/v1/gsc/trends?project_id=${selectedProjectId}`);
+      const res = await fetch(`/api/v1/gsc/trends?project_id=${selectedProjectId}&period=daily`);
       if (res.ok) {
         const data = await res.json();
         setRawSnapshots(data.trends || data.snapshots || []);
@@ -120,8 +120,8 @@ export default function GscTrendsDashboard() {
   const newKw = comparedQueries.filter((q) => q.status === 'new');
 
   const projectName = projects.find((p) => p.id === selectedProjectId)?.name ?? '';
-  const periodLabel = prev && latest
-    ? `${fmtDate(prev.date)} → ${fmtDate(latest.date)}`
+  const periodLabel = snapshots.length > 1
+    ? `${fmtDate(snapshots[0].date)} → ${fmtDate(snapshots[snapshots.length - 1].date)} (${snapshots.length} ngày)`
     : latest ? fmtDateFull(latest.date) : '';
 
   const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [

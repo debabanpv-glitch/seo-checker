@@ -20,10 +20,11 @@ export function LineChart({ snapshots }: { snapshots: GscSnapshot[] }) {
   }
 
   const W = 700;
-  const H = 180;
+  const H = 220;
   const PAD = { top: 20, right: 20, bottom: 30, left: 50 };
   const plotW = W - PAD.left - PAD.right;
   const plotH = H - PAD.top - PAD.bottom;
+  const many = snapshots.length > 5; // compact mode for daily data
 
   const maxClicks = Math.max(...snapshots.map((s) => s.clicks), 1);
   const maxImpr = Math.max(...snapshots.map((s) => s.impressions), 1);
@@ -76,19 +77,25 @@ export function LineChart({ snapshots }: { snapshots: GscSnapshot[] }) {
         {/* Dots + labels for clicks */}
         {clicksPoints.map((p, i) => (
           <g key={i}>
-            <circle cx={p.x} cy={p.y} r="3.5" fill="#3b82f6" stroke="#1e293b" strokeWidth="1.5" />
-            <text x={p.x} y={p.y - 8} textAnchor="middle" fill="#93c5fd" fontSize="9" fontWeight="600">
-              {snapshots[i].clicks}
-            </text>
+            <circle cx={p.x} cy={p.y} r={many ? 2.5 : 3.5} fill="#3b82f6" stroke="#1e293b" strokeWidth="1.5" />
+            {(!many || i === 0 || i === clicksPoints.length - 1 || snapshots[i].clicks === Math.max(...snapshots.map(s => s.clicks))) && (
+              <text x={p.x} y={p.y - 8} textAnchor="middle" fill="#93c5fd" fontSize="9" fontWeight="600">
+                {snapshots[i].clicks}
+              </text>
+            )}
           </g>
         ))}
 
         {/* X-axis date labels */}
         {snapshots.map((s, i) => {
           const x = PAD.left + i * xStep;
+          // Show every other label when many points, always show first + last
+          if (many && i !== 0 && i !== snapshots.length - 1 && i % 2 !== 0) return null;
+          const d = new Date(s.date);
+          const label = many ? `${d.getDate()}/${d.getMonth() + 1}` : fmtDate(s.date);
           return (
-            <text key={i} x={x} y={H - 5} textAnchor="middle" fill="#666" fontSize="9">
-              {fmtDate(s.date)}
+            <text key={i} x={x} y={H - 5} textAnchor="middle" fill="#666" fontSize={many ? 8 : 9}>
+              {label}
             </text>
           );
         })}
