@@ -17,6 +17,8 @@ import {
   Minus,
   ChevronDown,
   RefreshCw,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
@@ -55,6 +57,7 @@ export default function HealthCheckDashboard() {
   const [data, setData] = useState<HealthCheckResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [copied, setCopied] = useState(false);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -76,6 +79,27 @@ export default function HealthCheckDashboard() {
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+  };
+
+  const exportToClipboard = () => {
+    if (!data) return;
+    const lines: string[] = ['# HEALTH CHECK REPORT\n'];
+    for (const p of data.projects) {
+      const cs = p.categoryScores;
+      lines.push(`## ${p.name} (${p.domain ?? 'no domain'}) — Score: ${p.overallScore}/100 (${p.overallLabel})`);
+      lines.push(p.expertSummary);
+      lines.push(`Trends: Traffic=${p.trends.traffic}, Keywords=${p.trends.keywords}, SEO=${p.trends.seoScore}`);
+      lines.push(`Scores: Technical=${cs.technical ?? '—'}, Content=${cs.content ?? '—'}, Images=${cs.images ?? '—'}, Links=${cs.links ?? '—'}, EEAT=${cs.eeat ?? '—'}, AI=${cs.aiReadiness ?? '—'}, Traffic=${cs.traffic ?? '—'}, KW=${cs.keywords ?? '—'}, Strategy=${cs.strategy ?? '—'}`);
+      lines.push('Warnings:');
+      for (const w of p.warnings) lines.push(`  [${w.severity.toUpperCase()}] ${w.title} — ${w.detail}`);
+      lines.push(`Uu tien xu ly:`);
+      for (const a of p.priorityActions) lines.push(`  - [${a.severity.toUpperCase()}] ${a.title} (${a.source})`);
+      lines.push(`Data: Audit=${p.dataAge.lastAudit ?? 'chua co'}, GSC=${p.dataAge.lastGscSnapshot ?? 'chua co'}, KW=${p.dataAge.lastKeywordSync ?? 'chua co'}`);
+      lines.push('');
+    }
+    navigator.clipboard.writeText(lines.join('\n'));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 3000);
   };
 
   if (isLoading) return <PageLoading />;
@@ -100,6 +124,10 @@ export default function HealthCheckDashboard() {
             {meta.healthyCount > 0 && <span className="text-emerald-400 font-medium"> · {meta.healthyCount} healthy</span>}
           </p>
         </div>
+        <button onClick={exportToClipboard} className={cn('flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-sm transition-colors', copied ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400' : 'bg-card border-border text-[#8888a0] hover:text-[var(--text-primary)]')}>
+          {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+          {copied ? 'Da copy!' : 'Xuat bao cao'}
+        </button>
         <button onClick={fetchData} className="flex items-center gap-1.5 px-3 py-1.5 bg-card border border-border rounded-lg text-[#8888a0] hover:text-[var(--text-primary)] text-sm transition-colors">
           <RefreshCw className="w-3.5 h-3.5" /> Refresh
         </button>
