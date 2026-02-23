@@ -266,30 +266,34 @@ export default function KeywordRankingPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-primary)]">Keyword Ranking</h1>
-          <div className="flex items-center gap-2 flex-wrap mt-0.5">
-            {stats.total > 0 ? (
-              <>
-                <span className="text-[#8888a0] text-sm">{stats.total} từ khóa</span>
-                <span className="text-[#555570]">·</span>
-                <span className="text-sm font-medium text-emerald-400">
-                  Mới nhất: {latestDate ? new Date(latestDate).toLocaleDateString('vi-VN') : '—'}
-                </span>
-                <span className="text-[#555570]">·</span>
-                <div className="flex items-center gap-1">
-                  {dates.map((d) => (
-                    <span key={d} className={cn(
-                      'text-[10px] px-1.5 py-0.5 rounded border font-mono',
-                      d === latestDate ? 'bg-emerald-400/10 border-emerald-400/20 text-emerald-400' : 'bg-secondary border-border text-[#8888a0]'
-                    )}>
-                      {new Date(d).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
-                    </span>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <span className="text-[#8888a0] text-sm">Chưa có dữ liệu. Cấu hình Google Sheet để bắt đầu.</span>
-            )}
-          </div>
+          {stats.total > 0 ? (
+            <div className="flex items-center gap-2 flex-wrap mt-0.5">
+              <span className="text-[#8888a0] text-sm">{stats.total} từ khóa</span>
+              {selectedProject ? (
+                <>
+                  <span className="text-[#555570]">·</span>
+                  <span className="text-sm font-medium text-emerald-400">
+                    Check mới nhất: {latestDate ? new Date(latestDate).toLocaleDateString('vi-VN') : '—'}
+                  </span>
+                  <span className="text-[#555570]">·</span>
+                  <div className="flex items-center gap-1">
+                    {dates.map((d) => (
+                      <span key={d} className={cn(
+                        'text-[10px] px-1.5 py-0.5 rounded border font-mono',
+                        d === latestDate ? 'bg-emerald-400/10 border-emerald-400/20 text-emerald-400' : 'bg-secondary border-border text-[#8888a0]'
+                      )}>
+                        {new Date(d).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                      </span>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <span className="text-[#8888a0] text-sm">· Chọn dự án để xem ngày check</span>
+              )}
+            </div>
+          ) : (
+            <p className="text-[#8888a0] text-sm mt-0.5">Chưa có dữ liệu. Cấu hình Google Sheet để bắt đầu.</p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {syncResult && (
