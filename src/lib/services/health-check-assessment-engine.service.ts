@@ -42,6 +42,39 @@ export interface CategoryScores {
   strategy: number | null;
 }
 
+export interface StrategyPhaseData {
+  name: string;
+  status: string;
+  total: number;
+  done: number;
+  progress: number;
+}
+
+export interface StrategyActionData {
+  title: string;
+  priority: string;
+  status: string;
+  category: string;
+  phase: string;
+}
+
+export interface TrafficData {
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+  prevClicks: number | null;
+  prevImpressions: number | null;
+}
+
+export interface KeywordData {
+  total: number;
+  top3: number;
+  top10: number;
+  top3Change: number;
+  top10Change: number;
+}
+
 export interface ProjectHealthAssessment {
   id: string;
   name: string;
@@ -59,6 +92,17 @@ export interface ProjectHealthAssessment {
     lastGscSnapshot: string | null;
     lastKeywordSync: string | null;
   };
+  trafficData: TrafficData | null;
+  keywordData: KeywordData | null;
+  strategyData: {
+    totalActions: number;
+    doneActions: number;
+    doingActions: number;
+    todoActions: number;
+    blockedActions: number;
+    phases: StrategyPhaseData[];
+    nextActions: StrategyActionData[];
+  } | null;
 }
 
 export interface HealthCheckResponse {
@@ -401,6 +445,61 @@ function assessProject(project: { id: string; name: string; slug: string | null;
   // 7. Priority actions
   const priorityActions = generatePriorityActions(warnings, actions);
 
+  // 8. Traffic data for export
+  const trafficData: ProjectHealthAssessment['trafficData'] = gscLatest ? {
+    clicks: gscLatest.clicks,
+    impressions: gscLatest.impressions,
+    ctr: gscLatest.ctr,
+    position: gscLatest.position,
+    prevClicks: gscPrev?.clicks ?? null,
+    prevImpressions: gscPrev?.impressions ?? null,
+  } : null;
+
+  // 9. Keyword data for export
+  const keywordData: ProjectHealthAssessment['keywordData'] = kwLast ? {
+    total: kwLast.total,
+    top3: kwLast.top3,
+    top10: kwLast.top10,
+    top3Change: kwSummary?.top3Change ?? 0,
+    top10Change: kwSummary?.top10Change ?? 0,
+  } : null;
+
+  // 10. Strategy data for export
+  const doingActions = actions.filter(a => a.status === 'doing').length;
+  const todoActionsCount = actions.filter(a => a.status === 'todo').length;
+  const blockedActionsCount = actions.filter(a => a.status === 'blocked').length;
+
+  const phaseData: StrategyPhaseData[] = phases.map(p => {
+    const pActions = actions.filter(a => a.phase_id === p.id);
+    const pDone = pActions.filter(a => a.status === 'done').length;
+    return { name: p.name, status: p.status, total: pActions.length, done: pDone, progress: pActions.length > 0 ? Math.round((pDone / pActions.length) * 100) : 0 };
+  });
+
+  const nextActions: StrategyActionData[] = actions
+    .filter(a => a.status === 'todo' || a.status === 'doing')
+    .sort((a, b) => {
+      const pOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+      return (pOrder[a.priority] ?? 2) - (pOrder[b.priority] ?? 2);
+    })
+    .slice(0, 10)
+    .map(a => ({
+      title: a.title,
+      priority: a.priority,
+      status: a.status,
+      category: a.category ?? '',
+      phase: phases.find(p => p.id === a.phase_id)?.name ?? '',
+    }));
+
+  const strategyData = actions.length > 0 ? {
+    totalActions: actions.length,
+    doneActions,
+    doingActions,
+    todoActions: todoActionsCount,
+    blockedActions: blockedActionsCount,
+    phases: phaseData,
+    nextActions,
+  } : null;
+
   return {
     id: project.id,
     name: project.name,
@@ -414,6 +513,9 @@ function assessProject(project: { id: string; name: string; slug: string | null;
     trends: { traffic: trafficTrend, keywords: keywordTrend, seoScore: seoScoreTrend },
     expertSummary: generateExpertSummary(project.name, warnings, overallScore),
     dataAge,
+    trafficData,
+    keywordData,
+    strategyData,
   };
 }
 

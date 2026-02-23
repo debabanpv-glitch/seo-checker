@@ -30,7 +30,6 @@ import type {
   Warning,
   Severity,
   TrendDir,
-  CategoryScores,
 } from '@/lib/services/health-check-assessment-engine.service';
 
 // ---------------------------------------------------------------------------
@@ -81,22 +80,113 @@ export default function HealthCheckDashboard() {
     });
   };
 
+  const trendVi = (d: string) => d === 'up' ? 'Tăng' : d === 'down' ? 'Giảm' : d === 'stable' ? 'Ổn định' : 'Chưa có';
+  const sevVi: Record<string, string> = { critical: 'NGHIÊM TRỌNG', high: 'CAO', medium: 'TRUNG BÌNH', low: 'THẤP' };
+  const priVi: Record<string, string> = { critical: 'Khẩn cấp', high: 'Cao', medium: 'TB', low: 'Thấp' };
+
   const exportToClipboard = () => {
     if (!data) return;
-    const lines: string[] = ['# HEALTH CHECK REPORT\n'];
+    const lines: string[] = [`# BÁO CÁO TÌNH TRẠNG SEO — ${new Date().toLocaleDateString('vi-VN')}\n`];
+
     for (const p of data.projects) {
       const cs = p.categoryScores;
-      lines.push(`## ${p.name} (${p.domain ?? 'no domain'}) — Score: ${p.overallScore}/100 (${p.overallLabel})`);
-      lines.push(p.expertSummary);
-      lines.push(`Trends: Traffic=${p.trends.traffic}, Keywords=${p.trends.keywords}, SEO=${p.trends.seoScore}`);
-      lines.push(`Scores: Technical=${cs.technical ?? '—'}, Content=${cs.content ?? '—'}, Images=${cs.images ?? '—'}, Links=${cs.links ?? '—'}, EEAT=${cs.eeat ?? '—'}, AI=${cs.aiReadiness ?? '—'}, Traffic=${cs.traffic ?? '—'}, KW=${cs.keywords ?? '—'}, Strategy=${cs.strategy ?? '—'}`);
-      lines.push('Warnings:');
-      for (const w of p.warnings) lines.push(`  [${w.severity.toUpperCase()}] ${w.title} — ${w.detail}`);
-      lines.push(`Uu tien xu ly:`);
-      for (const a of p.priorityActions) lines.push(`  - [${a.severity.toUpperCase()}] ${a.title} (${a.source})`);
-      lines.push(`Data: Audit=${p.dataAge.lastAudit ?? 'chua co'}, GSC=${p.dataAge.lastGscSnapshot ?? 'chua co'}, KW=${p.dataAge.lastKeywordSync ?? 'chua co'}`);
+      lines.push(`## ${p.name} (${p.domain ?? 'chưa có domain'}) — Điểm: ${p.overallScore}/100 (${p.overallLabel})`);
+      lines.push(`**Đánh giá:** ${p.expertSummary}`);
       lines.push('');
+
+      // Xu hướng
+      lines.push(`### Xu hướng`);
+      lines.push(`- Traffic: ${trendVi(p.trends.traffic)}`);
+      lines.push(`- Từ khóa: ${trendVi(p.trends.keywords)}`);
+      lines.push(`- Điểm SEO: ${trendVi(p.trends.seoScore)}`);
+      lines.push('');
+
+      // Traffic GSC
+      if (p.trafficData) {
+        const t = p.trafficData;
+        lines.push(`### Lưu lượng truy cập (GSC)`);
+        lines.push(`- Clicks: ${t.clicks}${t.prevClicks != null ? ` (trước: ${t.prevClicks}, ${t.clicks >= t.prevClicks ? '+' : ''}${t.clicks - t.prevClicks})` : ''}`);
+        lines.push(`- Hiển thị: ${t.impressions}${t.prevImpressions != null ? ` (trước: ${t.prevImpressions})` : ''}`);
+        lines.push(`- CTR: ${(t.ctr * 100).toFixed(2)}%`);
+        lines.push(`- Vị trí TB: ${t.position.toFixed(1)}`);
+        lines.push('');
+      }
+
+      // Keyword
+      if (p.keywordData) {
+        const k = p.keywordData;
+        lines.push(`### Từ khóa`);
+        lines.push(`- Tổng: ${k.total} từ khóa`);
+        lines.push(`- Top 3: ${k.top3} (${k.top3Change >= 0 ? '+' : ''}${k.top3Change})`);
+        lines.push(`- Top 10: ${k.top10} (${k.top10Change >= 0 ? '+' : ''}${k.top10Change})`);
+        lines.push('');
+      }
+
+      // Điểm theo danh mục
+      lines.push(`### Điểm theo danh mục`);
+      const cats = [
+        ['Kỹ thuật', cs.technical], ['Nội dung', cs.content], ['Hình ảnh', cs.images],
+        ['Liên kết', cs.links], ['E-E-A-T', cs.eeat], ['AI Readiness', cs.aiReadiness],
+        ['Traffic', cs.traffic], ['Từ khóa', cs.keywords], ['Chiến lược', cs.strategy],
+      ] as [string, number | null][];
+      for (const [label, val] of cats) {
+        lines.push(`- ${label}: ${val != null ? `${val}/100` : 'Chưa có'}`);
+      }
+      lines.push('');
+
+      // Cảnh báo
+      if (p.warnings.length > 0) {
+        lines.push(`### Cảnh báo (${p.warnings.length})`);
+        for (const w of p.warnings) {
+          lines.push(`- [${sevVi[w.severity] ?? w.severity.toUpperCase()}] ${w.title} — ${w.detail}`);
+        }
+        lines.push('');
+      }
+
+      // Kế hoạch hành động
+      if (p.strategyData) {
+        const s = p.strategyData;
+        lines.push(`### Tiến độ chiến lược`);
+        lines.push(`- Tổng: ${s.totalActions} actions | Hoàn thành: ${s.doneActions} | Đang làm: ${s.doingActions} | Chờ: ${s.todoActions} | Bị chặn: ${s.blockedActions}`);
+        lines.push(`- Tiến độ: ${s.totalActions > 0 ? Math.round((s.doneActions / s.totalActions) * 100) : 0}%`);
+        lines.push('');
+
+        if (s.phases.length > 0) {
+          lines.push(`**Phases:**`);
+          for (const ph of s.phases) {
+            lines.push(`- ${ph.name}: ${ph.done}/${ph.total} (${ph.progress}%) — ${ph.status}`);
+          }
+          lines.push('');
+        }
+
+        if (s.nextActions.length > 0) {
+          lines.push(`**Ưu tiên xử lý tiếp:**`);
+          for (let i = 0; i < s.nextActions.length; i++) {
+            const a = s.nextActions[i];
+            lines.push(`${i + 1}. [${priVi[a.priority] ?? a.priority}] ${a.title}${a.phase ? ` (${a.phase})` : ''}${a.status === 'doing' ? ' ⬅ đang làm' : ''}`);
+          }
+          lines.push('');
+        }
+      }
+
+      // Ưu tiên xử lý (từ warnings)
+      if (p.priorityActions.length > 0) {
+        lines.push(`### Ưu tiên xử lý ngay`);
+        for (let i = 0; i < p.priorityActions.length; i++) {
+          const a = p.priorityActions[i];
+          lines.push(`${i + 1}. [${sevVi[a.severity] ?? a.severity.toUpperCase()}] ${a.title} (${a.source})`);
+        }
+        lines.push('');
+      }
+
+      // Độ mới dữ liệu
+      lines.push(`### Dữ liệu`);
+      lines.push(`- Audit: ${p.dataAge.lastAudit ?? 'Chưa có'}`);
+      lines.push(`- GSC: ${p.dataAge.lastGscSnapshot ?? 'Chưa có'}`);
+      lines.push(`- Keywords: ${p.dataAge.lastKeywordSync ?? 'Chưa có'}`);
+      lines.push('\n---\n');
     }
+
     navigator.clipboard.writeText(lines.join('\n'));
     setCopied(true);
     setTimeout(() => setCopied(false), 3000);
