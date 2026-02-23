@@ -166,63 +166,63 @@ interface ObsidianPhase {
 
 const CATEGORY_CONFIG: Record<string, { label: string; color: string; bg: string; icon: React.ElementType; layer: string }> = {
   technical_seo: {
-    label: 'Technical SEO',
+    label: 'SEO Kỹ thuật',
     color: 'text-blue-400',
     bg: 'bg-blue-500/15 border border-blue-500/30',
     icon: Search,
     layer: 'SXO',
   },
   sxo: {
-    label: 'SXO / UX',
+    label: 'Trải nghiệm UX',
     color: 'text-cyan-400',
     bg: 'bg-cyan-500/15 border border-cyan-500/30',
     icon: Globe,
     layer: 'SXO',
   },
   on_page: {
-    label: 'On-Page SEO',
+    label: 'SEO On-Page',
     color: 'text-purple-400',
     bg: 'bg-purple-500/15 border border-purple-500/30',
     icon: FileText,
     layer: 'SXO',
   },
   off_page: {
-    label: 'Off-Page / Link',
+    label: 'Liên kết ngoài',
     color: 'text-orange-400',
     bg: 'bg-orange-500/15 border border-orange-500/30',
     icon: Link2,
     layer: 'AEO',
   },
   content: {
-    label: 'Content Strategy',
+    label: 'Chiến lược Nội dung',
     color: 'text-green-400',
     bg: 'bg-green-500/15 border border-green-500/30',
     icon: FileText,
     layer: 'AIO',
   },
   geo: {
-    label: 'GEO / AI Search',
+    label: 'Tối ưu AI Search',
     color: 'text-yellow-400',
     bg: 'bg-yellow-500/15 border border-yellow-500/30',
     icon: Bot,
     layer: 'GEO',
   },
   aio: {
-    label: 'AIO / AI Tools',
+    label: 'Công cụ AI',
     color: 'text-indigo-400',
     bg: 'bg-indigo-500/15 border border-indigo-500/30',
     icon: Zap,
     layer: 'AIO',
   },
   aeo: {
-    label: 'AEO / Authority',
+    label: 'Uy tín & Trích dẫn',
     color: 'text-rose-400',
     bg: 'bg-rose-500/15 border border-rose-500/30',
     icon: MessageSquare,
     layer: 'AEO',
   },
   eeat: {
-    label: 'E-E-A-T',
+    label: 'Chuyên môn E-E-A-T',
     color: 'text-amber-400',
     bg: 'bg-amber-500/15 border border-amber-500/30',
     icon: Shield,
@@ -261,15 +261,15 @@ const PRIORITY_CONFIG: Record<string, { label: string; dot: string; ring: string
 };
 
 const SEO_CATEGORIES = [
-  { value: 'technical_seo', label: 'Technical SEO (SXO)' },
-  { value: 'sxo', label: 'SXO / UX Optimization' },
-  { value: 'on_page', label: 'On-Page SEO (SXO)' },
-  { value: 'content', label: 'Content Strategy (AIO)' },
-  { value: 'aio', label: 'AIO / AI Tools' },
-  { value: 'geo', label: 'GEO / AI Search Optimization' },
-  { value: 'aeo', label: 'AEO / Answer Engine' },
-  { value: 'eeat', label: 'E-E-A-T Building' },
-  { value: 'off_page', label: 'Off-Page / Link Building' },
+  { value: 'technical_seo', label: 'SEO Kỹ thuật (SXO)' },
+  { value: 'sxo', label: 'Trải nghiệm UX (SXO)' },
+  { value: 'on_page', label: 'SEO On-Page (SXO)' },
+  { value: 'content', label: 'Chiến lược Nội dung (AIO)' },
+  { value: 'aio', label: 'Công cụ AI (AIO)' },
+  { value: 'geo', label: 'Tối ưu AI Search (GEO)' },
+  { value: 'aeo', label: 'Uy tín & Trích dẫn (AEO)' },
+  { value: 'eeat', label: 'Chuyên môn E-E-A-T (AEO)' },
+  { value: 'off_page', label: 'Liên kết ngoài (AEO)' },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -359,7 +359,7 @@ function SummaryCards({ phases, actions }: { phases: StrategyPhase[]; actions: R
       {/* Phases */}
       <div className="bg-card border border-border rounded-xl p-4">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs text-[#8888a0] font-medium">Phases</span>
+          <span className="text-xs text-[#8888a0] font-medium">Giai đoạn</span>
           <Layers className="w-4 h-4 text-blue-400" />
         </div>
         <div className="text-2xl font-bold text-[var(--text-primary)]">{stats.totalPhases}</div>
@@ -369,7 +369,7 @@ function SummaryCards({ phases, actions }: { phases: StrategyPhase[]; actions: R
       {/* Total Actions */}
       <div className="bg-card border border-border rounded-xl p-4">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs text-[#8888a0] font-medium">Tổng Actions</span>
+          <span className="text-xs text-[#8888a0] font-medium">Tổng việc</span>
           <Activity className="w-4 h-4 text-purple-400" />
         </div>
         <div className="text-2xl font-bold text-[var(--text-primary)]">{stats.totalActions}</div>
@@ -776,7 +776,7 @@ function ActionRow({
             {/* Platform type — only for technical categories */}
             {isTechnical && (
               <div className="space-y-1.5">
-                <p className="text-[10px] font-medium text-[#8888a0] uppercase tracking-wide">Platform</p>
+                <p className="text-[10px] font-medium text-[#8888a0] uppercase tracking-wide">Nền tảng</p>
                 <div className="flex flex-wrap items-center gap-3">
                   {(['wordpress', 'nextjs', 'custom', 'other'] as const).map((p) => (
                     <label key={p} className="flex items-center gap-1 cursor-pointer">
@@ -1365,7 +1365,7 @@ function PhaseCard({
           {/* Action count badge */}
           <div className="flex-shrink-0 text-right">
             <span className="text-[11px] text-[#8888a0] bg-secondary px-2 py-0.5 rounded-full">
-              {phaseActions.length > 0 ? `${phaseActions.length} actions` : '—'}
+              {phaseActions.length > 0 ? `${phaseActions.length} việc` : '—'}
             </span>
           </div>
         </div>
@@ -2023,7 +2023,7 @@ function AddActionModal({
               </select>
             </div>
             <div>
-              <label className="block text-sm text-[#8888a0] mb-1.5">Deadline</label>
+              <label className="block text-sm text-[#8888a0] mb-1.5">Hạn chót</label>
               <input
                 type="date"
                 value={form.due_date}
@@ -2102,7 +2102,7 @@ function BulkAddActionsModal({
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-card border border-border rounded-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold text-[var(--text-primary)]">Thêm nhiều Actions</h2>
+          <h2 className="text-lg font-bold text-[var(--text-primary)]">Thêm nhiều việc</h2>
           <span className="text-xs text-[#8888a0] bg-secondary px-2 py-1 rounded-full">
             Mỗi dòng = 1 action
           </span>

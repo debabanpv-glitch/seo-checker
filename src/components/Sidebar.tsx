@@ -19,6 +19,9 @@ import {
   Upload,
   Globe,
   FileText,
+  ShieldCheck,
+  Lightbulb,
+  Link2,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -39,6 +42,9 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Upload,
   Globe,
   FileText,
+  ShieldCheck,
+  Lightbulb,
+  Link2,
 };
 
 const enabledModules = modules.filter((m) => m.enabled).sort((a, b) => a.order - b.order);
