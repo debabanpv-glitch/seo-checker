@@ -266,11 +266,30 @@ export default function KeywordRankingPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-primary)]">Keyword Ranking</h1>
-          <p className="text-[#8888a0] text-sm">
-            {stats.total > 0
-              ? `${stats.total} tu khoa · ${dates.length} lan check · Cap nhat: ${latestDate ? new Date(latestDate).toLocaleDateString('vi-VN') : '—'}`
-              : 'Chua co du lieu. Cau hinh Google Sheet de bat dau.'}
-          </p>
+          <div className="flex items-center gap-2 flex-wrap mt-0.5">
+            {stats.total > 0 ? (
+              <>
+                <span className="text-[#8888a0] text-sm">{stats.total} từ khóa</span>
+                <span className="text-[#555570]">·</span>
+                <span className="text-sm font-medium text-emerald-400">
+                  Mới nhất: {latestDate ? new Date(latestDate).toLocaleDateString('vi-VN') : '—'}
+                </span>
+                <span className="text-[#555570]">·</span>
+                <div className="flex items-center gap-1">
+                  {dates.map((d) => (
+                    <span key={d} className={cn(
+                      'text-[10px] px-1.5 py-0.5 rounded border font-mono',
+                      d === latestDate ? 'bg-emerald-400/10 border-emerald-400/20 text-emerald-400' : 'bg-secondary border-border text-[#8888a0]'
+                    )}>
+                      {new Date(d).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                    </span>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <span className="text-[#8888a0] text-sm">Chưa có dữ liệu. Cấu hình Google Sheet để bắt đầu.</span>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {syncResult && (
