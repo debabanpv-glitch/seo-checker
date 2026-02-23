@@ -62,7 +62,7 @@ function TaskCard({ task }: { task: Task }) {
           </span>
         )}
         {isPubl && (
-          <span className="ml-auto text-xs text-success font-medium">Done</span>
+          <span className="ml-auto text-xs text-success font-medium">Xong</span>
         )}
       </div>
 

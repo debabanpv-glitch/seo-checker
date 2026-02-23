@@ -37,7 +37,7 @@ const STATUS_CFG: Record<string, { label: string; bg: string; text: string }> = 
   todo: { label: 'Chờ', bg: 'bg-secondary', text: 'text-[#8888a0]' },
   doing: { label: 'Đang làm', bg: 'bg-blue-500/15', text: 'text-blue-400' },
   done: { label: 'Xong', bg: 'bg-emerald-500/15', text: 'text-emerald-400' },
-  blocked: { label: 'Blocked', bg: 'bg-red-500/15', text: 'text-red-400' },
+  blocked: { label: 'Bị chặn', bg: 'bg-red-500/15', text: 'text-red-400' },
 };
 
 const PRI_CFG: Record<string, { label: string; color: string }> = {
@@ -155,7 +155,7 @@ export default function TasksStrategyActionsTab({ projects }: { projects: Projec
         </span>
         {stats.blocked > 0 && (
           <span className="px-3 py-1 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400">
-            Blocked: {stats.blocked}
+            Bị chặn: {stats.blocked}
           </span>
         )}
       </div>
@@ -223,7 +223,7 @@ export default function TasksStrategyActionsTab({ projects }: { projects: Projec
       })}
 
       {filtered.length === 0 && (
-        <div className="text-center py-8 text-[#8888a0] text-sm">Không có actions nào</div>
+        <div className="text-center py-8 text-[#8888a0] text-sm">Không có việc nào</div>
       )}
     </div>
   );

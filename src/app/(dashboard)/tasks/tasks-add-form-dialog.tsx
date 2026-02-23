@@ -6,18 +6,18 @@ import { Project } from '@/types';
 import { cn } from '@/lib/utils';
 
 export const CATEGORIES = [
-  { value: 'content', label: 'Content', color: 'bg-blue-500/20 text-blue-400' },
-  { value: 'technical', label: 'Technical SEO', color: 'bg-orange-500/20 text-orange-400' },
-  { value: 'linkbuilding', label: 'Link Building', color: 'bg-green-500/20 text-green-400' },
+  { value: 'content', label: 'Nội dung', color: 'bg-blue-500/20 text-blue-400' },
+  { value: 'technical', label: 'SEO Kỹ thuật', color: 'bg-orange-500/20 text-orange-400' },
+  { value: 'linkbuilding', label: 'Xây liên kết', color: 'bg-green-500/20 text-green-400' },
   { value: 'onpage', label: 'On-page', color: 'bg-purple-500/20 text-purple-400' },
-  { value: 'audit', label: 'Audit', color: 'bg-yellow-500/20 text-yellow-400' },
+  { value: 'audit', label: 'Kiểm tra', color: 'bg-yellow-500/20 text-yellow-400' },
 ];
 
 export const PRIORITIES = [
-  { value: 'critical', label: 'Critical', color: 'bg-red-500/20 text-red-400' },
-  { value: 'high', label: 'High', color: 'bg-orange-500/20 text-orange-400' },
-  { value: 'medium', label: 'Medium', color: 'bg-secondary text-[#8888a0]' },
-  { value: 'low', label: 'Low', color: 'bg-secondary text-[#8888a0]/60' },
+  { value: 'critical', label: 'Khẩn', color: 'bg-red-500/20 text-red-400' },
+  { value: 'high', label: 'Cao', color: 'bg-orange-500/20 text-orange-400' },
+  { value: 'medium', label: 'Trung bình', color: 'bg-secondary text-[#8888a0]' },
+  { value: 'low', label: 'Thấp', color: 'bg-secondary text-[#8888a0]/60' },
 ];
 
 interface TasksAddFormDialogProps {
