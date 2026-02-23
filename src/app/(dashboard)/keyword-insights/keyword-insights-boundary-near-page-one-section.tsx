@@ -13,7 +13,7 @@ export function BoundarySection({ boundary, onToggleTracked }: Props) {
   if (boundary.length === 0) {
     return (
       <div className="bg-card border border-border rounded-xl p-8 text-center">
-        <p className="text-[#8888a0] text-sm">Khong co tu khoa o vi tri 8-12</p>
+        <p className="text-[#8888a0] text-sm">Không có từ khóa ở vị trí 8-12</p>
       </div>
     );
   }
@@ -24,10 +24,10 @@ export function BoundarySection({ boundary, onToggleTracked }: Props) {
         <AlertCircle className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
         <div>
           <p className="text-sm font-semibold text-amber-400">
-            Tren vong — {boundary.length} tu khoa (vi tri 8-12)
+            Trên vòng — {boundary.length} từ khóa (vị trí 8-12)
           </p>
           <p className="text-[11px] text-[#8888a0] mt-0.5">
-            Sap vao trang 1 hoac co nguy co xuong trang 2. Can tap trung cai thien.
+            Sắp vào trang 1 hoặc có nguy cơ xuống trang 2. Cần tập trung cải thiện.
           </p>
         </div>
       </div>
@@ -36,7 +36,7 @@ export function BoundarySection({ boundary, onToggleTracked }: Props) {
         <span className="w-3.5" />
         <span className="w-8 text-right">Pos</span>
         <span className="w-10 text-right">+/-</span>
-        <span className="flex-1">Tu khoa</span>
+        <span className="flex-1">Từ khóa</span>
         <span className="w-20 text-right">GSC</span>
         <span className="w-[72px]">Trend</span>
       </div>

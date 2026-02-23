@@ -20,7 +20,7 @@ export function KeywordRow({ kw, onToggleTracked, showGsc = true }: Props) {
       <button
         onClick={() => onToggleTracked?.(kw.keyword, kw.is_tracked)}
         className="flex-shrink-0"
-        title={kw.is_tracked ? 'Bo theo doi' : 'Theo doi'}
+        title={kw.is_tracked ? 'Bỏ theo dõi' : 'Theo dõi'}
       >
         <Star className={cn('w-3.5 h-3.5', kw.is_tracked ? 'fill-amber-400 text-amber-400' : 'text-[#444460] hover:text-amber-400/50')} />
       </button>

@@ -263,8 +263,8 @@ function generateExpertInsights(
     const withClicks = boundary.filter((k) => k.gscClicks > 0).sort((a, b) => b.gscClicks - a.gscClicks);
     insights.push({
       type: 'opportunity',
-      title: `${boundary.length} tu khoa o nguong trang 1 (vi tri 8-12)`,
-      detail: `Day la co hoi cao nhat de tang traffic. Tap trung cai thien content va backlinks cho cac tu khoa nay.`,
+      title: `${boundary.length} từ khóa ở ngưỡng trang 1 (vị trí 8-12)`,
+      detail: `Đây là cơ hội cao nhất để tăng traffic. Tập trung cải thiện content và backlinks cho các từ khóa này.`,
       keywords: (withClicks.length > 0 ? withClicks : boundary).slice(0, 3).map((k) => k.keyword),
     });
   }
@@ -273,8 +273,8 @@ function generateExpertInsights(
   if (movers.dropping.length >= 2) {
     insights.push({
       type: 'risk',
-      title: `${movers.dropping.length} tu khoa giam hang manh`,
-      detail: `Can kiem tra content, backlinks va doi thu canh tranh. Uu tien xu ly tu khoa co traffic cao.`,
+      title: `${movers.dropping.length} từ khóa giảm hạng mạnh`,
+      detail: `Cần kiểm tra content, backlinks và đối thủ cạnh tranh. Ưu tiên xử lý từ khóa có traffic cao.`,
       keywords: movers.dropping.slice(0, 3).map((k) => k.keyword),
     });
   }
@@ -283,8 +283,8 @@ function generateExpertInsights(
   if (movers.surging.length >= 2) {
     insights.push({
       type: 'success',
-      title: `${movers.surging.length} tu khoa tang hang tot`,
-      detail: `Chien luoc hien tai dang phat huy hieu qua. Tiep tuc duy tri va mo rong.`,
+      title: `${movers.surging.length} từ khóa tăng hạng tốt`,
+      detail: `Chiến lược hiện tại đang phát huy hiệu quả. Tiếp tục duy trì và mở rộng.`,
       keywords: movers.surging.slice(0, 3).map((k) => k.keyword),
     });
   }
@@ -296,15 +296,15 @@ function generateExpertInsights(
     if (pct < 50) {
       insights.push({
         type: 'action',
-        title: `${inTop10}/${tracked.length} tu khoa cam ket trong top 10 (${pct}%)`,
-        detail: `Can day manh de dat muc tieu. Uu tien tu khoa gan top 10 nhat.`,
+        title: `${inTop10}/${tracked.length} từ khóa cam kết trong Top 10 (${pct}%)`,
+        detail: `Cần đẩy mạnh để đạt mục tiêu. Ưu tiên từ khóa gần Top 10 nhất.`,
         keywords: tracked.filter((k) => k.currentPosition > 10).sort((a, b) => a.currentPosition - b.currentPosition).slice(0, 3).map((k) => k.keyword),
       });
     } else {
       insights.push({
         type: 'success',
-        title: `${inTop10}/${tracked.length} tu khoa cam ket trong top 10 (${pct}%)`,
-        detail: `Ty le tot. Tiep tuc giu vi tri va push cac tu khoa con lai.`,
+        title: `${inTop10}/${tracked.length} từ khóa cam kết trong Top 10 (${pct}%)`,
+        detail: `Tỷ lệ tốt. Tiếp tục giữ vị trí và push các từ khóa còn lại.`,
         keywords: tracked.filter((k) => k.currentPosition > 10).slice(0, 3).map((k) => k.keyword),
       });
     }
@@ -314,8 +314,8 @@ function generateExpertInsights(
   if (dates.length < 3) {
     insights.push({
       type: 'action',
-      title: `Du lieu lich su con it (${dates.length} lan check)`,
-      detail: `Sync dinh ky de co bieu do xu huong chinh xac hon. Can it nhat 4-5 lan check.`,
+      title: `Dữ liệu lịch sử còn ít (${dates.length} lần check)`,
+      detail: `Sync định kỳ để có biểu đồ xu hướng chính xác hơn. Cần ít nhất 4-5 lần check.`,
       keywords: [],
     });
   }
@@ -325,8 +325,8 @@ function generateExpertInsights(
   if (top5Pct < 10 && tiers.top10.length > 0) {
     insights.push({
       type: 'opportunity',
-      title: `Chi ${top5Pct}% tu khoa o top 5`,
-      detail: `Co ${tiers.top10.length} tu khoa o top 6-10 co the push len top 5. Tang noi dung va backlinks.`,
+      title: `Chỉ ${top5Pct}% từ khóa ở Top 5`,
+      detail: `Có ${tiers.top10.length} từ khóa ở Top 6-10 có thể push lên Top 5. Tăng nội dung và backlinks.`,
       keywords: tiers.top10.slice(0, 3).map((k) => k.keyword),
     });
   }

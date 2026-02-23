@@ -9,10 +9,10 @@ interface Props {
 
 export function SummaryStatsBar({ summary }: Props) {
   const cards: { label: string; value: string; icon: React.ElementType; color: string; sub?: string }[] = [
-    { label: 'Tong KW', value: String(summary.total), icon: Hash, color: 'text-blue-400' },
-    { label: 'Tang hang', value: String(summary.improved), icon: TrendingUp, color: 'text-emerald-400', sub: summary.newToTop10 > 0 ? `${summary.newToTop10} vao Top 10` : undefined },
-    { label: 'Giam hang', value: String(summary.declined), icon: TrendingDown, color: 'text-red-400', sub: summary.exitTop10 > 0 ? `${summary.exitTop10} roi Top 10` : undefined },
-    { label: 'Theo doi', value: `${summary.trackedInTop10}/${summary.trackedTotal}`, icon: Star, color: 'text-amber-400', sub: 'trong Top 10' },
+    { label: 'Tổng KW', value: String(summary.total), icon: Hash, color: 'text-blue-400' },
+    { label: 'Tăng hạng', value: String(summary.improved), icon: TrendingUp, color: 'text-emerald-400', sub: summary.newToTop10 > 0 ? `${summary.newToTop10} vào Top 10` : undefined },
+    { label: 'Giảm hạng', value: String(summary.declined), icon: TrendingDown, color: 'text-red-400', sub: summary.exitTop10 > 0 ? `${summary.exitTop10} rời Top 10` : undefined },
+    { label: 'Theo dõi', value: `${summary.trackedInTop10}/${summary.trackedTotal}`, icon: Star, color: 'text-amber-400', sub: 'trong Top 10' },
     { label: 'Clicks', value: fmtNum(summary.totalClicks), icon: MousePointerClick, color: 'text-purple-400' },
     { label: 'Impressions', value: fmtNum(summary.totalImpressions), icon: Eye, color: 'text-sky-400' },
   ];

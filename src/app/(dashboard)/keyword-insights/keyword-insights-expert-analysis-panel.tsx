@@ -20,7 +20,7 @@ export function ExpertPanel({ insights }: Props) {
 
   return (
     <div className="bg-card border border-accent/20 rounded-xl p-4 space-y-3">
-      <p className="text-sm font-semibold text-[var(--text-primary)]">Danh gia chuyen gia</p>
+      <p className="text-sm font-semibold text-[var(--text-primary)]">Đánh giá chuyên gia</p>
 
       {insights.map((ins, i) => {
         const cfg = ICON_MAP[ins.type];

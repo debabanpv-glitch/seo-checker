@@ -67,7 +67,7 @@ export const TIER_CONFIG = [
   { key: 'top10' as const, label: 'Top 10', range: [6, 10], color: 'text-blue-400', bg: 'bg-blue-500/20', border: 'border-blue-500/30' },
   { key: 'top15' as const, label: 'Top 15', range: [11, 15], color: 'text-sky-400', bg: 'bg-sky-500/20', border: 'border-sky-500/30' },
   { key: 'top30' as const, label: 'Top 30', range: [16, 30], color: 'text-amber-400', bg: 'bg-amber-500/20', border: 'border-amber-500/30' },
-  { key: 'beyond30' as const, label: 'Ngoai Top 30', range: [31, 999], color: 'text-[#666680]', bg: 'bg-[#666680]/20', border: 'border-[#666680]/30' },
+  { key: 'beyond30' as const, label: 'Ngoài Top 30', range: [31, 999], color: 'text-[#666680]', bg: 'bg-[#666680]/20', border: 'border-[#666680]/30' },
 ] as const;
 
 export function posColor(pos: number): string {

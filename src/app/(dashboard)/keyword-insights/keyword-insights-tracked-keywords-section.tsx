@@ -13,7 +13,7 @@ export function TrackedKeywordsSection({ tracked, onToggleTracked }: Props) {
   if (tracked.length === 0) {
     return (
       <div className="bg-card border border-border rounded-xl p-8 text-center">
-        <p className="text-[#8888a0] text-sm">Chua co tu khoa theo doi. Bam ngoi sao de danh dau.</p>
+        <p className="text-[#8888a0] text-sm">Chưa có từ khóa theo dõi. Bấm ngôi sao để đánh dấu.</p>
       </div>
     );
   }
@@ -31,7 +31,7 @@ export function TrackedKeywordsSection({ tracked, onToggleTracked }: Props) {
           <span className="text-[10px] text-[#8888a0]">({inTop10.length})</span>
         </div>
         {inTop10.length === 0 ? (
-          <p className="text-[#666680] text-xs px-2 py-4 text-center">Chua co tu khoa theo doi nao trong top 10</p>
+          <p className="text-[#666680] text-xs px-2 py-4 text-center">Chưa có từ khóa theo dõi nào trong Top 10</p>
         ) : (
           inTop10.map((kw) => (
             <KeywordRow key={kw.keyword} kw={kw} onToggleTracked={onToggleTracked} />
@@ -44,7 +44,7 @@ export function TrackedKeywordsSection({ tracked, onToggleTracked }: Props) {
         <div className="bg-card border border-amber-500/20 rounded-xl p-3">
           <div className="flex items-center gap-2 mb-2 px-2">
             <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-            <span className="text-sm font-semibold text-amber-400">Ngoai Top 10</span>
+            <span className="text-sm font-semibold text-amber-400">Ngoài Top 10</span>
             <span className="text-[10px] text-[#8888a0]">({outTop10.length})</span>
           </div>
           {outTop10.map((kw) => (

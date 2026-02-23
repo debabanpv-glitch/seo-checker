@@ -44,7 +44,7 @@ export function TierDistributionSection({ tiers, onToggleTracked }: Props) {
             <span className="w-3.5" />
             <span className="w-8 text-right">Pos</span>
             <span className="w-10 text-right">+/-</span>
-            <span className="flex-1">Tu khoa</span>
+            <span className="flex-1">Từ khóa</span>
             <span className="w-20 text-right">GSC</span>
             <span className="w-[72px]">Trend</span>
           </div>

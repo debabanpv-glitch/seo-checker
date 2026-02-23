@@ -16,10 +16,10 @@ import { cn } from '@/lib/utils';
 interface Project { id: string; name: string }
 
 const TABS: { key: SectionTab; label: string; icon: React.ElementType }[] = [
-  { key: 'tiers', label: 'Phan tang', icon: Layers },
-  { key: 'movers', label: 'Bien dong', icon: TrendingUp },
-  { key: 'boundary', label: 'Tren vong', icon: AlertCircle },
-  { key: 'tracked', label: 'Theo doi', icon: Star },
+  { key: 'tiers', label: 'Phân tầng', icon: Layers },
+  { key: 'movers', label: 'Biến động', icon: TrendingUp },
+  { key: 'boundary', label: 'Trên vòng', icon: AlertCircle },
+  { key: 'tracked', label: 'Theo dõi', icon: Star },
 ];
 
 export default function KeywordInsightsMainDashboard() {
@@ -103,7 +103,7 @@ export default function KeywordInsightsMainDashboard() {
 
   const projectName = projects.find((p) => p.id === selectedProjectId)?.name ?? '';
   const dateLabel = data?.meta.latestDate
-    ? `Check: ${new Date(data.meta.latestDate).toLocaleDateString('vi-VN')} (${data.meta.checkDates.length} lan)`
+    ? `Check: ${new Date(data.meta.latestDate).toLocaleDateString('vi-VN')} (${data.meta.checkDates.length} lần)`
     : '';
 
   return (
@@ -138,8 +138,8 @@ export default function KeywordInsightsMainDashboard() {
       ) : !data || data.summary.total === 0 ? (
         <EmptyState
           icon={Lightbulb}
-          title="Chua co du lieu keyword"
-          description="Dong bo tu khoa tu Google Sheets trong trang Keywords truoc"
+          title="Chưa có dữ liệu keyword"
+          description="Đồng bộ từ khóa từ Google Sheets trong trang Keywords trước"
         />
       ) : (
         <>
