@@ -1845,7 +1845,7 @@ function AddPhaseModal({
         <h2 className="text-lg font-bold text-[var(--text-primary)] mb-5">Thêm Phase chiến lược</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-[#8888a0] mb-1.5">Tên phase *</label>
+            <label className="block text-sm text-[#8888a0] mb-1.5">Tên giai đoạn *</label>
             <input
               type="text"
               value={form.name}

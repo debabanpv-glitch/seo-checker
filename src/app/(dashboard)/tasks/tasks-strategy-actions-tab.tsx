@@ -48,13 +48,15 @@ const PRI_CFG: Record<string, { label: string; color: string }> = {
 };
 
 const CAT_LABELS: Record<string, string> = {
-  technical_seo: 'Technical SEO',
-  content: 'Content',
-  on_page: 'On-Page',
-  off_page: 'Off-Page / Links',
-  aeo: 'AEO (Answer Engine)',
-  aio: 'AIO (AI Optimization)',
-  geo: 'GEO (Local SEO)',
+  technical_seo: 'SEO Kỹ thuật',
+  content: 'Nội dung',
+  on_page: 'SEO On-Page',
+  off_page: 'Liên kết ngoài',
+  aeo: 'Uy tín & Trích dẫn',
+  aio: 'Công cụ AI',
+  geo: 'Tối ưu AI Search',
+  sxo: 'Trải nghiệm UX',
+  eeat: 'Chuyên môn E-E-A-T',
 };
 
 export default function TasksStrategyActionsTab({ projects }: { projects: Project[] }) {
