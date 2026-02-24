@@ -210,12 +210,12 @@ export default function SEOTechnicalSEOAnalysisTab({ projectId }: Props) {
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="px-5 py-3 border-b border-border flex items-center gap-2">
           <CheckCircle className="w-4 h-4 text-[#8888a0]" />
-          <span className="text-sm font-semibold text-[var(--text-primary)]">Schema Markup Audit</span>
+          <span className="text-sm font-semibold text-[var(--text-primary)]">Kiểm tra Schema Markup</span>
         </div>
         <table className="w-full">
           <thead className="bg-secondary/50">
             <tr>
-              <th className="px-5 py-2 text-left text-xs font-semibold text-[#8888a0] uppercase">Schema Type</th>
+              <th className="px-5 py-2 text-left text-xs font-semibold text-[#8888a0] uppercase">Loại Schema</th>
               <th className="px-5 py-2 text-left text-xs font-semibold text-[#8888a0] uppercase">Trạng thái</th>
               <th className="px-5 py-2 text-left text-xs font-semibold text-[#8888a0] uppercase">Hành động</th>
             </tr>
@@ -236,7 +236,7 @@ export default function SEOTechnicalSEOAnalysisTab({ projectId }: Props) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="rounded-xl p-4 text-sm leading-relaxed bg-success/10 border border-success/30">
           <div className="flex items-center gap-2 font-semibold text-green-400 mb-2">
-            <CheckCircle className="w-4 h-4" /> Quick wins kỹ thuật
+            <CheckCircle className="w-4 h-4" /> Việc ưu tiên làm ngay
           </div>
           <ul className="text-[#8888a0] text-xs space-y-1 list-disc list-inside">
             <li>Thêm alt text cho tất cả ảnh thiếu (bulk edit qua CMS)</li>

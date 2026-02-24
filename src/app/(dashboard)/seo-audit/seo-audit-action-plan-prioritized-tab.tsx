@@ -46,10 +46,10 @@ interface StrategyAction {
 }
 
 const STATUS_CONFIG: Record<string, { icon: React.ReactNode; color: string; label: string }> = {
-  todo: { icon: <Circle className="w-3.5 h-3.5" />, color: 'text-[#8888a0]', label: 'To Do' },
+  todo: { icon: <Circle className="w-3.5 h-3.5" />, color: 'text-[#8888a0]', label: 'Chờ làm' },
   doing: { icon: <Clock className="w-3.5 h-3.5" />, color: 'text-accent', label: 'Đang làm' },
   done: { icon: <CheckCircle2 className="w-3.5 h-3.5" />, color: 'text-success', label: 'Xong' },
-  blocked: { icon: <AlertTriangle className="w-3.5 h-3.5" />, color: 'text-danger', label: 'Blocked' },
+  blocked: { icon: <AlertTriangle className="w-3.5 h-3.5" />, color: 'text-danger', label: 'Bị chặn' },
 };
 
 const PRIORITY_COLOR: Record<string, string> = {
@@ -60,7 +60,7 @@ const PRIORITY_COLOR: Record<string, string> = {
 };
 
 const PRIORITY_LABEL: Record<string, string> = {
-  critical: 'Critical',
+  critical: 'Khẩn',
   high: 'Cao',
   medium: 'TB',
   low: 'Thấp',
@@ -178,7 +178,7 @@ export default function SEOActionPlanPrioritizedTab({ projectId }: Props) {
                       : phase.status === 'blocked' ? 'bg-danger/20 text-danger'
                         : 'bg-secondary text-[#8888a0]'
                 )}>
-                  {phase.status === 'completed' ? 'Xong' : phase.status === 'in_progress' ? 'Đang làm' : phase.status === 'blocked' ? 'Blocked' : 'Chưa bắt đầu'}
+                  {phase.status === 'completed' ? 'Xong' : phase.status === 'in_progress' ? 'Đang làm' : phase.status === 'blocked' ? 'Bị chặn' : 'Chưa bắt đầu'}
                 </span>
               </div>
               {phase.description && (
@@ -269,7 +269,7 @@ export default function SEOActionPlanPrioritizedTab({ projectId }: Props) {
             );
           })}
           {filteredActions.length === 0 && (
-            <div className="px-5 py-8 text-center text-sm text-[#8888a0]">Không có action nào</div>
+            <div className="px-5 py-8 text-center text-sm text-[#8888a0]">Không có hành động nào</div>
           )}
         </div>
       </div>
@@ -286,7 +286,7 @@ export default function SEOActionPlanPrioritizedTab({ projectId }: Props) {
               <thead className="bg-secondary/50">
                 <tr>
                   <th className="text-left px-4 py-2 text-xs font-semibold text-[#8888a0] uppercase">Danh mục</th>
-                  <th className="text-center px-4 py-2 text-xs font-semibold text-[#8888a0] uppercase w-16">Tasks</th>
+                  <th className="text-center px-4 py-2 text-xs font-semibold text-[#8888a0] uppercase w-16">Việc</th>
                   <th className="text-center px-4 py-2 text-xs font-semibold text-[#8888a0] uppercase w-16">Xong</th>
                   <th className="text-center px-4 py-2 text-xs font-semibold text-[#8888a0] uppercase w-28">Tiến độ</th>
                 </tr>

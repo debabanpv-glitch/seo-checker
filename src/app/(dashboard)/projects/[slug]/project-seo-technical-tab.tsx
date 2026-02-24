@@ -83,25 +83,25 @@ export default function ProjectSeoTechnicalTab({ data }: { data: DashboardData }
           label="Tốc độ TB"
           value={avgResponseMs > 0 ? `${avgResponseMs}ms` : '—'}
           color={avgResponseMs > 1000 ? '#ef4444' : avgResponseMs > 500 ? '#f59e0b' : '#22c55e'}
-          sub="Avg response time"
+          sub="Thời gian phản hồi TB"
           icon={<Zap className="w-5 h-5 text-warning" />}
         />
         <StatCard
-          label="Security Headers"
+          label="Bảo mật Headers"
           value={la ? `${headerPassCount}/${SECURITY_HEADERS.length}` : '—'}
           color={headerPassCount >= 4 ? '#22c55e' : headerPassCount >= 2 ? '#f59e0b' : '#ef4444'}
           sub="Headers đã cấu hình"
           icon={<ShieldCheck className="w-5 h-5 text-success" />}
         />
         <StatCard
-          label="Schema Coverage"
+          label="Phủ Schema"
           value={schemaCoverage > 0 ? `${schemaCoverage}%` : '—'}
           color={schemaCoverage >= 70 ? '#22c55e' : schemaCoverage >= 40 ? '#f59e0b' : '#ef4444'}
           sub="Trang có schema markup"
           icon={<Code2 className="w-5 h-5 text-accent" />}
         />
         <StatCard
-          label="Redirect Chains"
+          label="Chuỗi redirect"
           value={redirectChains}
           color={redirectChains > 0 ? '#f59e0b' : '#22c55e'}
           sub="Chuỗi chuyển hướng"
@@ -133,7 +133,7 @@ export default function ProjectSeoTechnicalTab({ data }: { data: DashboardData }
       <div className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-center gap-2 mb-4">
           <ShieldCheck className="w-4 h-4 text-success" />
-          <h3 className="text-sm font-semibold text-[var(--text-primary)]">Security Headers</h3>
+          <h3 className="text-sm font-semibold text-[var(--text-primary)]">Bảo mật Headers</h3>
         </div>
         <div className="space-y-2">
           {SECURITY_HEADERS.map((h, i) => {
@@ -163,7 +163,7 @@ export default function ProjectSeoTechnicalTab({ data }: { data: DashboardData }
       <div className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-center gap-2 mb-4">
           <Code2 className="w-4 h-4 text-accent" />
-          <h3 className="text-sm font-semibold text-[var(--text-primary)]">Schema Markup Coverage</h3>
+          <h3 className="text-sm font-semibold text-[var(--text-primary)]">Phủ Schema Markup</h3>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
           {SCHEMA_TYPES.map((type) => (

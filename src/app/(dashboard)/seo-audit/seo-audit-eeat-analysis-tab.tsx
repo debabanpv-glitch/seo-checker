@@ -25,7 +25,7 @@ interface EEATDimension {
 const EEAT_DIMENSIONS: EEATDimension[] = [
   {
     id: 'experience',
-    label: 'Experience',
+    label: 'Kinh nghiệm',
     icon: <Star className="w-5 h-5" />,
     score: 60,
     color: '#f59e0b',
@@ -38,7 +38,7 @@ const EEAT_DIMENSIONS: EEATDimension[] = [
   },
   {
     id: 'expertise',
-    label: 'Expertise',
+    label: 'Chuyên môn',
     icon: <BookOpen className="w-5 h-5" />,
     score: 70,
     color: '#3b82f6',
@@ -51,7 +51,7 @@ const EEAT_DIMENSIONS: EEATDimension[] = [
   },
   {
     id: 'authoritativeness',
-    label: 'Authoritativeness',
+    label: 'Uy tín',
     icon: <Award className="w-5 h-5" />,
     score: 55,
     color: '#8b5cf6',
@@ -64,7 +64,7 @@ const EEAT_DIMENSIONS: EEATDimension[] = [
   },
   {
     id: 'trustworthiness',
-    label: 'Trustworthiness',
+    label: 'Độ tin cậy',
     icon: <Shield className="w-5 h-5" />,
     score: 75,
     color: '#22c55e',

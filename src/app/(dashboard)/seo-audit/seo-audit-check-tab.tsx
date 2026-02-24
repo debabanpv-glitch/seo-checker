@@ -158,17 +158,17 @@ function SEOGroupCard({
             <div className="flex items-center gap-1">
               {passCount > 0 && (
                 <span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded text-[10px] font-medium">
-                  {passCount} pass
+                  {passCount} đạt
                 </span>
               )}
               {warnCount > 0 && (
                 <span className="px-1.5 py-0.5 bg-yellow-500/20 text-yellow-400 rounded text-[10px] font-medium">
-                  {warnCount} warn
+                  {warnCount} cảnh báo
                 </span>
               )}
               {failCount > 0 && (
                 <span className="px-1.5 py-0.5 bg-red-500/20 text-red-400 rounded text-[10px] font-medium">
-                  {failCount} fail
+                  {failCount} lỗi
                 </span>
               )}
             </div>
@@ -243,9 +243,9 @@ function SEOGroupCard({
 
 function SEODetailsGrouped({ details }: { details: CheckDetail[] }) {
   const groups: Record<string, { title: string; icon: React.ReactNode; items: CheckDetail[] }> = {
-    title: { title: 'Title', icon: <Tag className="w-4 h-4" />, items: [] },
-    meta: { title: 'Meta Description', icon: <Search className="w-4 h-4" />, items: [] },
-    headings: { title: 'Headings (H1-H6)', icon: <ChevronUp className="w-4 h-4" />, items: [] },
+    title: { title: 'Tiêu đề (Title)', icon: <Tag className="w-4 h-4" />, items: [] },
+    meta: { title: 'Mô tả Meta', icon: <Search className="w-4 h-4" />, items: [] },
+    headings: { title: 'Thẻ tiêu đề (H1-H6)', icon: <ChevronUp className="w-4 h-4" />, items: [] },
     content: { title: 'Nội dung', icon: <Check className="w-4 h-4" />, items: [] },
     images: { title: 'Hình ảnh', icon: <ExternalLink className="w-4 h-4" />, items: [] },
     technical: { title: 'Kỹ thuật', icon: <Link2 className="w-4 h-4" />, items: [] },
@@ -336,7 +336,7 @@ function LinksSection({ links }: { links: { internal: LinkInfo[]; external: Link
           <div className="flex items-center gap-2">
             <Link2 className="w-4 h-4 text-blue-400" />
             <span className="text-sm font-medium text-[var(--text-primary)]">
-              Internal Links ({links.internal.length})
+              Liên kết nội bộ ({links.internal.length})
             </span>
             <div className="flex gap-1">
               <span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded text-xs">
@@ -399,7 +399,7 @@ function LinksSection({ links }: { links: { internal: LinkInfo[]; external: Link
           <div className="flex items-center gap-2">
             <ExternalLink className="w-4 h-4 text-orange-400" />
             <span className="text-sm font-medium text-[var(--text-primary)]">
-              External Links ({links.external.length})
+              Liên kết ngoài ({links.external.length})
             </span>
             <div className="flex gap-1">
               <span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded text-xs">
@@ -1185,7 +1185,7 @@ export default function SEOCheckTab() {
                         <div className="bg-secondary/50 rounded-lg p-3 space-y-2">
                           <div className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]">
                             <Tag className="w-4 h-4 text-accent" />
-                            Keywords
+                            Từ khóa
                           </div>
                           {selectedTask.seoResult.keywords?.primary && (
                             <div className="flex items-center gap-2">

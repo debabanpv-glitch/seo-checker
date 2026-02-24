@@ -118,13 +118,13 @@ export default function SEOInternalLinksAnalysisTab({ projectId }: Props) {
           icon={<XCircle className="w-4 h-4" />}
         />
         <StatCard
-          label="Broken Links (404)"
+          label="Link hỏng (404)"
           value={brokenCount}
           color={brokenCount > 0 ? '#ef4444' : '#22c55e'}
           icon={<AlertTriangle className="w-4 h-4" />}
         />
         <StatCard
-          label="Redirects (3xx)"
+          label="Chuyển hướng (3xx)"
           value={redirectCount}
           color={redirectCount > 0 ? '#f59e0b' : '#22c55e'}
           icon={<ArrowRight className="w-4 h-4" />}
@@ -141,19 +141,19 @@ export default function SEOInternalLinksAnalysisTab({ projectId }: Props) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-card border border-border rounded-xl p-4 text-center">
           <div className="text-xl font-bold text-[var(--text-primary)]">{allInternalLinks.length}</div>
-          <div className="text-xs text-[#8888a0] mt-1">Tổng Internal Links</div>
+          <div className="text-xs text-[#8888a0] mt-1">Tổng liên kết nội bộ</div>
         </div>
         <div className="bg-card border border-border rounded-xl p-4 text-center">
           <div className="text-xl font-bold text-[var(--text-primary)]">{allExternalLinks.length}</div>
-          <div className="text-xs text-[#8888a0] mt-1">Tổng External Links</div>
+          <div className="text-xs text-[#8888a0] mt-1">Tổng liên kết ngoài</div>
         </div>
         <div className="bg-card border border-border rounded-xl p-4 text-center">
           <div className="text-xl font-bold text-green-400">{allInternalLinks.filter(l => l.isDoFollow).length}</div>
-          <div className="text-xs text-[#8888a0] mt-1">DoFollow Internal</div>
+          <div className="text-xs text-[#8888a0] mt-1">DoFollow nội bộ</div>
         </div>
         <div className="bg-card border border-border rounded-xl p-4 text-center">
           <div className="text-xl font-bold text-red-400">{noFollowInternal.length}</div>
-          <div className="text-xs text-[#8888a0] mt-1">NoFollow Internal</div>
+          <div className="text-xs text-[#8888a0] mt-1">NoFollow nội bộ</div>
         </div>
       </div>
 

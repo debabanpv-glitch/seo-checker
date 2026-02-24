@@ -42,9 +42,9 @@ function StatCard({ label, value, color, sub }: { label: string; value: string |
 // Topical authority heatmap clusters (template data enriched with real counts)
 const TOPIC_CLUSTERS = [
   { topic: 'SEO Kỹ thuật', subtopics: ['Core Web Vitals', 'Schema Markup', 'Robots.txt', 'Sitemap'] },
-  { topic: 'Content Marketing', subtopics: ['Blog Strategy', 'Long-form Guide', 'Infographic', 'Video Script'] },
-  { topic: 'On-page SEO', subtopics: ['Title Tag', 'Meta Desc', 'H1/H2', 'Keyword Density'] },
-  { topic: 'Link Building', subtopics: ['Guest Post', 'Broken Link', 'Resource Page', 'Digital PR'] },
+  { topic: 'Marketing Nội dung', subtopics: ['Chiến lược Blog', 'Bài chuyên sâu', 'Infographic', 'Kịch bản Video'] },
+  { topic: 'SEO On-Page', subtopics: ['Thẻ Title', 'Meta Desc', 'H1/H2', 'Mật độ từ khóa'] },
+  { topic: 'Xây liên kết', subtopics: ['Guest Post', 'Broken Link', 'Trang tài nguyên', 'Digital PR'] },
 ];
 
 type CoverageLevel = 'good' | 'partial' | 'missing';
@@ -109,12 +109,12 @@ export default function SEOContentQualityAnalysisTab({ projectId }: Props) {
   const getClusterCoverage = (subtopic: string): CoverageLevel => {
     const map: Record<string, CoverageLevel> = {
       'Core Web Vitals': 'partial', 'Schema Markup': 'partial', 'Robots.txt': 'good', 'Sitemap': 'good',
-      'Blog Strategy': 'good', 'Long-form Guide': 'partial', 'Infographic': 'missing', 'Video Script': 'missing',
-      'Title Tag': total > 0 ? (titleTooLong === 0 ? 'good' : 'partial') : 'missing',
+      'Chiến lược Blog': 'good', 'Bài chuyên sâu': 'partial', 'Infographic': 'missing', 'Kịch bản Video': 'missing',
+      'Thẻ Title': total > 0 ? (titleTooLong === 0 ? 'good' : 'partial') : 'missing',
       'Meta Desc': total > 0 ? (missingMeta === 0 ? 'good' : 'partial') : 'missing',
       'H1/H2': total > 0 ? (duplicateH1 === 0 && missingH2 === 0 ? 'good' : 'partial') : 'missing',
-      'Keyword Density': 'partial',
-      'Guest Post': 'missing', 'Broken Link': 'partial', 'Resource Page': 'missing', 'Digital PR': 'missing',
+      'Mật độ từ khóa': 'partial',
+      'Guest Post': 'missing', 'Broken Link': 'partial', 'Trang tài nguyên': 'missing', 'Digital PR': 'missing',
     };
     return map[subtopic] ?? 'missing';
   };
@@ -160,7 +160,7 @@ export default function SEOContentQualityAnalysisTab({ projectId }: Props) {
                 <tr>
                   <th className="px-5 py-2 text-left text-xs font-semibold text-[#8888a0] uppercase">#</th>
                   <th className="px-5 py-2 text-left text-xs font-semibold text-[#8888a0] uppercase">URL</th>
-                  <th className="px-5 py-2 text-right text-xs font-semibold text-[#8888a0] uppercase">Content Score</th>
+                  <th className="px-5 py-2 text-right text-xs font-semibold text-[#8888a0] uppercase">Điểm nội dung</th>
                   <th className="px-5 py-2 text-right text-xs font-semibold text-[#8888a0] uppercase">Tỷ lệ</th>
                 </tr>
               </thead>
@@ -200,7 +200,7 @@ export default function SEOContentQualityAnalysisTab({ projectId }: Props) {
       <div className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-center gap-2 mb-4">
           <FileText className="w-4 h-4 text-[#8888a0]" />
-          <span className="text-sm font-semibold text-[var(--text-primary)]">Topical Authority Clusters</span>
+          <span className="text-sm font-semibold text-[var(--text-primary)]">Cụm chủ đề chuyên sâu</span>
           <span className="text-xs text-[#8888a0] ml-auto">
             <span className="inline-block w-2 h-2 rounded bg-green-400/40 mr-1" />Tốt
             <span className="inline-block w-2 h-2 rounded bg-yellow-400/40 mr-1 ml-2" />Một phần
@@ -225,7 +225,7 @@ export default function SEOContentQualityAnalysisTab({ projectId }: Props) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="rounded-xl p-4 text-sm leading-relaxed bg-success/10 border border-success/30">
           <div className="flex items-center gap-2 font-semibold text-green-400 mb-2">
-            <CheckCircle className="w-4 h-4" /> Ưu tiên nhanh (Quick wins)
+            <CheckCircle className="w-4 h-4" /> Việc ưu tiên làm ngay
           </div>
           <ul className="text-[#8888a0] text-xs space-y-1 list-disc list-inside">
             <li>Viết meta description 150-160 ký tự cho tất cả trang thiếu</li>

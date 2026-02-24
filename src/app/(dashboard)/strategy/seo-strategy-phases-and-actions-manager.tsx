@@ -385,7 +385,7 @@ function SummaryCards({ phases, actions }: { phases: StrategyPhase[]; actions: R
         <div className={cn('text-2xl font-bold', stats.overdueActions > 0 ? 'text-red-400' : 'text-[var(--text-primary)]')}>
           {stats.overdueActions}
         </div>
-        <p className="text-xs text-[#8888a0] mt-1">actions cần xử lý</p>
+        <p className="text-xs text-[#8888a0] mt-1">việc cần xử lý</p>
       </div>
     </div>
   );
@@ -680,7 +680,7 @@ function ActionRow({
             {hasResult && (
               <span className={cn('inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium flex-shrink-0 border', RESULT_STATUS_CONFIG[result.status].bg, RESULT_STATUS_CONFIG[result.status].color)}>
                 {(() => { const Icon = RESULT_STATUS_CONFIG[result.status].icon; return <Icon className="w-2.5 h-2.5" />; })()}
-                {result.status === 'success' ? 'Done' : result.status === 'partial' ? 'Partial' : 'Failed'}
+                {result.status === 'success' ? 'Xong' : result.status === 'partial' ? 'Một phần' : 'Thất bại'}
               </span>
             )}
             {/* Expand caret */}
@@ -826,7 +826,7 @@ function ActionRow({
               <textarea
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
-                placeholder="Prompt để AI triển khai action này..."
+                placeholder="Prompt để AI triển khai việc này..."
                 rows={3}
                 className="w-full text-xs bg-blue-500/10 border border-blue-500/30 rounded-md px-2.5 py-2 text-[var(--text-primary)] placeholder:text-[#8888a0]/60 resize-none focus:outline-none focus:border-blue-500/60"
               />
@@ -847,14 +847,14 @@ function ActionRow({
                   )}
                 >
                   {isCopied ? <ClipboardCheck className="w-3 h-3" /> : <Clipboard className="w-3 h-3" />}
-                  {isCopied ? 'Đã copy!' : 'Copy Full Prompt'}
+                  {isCopied ? 'Đã copy!' : 'Copy Prompt đầy đủ'}
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); setShowPreview(!showPreview); }}
                   className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium text-[#8888a0] hover:text-[var(--text-primary)] hover:bg-secondary/50 border border-border transition-colors"
                 >
                   {showPreview ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                  {showPreview ? 'Ẩn preview' : 'Preview'}
+                  {showPreview ? 'Ẩn xem trước' : 'Xem trước'}
                 </button>
                 <span className="text-[10px] text-[#8888a0]">Paste vào Claude Chat để thực thi</span>
               </div>
@@ -1188,7 +1188,7 @@ function TimelineView({
                       />
                     </div>
                     <p className="text-[10px] text-[#8888a0]">
-                      {total > 0 ? `${done}/${total} actions · ${donePct}%` : 'Chưa có action'}
+                      {total > 0 ? `${done}/${total} việc · ${donePct}%` : 'Chưa có việc'}
                     </p>
                   </div>
                 </div>
@@ -1338,7 +1338,7 @@ function PhaseCard({
             {phaseIndex > 0 && (
               <p className="text-[10px] text-[#8888a0] mb-1.5 flex items-center gap-1">
                 <ArrowRight className="w-2.5 h-2.5" />
-                Yêu cầu: Phase {phaseIndex} hoàn thành
+                Yêu cầu: Giai đoạn {phaseIndex} hoàn thành
               </p>
             )}
 
@@ -1397,7 +1397,7 @@ function PhaseCard({
                   </div>
                 ) : (
                   <div className="py-8 text-center text-sm text-[#8888a0]">
-                    Chưa có action nào trong phase này
+                    Chưa có việc nào trong giai đoạn này
                   </div>
                 )}
 
@@ -1411,7 +1411,7 @@ function PhaseCard({
                     className="flex items-center gap-1.5 text-sm text-accent hover:text-accent/80 transition-colors"
                   >
                     <Plus className="w-4 h-4" />
-                    Thêm action
+                    Thêm việc
                   </button>
                   <button
                     onClick={(e) => {
@@ -1636,7 +1636,7 @@ export default function SeoStrategyPhasesAndActionsManager() {
             className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-lg text-blue-400 text-sm font-medium transition-colors"
           >
             <Bot className="w-4 h-4" />
-            Generate Prompts
+            Tạo Prompt
           </button>
 
           <button
@@ -1644,7 +1644,7 @@ export default function SeoStrategyPhasesAndActionsManager() {
             className="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent/90 rounded-lg text-white text-sm font-medium transition-colors"
           >
             <Plus className="w-4 h-4" />
-            Thêm Phase
+            Thêm giai đoạn
           </button>
         </div>
       </div>
@@ -1677,7 +1677,7 @@ export default function SeoStrategyPhasesAndActionsManager() {
             )}
           >
             <GitBranch className="w-4 h-4" />
-            Timeline
+            Dòng thời gian
           </button>
         </div>
       )}
@@ -1702,15 +1702,15 @@ export default function SeoStrategyPhasesAndActionsManager() {
       ) : phases.length === 0 ? (
         <EmptyState
           icon={Target}
-          title="Chưa có phase chiến lược"
-          description="Tạo phase đầu tiên để bắt đầu lên kế hoạch SEO theo Framework 4 Tầng"
+          title="Chưa có giai đoạn chiến lược"
+          description="Tạo giai đoạn đầu tiên để bắt đầu lên kế hoạch SEO theo Framework 4 Tầng"
           action={
             <button
               onClick={() => setShowAddPhase(true)}
               className="flex items-center gap-1.5 px-4 py-2 bg-accent hover:bg-accent/90 rounded-lg text-white text-sm font-medium"
             >
               <Plus className="w-4 h-4" />
-              Thêm Phase đầu tiên
+              Thêm giai đoạn đầu tiên
             </button>
           }
         />
@@ -1842,7 +1842,7 @@ function AddPhaseModal({
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-card border border-border rounded-2xl w-full max-w-md p-6">
-        <h2 className="text-lg font-bold text-[var(--text-primary)] mb-5">Thêm Phase chiến lược</h2>
+        <h2 className="text-lg font-bold text-[var(--text-primary)] mb-5">Thêm giai đoạn chiến lược</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm text-[#8888a0] mb-1.5">Tên giai đoạn *</label>
@@ -1850,7 +1850,7 @@ function AddPhaseModal({
               type="text"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="VD: Phase 1 - Nền tảng Kỹ thuật (SXO)"
+              placeholder="VD: Giai đoạn 1 - Nền tảng Kỹ thuật (SXO)"
               className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] placeholder-[#8888a0] text-sm"
               required
             />
@@ -1861,7 +1861,7 @@ function AddPhaseModal({
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               rows={2}
-              placeholder="Mô tả mục tiêu của phase này..."
+              placeholder="Mô tả mục tiêu của giai đoạn này..."
               className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-[var(--text-primary)] placeholder-[#8888a0] text-sm resize-none"
             />
           </div>
@@ -1962,7 +1962,7 @@ function AddActionModal({
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-card border border-border rounded-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
-        <h2 className="text-lg font-bold text-[var(--text-primary)] mb-5">Thêm Action SEO</h2>
+        <h2 className="text-lg font-bold text-[var(--text-primary)] mb-5">Thêm việc SEO</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm text-[#8888a0] mb-1.5">Tiêu đề *</label>
@@ -2104,7 +2104,7 @@ function BulkAddActionsModal({
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-[var(--text-primary)]">Thêm nhiều việc</h2>
           <span className="text-xs text-[#8888a0] bg-secondary px-2 py-1 rounded-full">
-            Mỗi dòng = 1 action
+            Mỗi dòng = 1 việc
           </span>
         </div>
 
@@ -2112,7 +2112,7 @@ function BulkAddActionsModal({
           {/* Textarea */}
           <div>
             <label className="block text-sm text-[#8888a0] mb-1.5">
-              Danh sách actions <span className="text-[10px]">(mỗi dòng 1 action)</span>
+              Danh sách việc <span className="text-[10px]">(mỗi dòng 1 việc)</span>
             </label>
             <textarea
               value={rawText}
@@ -2158,7 +2158,7 @@ function BulkAddActionsModal({
           {parsedLines.length > 0 && (
             <div className="bg-secondary/50 border border-border rounded-lg p-3">
               <p className="text-xs text-[#8888a0] mb-2 font-medium">
-                Xem trước — {parsedLines.length} actions sẽ được thêm
+                Xem trước — {parsedLines.length} việc sẽ được thêm
               </p>
               <div className="space-y-1 max-h-32 overflow-y-auto">
                 {parsedLines.map((line, idx) => (
@@ -2186,7 +2186,7 @@ function BulkAddActionsModal({
               disabled={saving || parsedLines.length === 0}
               className="flex-1 py-2.5 bg-accent hover:bg-accent/90 disabled:opacity-50 rounded-lg text-white text-sm font-medium transition-colors"
             >
-              {saving ? 'Đang lưu...' : `Thêm ${parsedLines.length} actions`}
+              {saving ? 'Đang lưu...' : `Thêm ${parsedLines.length} việc`}
             </button>
           </div>
         </form>
@@ -2315,7 +2315,7 @@ function ImportObsidianModal({
             </div>
             <div>
               <h2 className="text-base font-bold text-[var(--text-primary)]">Import từ Obsidian</h2>
-              <p className="text-xs text-[#8888a0]">Quét vault và chọn phases cần import</p>
+              <p className="text-xs text-[#8888a0]">Quét vault và chọn giai đoạn cần import</p>
             </div>
           </div>
           <button
@@ -2371,7 +2371,7 @@ function ImportObsidianModal({
                   {allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
                 </button>
                 <span className="text-xs text-[#8888a0]">
-                  {obsidianPhases.length} phases tìm thấy
+                  {obsidianPhases.length} giai đoạn tìm thấy
                 </span>
               </div>
 
@@ -2397,7 +2397,7 @@ function ImportObsidianModal({
                       )}
                     </div>
                     <span className="text-xs text-[#8888a0] flex-shrink-0">
-                      {phase.actions.length} actions
+                      {phase.actions.length} việc
                     </span>
                     <button
                       onClick={() => togglePhaseExpand(phaseIdx)}
@@ -2464,9 +2464,9 @@ function ImportObsidianModal({
         {step === 'preview' && (
           <div className="flex items-center justify-between p-6 border-t border-border flex-shrink-0">
             <div className="text-sm text-[#8888a0]">
-              <span className="text-[var(--text-primary)] font-medium">{selectedPhasesCount} phases</span>
+              <span className="text-[var(--text-primary)] font-medium">{selectedPhasesCount} giai đoạn</span>
               {', '}
-              <span className="text-[var(--text-primary)] font-medium">{selectedActionsCount} actions</span>
+              <span className="text-[var(--text-primary)] font-medium">{selectedActionsCount} việc</span>
               {' sẽ được import'}
             </div>
             <div className="flex items-center gap-3">

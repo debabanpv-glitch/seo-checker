@@ -65,13 +65,13 @@ export default function ProjectSeoContentTab({ data }: { data: DashboardData }) 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard
-          label="Thin content"
+          label="Nội dung mỏng"
           value={thinContent}
           color={thinContent > 0 ? '#ef4444' : '#22c55e'}
           sub="Trang < 300 từ"
         />
         <StatCard
-          label="Avg word count"
+          label="Số từ TB"
           value={avgWordCount > 0 ? `${avgWordCount}` : '—'}
           sub="Từ trung bình/trang"
         />
@@ -82,7 +82,7 @@ export default function ProjectSeoContentTab({ data }: { data: DashboardData }) 
           sub="Duplicate content"
         />
         <StatCard
-          label="Content decay"
+          label="Nội dung giảm sút"
           value="—"
           sub="Cần dữ liệu lịch sử"
           color="#8888a0"
@@ -162,7 +162,7 @@ export default function ProjectSeoContentTab({ data }: { data: DashboardData }) 
       <div className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-center gap-2 mb-4">
           <TrendingDown className="w-4 h-4 text-[#8888a0]" />
-          <h3 className="text-sm font-semibold text-[var(--text-primary)]">Content Decay</h3>
+          <h3 className="text-sm font-semibold text-[var(--text-primary)]">Nội dung giảm sút</h3>
         </div>
         <p className="text-[#8888a0] text-sm text-center py-4">
           Tính năng phát hiện content cũ sẽ khả dụng khi có dữ liệu ranking lịch sử.
