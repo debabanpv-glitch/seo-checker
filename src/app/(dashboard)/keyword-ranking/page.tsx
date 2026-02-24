@@ -70,7 +70,7 @@ export default function KeywordRankingPage() {
         fetch('/api/v1/keyword-rankings/sync-all'),
       ];
       if (selectedProject) {
-        fetches.push(fetch(`/api/v1/gsc/snapshot?project_id=${selectedProject}&limit=2`));
+        fetches.push(fetch(`/api/v1/gsc/snapshot?project_id=${selectedProject}&limit=14`));
       }
       const responses = await Promise.all(fetches);
       const [rankingsData, projectsData, configData] = await Promise.all([

@@ -38,7 +38,7 @@ export default function BacklinksPage() {
         fetch(`/api/v1/backlinks/check${qs}`),
       ];
       if (selectedProject) {
-        fetches.push(fetch(`/api/v1/gsc/snapshot?project_id=${selectedProject}&limit=1`));
+        fetches.push(fetch(`/api/v1/gsc/snapshot?project_id=${selectedProject}&limit=14`));
       }
       const responses = await Promise.all(fetches);
       const jsons = await Promise.all(responses.map((r) => r.json()));
