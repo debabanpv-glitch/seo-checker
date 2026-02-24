@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 // GET /api/v1/keyword-insights?projectId=xxx
 export function GET(request: NextRequest) {
   try {
-    const projectId = request.nextUrl.searchParams.get('projectId');
+    const projectId = request.nextUrl.searchParams.get('projectId') ?? request.nextUrl.searchParams.get('project_id');
     if (!projectId) {
       return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
     }
