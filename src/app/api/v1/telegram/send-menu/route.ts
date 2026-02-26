@@ -28,19 +28,7 @@ export async function POST() {
 
     const keyboard = {
       inline_keyboard: [
-        [
-          { text: '🏥 Health Check', callback_data: 'cmd:healthcheck' },
-          { text: '📈 Traffic GSC', callback_data: 'cmd:traffic' },
-        ],
-        [
-          { text: '🔑 Keyword Insights', callback_data: 'cmd:keywords' },
-          { text: '🔗 Backlinks', callback_data: 'cmd:backlinks' },
-        ],
-        [
-          { text: '📝 Nội dung WP', callback_data: 'cmd:content' },
-        ],
-        // Separator label
-        [{ text: '── Chi tiết dự án ──', callback_data: 'noop' }],
+        [{ text: '🏥 Tổng quan', callback_data: 'cmd:healthcheck' }],
         ...projectButtons,
       ],
     };
