@@ -15,3 +15,8 @@ curl -s -X POST "${APP_URL}/api/v1/keyword-rankings/sync-all" \
   -H "Content-Type: application/json" \
   -d '{}' \
   > /dev/null 2>&1
+
+# 3. Send health check report to Telegram
+curl -s -X POST "${APP_URL}/api/v1/health-check/send-telegram" \
+  -H "Content-Type: application/json" \
+  > /dev/null 2>&1
