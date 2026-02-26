@@ -28,7 +28,10 @@ export async function POST() {
 
     const keyboard = {
       inline_keyboard: [
-        [{ text: '🏥 Tổng quan', callback_data: 'cmd:healthcheck' }],
+        [
+          { text: '🏥 Tổng quan', callback_data: 'cmd:healthcheck' },
+          { text: '📊 KH tháng', callback_data: 'cmd:monthly' },
+        ],
         ...projectButtons,
       ],
     };

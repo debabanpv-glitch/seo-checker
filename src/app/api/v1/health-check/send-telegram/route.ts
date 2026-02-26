@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getAllProjectsHealthCheck } from '@/lib/services/health-check-assessment-engine.service';
 import { getAppConfig } from '@/lib/services/app-config-crud.service';
+import { getProjects } from '@/lib/services/project.service';
+import { getWPContentStats } from '@/lib/services/wordpress-content-stats.service';
 import { handleApiError, AppError } from '@/lib/api-response';
 import type { ProjectHealthAssessment, Warning } from '@/lib/services/health-check-assessment-engine.service';
 
@@ -114,6 +116,18 @@ function formatHealthCheckMessage(data: { projects: ProjectHealthAssessment[]; m
   return lines.join('\n').trim();
 }
 
+// WordPress content summary for all projects
+async function getContentSummary(): Promise<string> {
+  const projects = getProjects();
+  const lines: string[] = ['<b>📝 Nội dung WordPress</b>'];
+  for (const proj of projects) {
+    const wp = await getWPContentStats(proj.id);
+    if (!wp.configured) continue;
+    lines.push(`  <b>${proj.name}</b>: ✅ ${wp.totalPublished} published | 📋 ${wp.totalDrafts} nháp | Tháng này: ${wp.postsThisMonth}`);
+  }
+  return lines.length > 1 ? lines.join('\n') : '';
+}
+
 export async function POST() {
   try {
     const tokenRow = getAppConfig('telegram_bot_token');
@@ -123,7 +137,11 @@ export async function POST() {
     if (!chatIdRow?.value) throw new AppError('Chưa cấu hình Telegram Chat ID.', 400);
 
     const healthData = getAllProjectsHealthCheck();
-    const text = formatHealthCheckMessage(healthData);
+    let text = formatHealthCheckMessage(healthData);
+
+    // Append WP content summary
+    const contentSummary = await getContentSummary();
+    if (contentSummary) text += '\n\n' + contentSummary;
 
     const tgRes = await fetch(`https://api.telegram.org/bot${tokenRow.value}/sendMessage`, {
       method: 'POST',

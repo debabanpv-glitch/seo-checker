@@ -245,6 +245,48 @@ async function formatContent(): Promise<string> {
   return lines.join('\n\n');
 }
 
+// Monthly content plan progress
+async function formatMonthlyPlan(): Promise<string> {
+  const projects = getProjects();
+  const targetsJson = getAppConfig('wp_monthly_content_targets')?.value;
+  const targets: Record<string, number> = targetsJson ? JSON.parse(targetsJson) : {};
+  const now = new Date();
+  const monthName = now.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' });
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const daysPassed = now.getDate();
+  const timePct = Math.round((daysPassed / daysInMonth) * 100);
+
+  const lines: string[] = [`<b>📊 Kế hoạch tháng ${monthName}</b>\n`];
+  lines.push(`⏱ Ngày ${daysPassed}/${daysInMonth} (${timePct}% thời gian)\n`);
+
+  for (const proj of projects) {
+    const wp = await getWPContentStats(proj.id);
+    if (!wp.configured) continue;
+    const target = targets[proj.id] ?? 0;
+    const done = wp.postsThisMonth;
+    const pct = target > 0 ? Math.round((done / target) * 100) : 0;
+    const bar = target > 0 ? progressBar(done, target) : '—';
+    const onTrack = pct >= timePct;
+
+    lines.push(`${onTrack ? '✅' : '⚠️'} <b>${proj.name}</b>`);
+    lines.push(`  ${bar} ${done}/${target} bài (${pct}%)`);
+    if (wp.totalDrafts > 0) lines.push(`  📋 ${wp.totalDrafts} nháp chờ publish`);
+    if (!onTrack && target > 0) {
+      const remaining = target - done;
+      const daysLeft = daysInMonth - daysPassed;
+      lines.push(`  → Cần thêm ${remaining} bài trong ${daysLeft} ngày`);
+    }
+    lines.push('');
+  }
+
+  return lines.join('\n').trim();
+}
+
+function progressBar(current: number, total: number): string {
+  const filled = Math.round((current / total) * 10);
+  return '▓'.repeat(Math.min(filled, 10)) + '░'.repeat(Math.max(10 - filled, 0));
+}
+
 // Map callback_data → formatter (sync or async)
 const handlers: Record<string, () => string | Promise<string>> = {
   'cmd:healthcheck': formatHealthCheck,
@@ -252,6 +294,7 @@ const handlers: Record<string, () => string | Promise<string>> = {
   'cmd:keywords': formatKeywords,
   'cmd:backlinks': formatBacklinks,
   'cmd:content': formatContent,
+  'cmd:monthly': formatMonthlyPlan,
 };
 
 // ---------------------------------------------------------------------------
