@@ -6,6 +6,7 @@ import { getSnapshots } from '@/lib/services/gsc-snapshots-save-and-query.servic
 import { getKeywordInsights } from '@/lib/services/keyword-insights-aggregator.service';
 import { getBacklinkStats } from '@/lib/services/backlink-import-and-crud.service';
 import { getBacklinkCheckSummary } from '@/lib/services/backlink-status-checker.service';
+import { getWPContentStats } from '@/lib/services/wordpress-content-stats.service';
 import { handleApiError, AppError } from '@/lib/api-response';
 import type { ProjectHealthAssessment } from '@/lib/services/health-check-assessment-engine.service';
 
@@ -120,8 +121,8 @@ function formatBacklinks(): string {
   return lines.join('\n\n');
 }
 
-// Detail report for a single project
-function formatProjectDetail(projectId: string): string {
+// Detail report for a single project (async for WP API)
+async function formatProjectDetail(projectId: string): Promise<string> {
   const data = getAllProjectsHealthCheck();
   const p = data.projects.find(proj => proj.id === projectId);
   if (!p) return `Không tìm thấy dự án.`;
@@ -190,6 +191,27 @@ function formatProjectDetail(projectId: string): string {
     if (pr.forecast) lines.push(`  Dự báo: ${pr.forecast}`);
   }
 
+  // WordPress Content
+  const wp = await getWPContentStats(projectId);
+  if (wp.configured) {
+    lines.push('');
+    lines.push('<b>📝 Nội dung (WordPress)</b>');
+    lines.push(`  ✅ Đã publish: ${wp.totalPublished} | Tháng này: ${wp.postsThisMonth} | Tháng trước: ${wp.postsLastMonth}`);
+    if (wp.totalDrafts > 0) {
+      lines.push(`  📋 Nháp chờ publish: ${wp.totalDrafts}`);
+      for (const d of wp.drafts.slice(0, 5)) {
+        lines.push(`  • ${d.title} (${d.date})`);
+      }
+      if (wp.drafts.length > 5) lines.push(`  ... +${wp.drafts.length - 5} nháp khác`);
+    }
+    if (wp.latestPosts.length) {
+      lines.push('  Bài mới nhất:');
+      for (const post of wp.latestPosts) {
+        lines.push(`  • ${post.title} (${post.date})`);
+      }
+    }
+  }
+
   // Warnings
   if (p.warnings.length) {
     lines.push('');
@@ -203,12 +225,33 @@ function formatProjectDetail(projectId: string): string {
   return lines.join('\n');
 }
 
-// Map callback_data → formatter
-const handlers: Record<string, () => string> = {
+// Content report across all WP-configured projects
+async function formatContent(): Promise<string> {
+  const projects = getProjects();
+  const lines: string[] = ['<b>📝 Nội dung WordPress</b>\n'];
+  for (const proj of projects) {
+    const wp = await getWPContentStats(proj.id);
+    if (!wp.configured) continue;
+    let line = `<b>${proj.name}</b>\n  ✅ Published: ${wp.totalPublished} | Tháng này: ${wp.postsThisMonth} | Tháng trước: ${wp.postsLastMonth}`;
+    if (wp.totalDrafts > 0) {
+      line += `\n  📋 Nháp chờ publish: ${wp.totalDrafts}`;
+      for (const d of wp.drafts.slice(0, 3)) {
+        line += `\n  • ${d.title}`;
+      }
+    }
+    lines.push(line);
+  }
+  if (lines.length === 1) lines.push('Chưa có dự án nào cấu hình WordPress.');
+  return lines.join('\n\n');
+}
+
+// Map callback_data → formatter (sync or async)
+const handlers: Record<string, () => string | Promise<string>> = {
   'cmd:healthcheck': formatHealthCheck,
   'cmd:traffic': formatTraffic,
   'cmd:keywords': formatKeywords,
   'cmd:backlinks': formatBacklinks,
+  'cmd:content': formatContent,
 };
 
 // ---------------------------------------------------------------------------
@@ -263,10 +306,10 @@ export async function POST() {
       let text: string | null = null;
       const handler = handlers[cb.data];
       if (handler) {
-        text = handler();
+        text = await handler();
       } else if (cb.data.startsWith('cmd:detail:')) {
         const projectId = cb.data.replace('cmd:detail:', '');
-        text = formatProjectDetail(projectId);
+        text = await formatProjectDetail(projectId);
       }
 
       if (!text) {
