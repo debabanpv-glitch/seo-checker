@@ -143,8 +143,8 @@ export function getKeywordInsights(projectId: string): KeywordInsightsResponse {
     if (kw.previousPosition !== null) {
       kw.change = kw.previousPosition - kw.currentPosition; // positive = improved
     }
-    // Only include keywords that have data in latest date
-    if (kw.currentPosition > 0) allKeywords.push(kw);
+    // Include keywords that have data in latest date, or are tracked (even if position=0)
+    if (kw.currentPosition > 0 || kw.is_tracked) allKeywords.push(kw);
   });
 
   // 5. Classify
@@ -176,7 +176,12 @@ export function getKeywordInsights(projectId: string): KeywordInsightsResponse {
 
   const tracked = allKeywords
     .filter((k) => k.is_tracked)
-    .sort((a, b) => a.currentPosition - b.currentPosition);
+    .sort((a, b) => {
+      // KW with position=0 (no data) go to bottom
+      if (a.currentPosition === 0 && b.currentPosition > 0) return 1;
+      if (b.currentPosition === 0 && a.currentPosition > 0) return -1;
+      return a.currentPosition - b.currentPosition;
+    });
 
   // 6. Summary
   const improved = allKeywords.filter((k) => k.change !== null && k.change > 0).length;
@@ -202,7 +207,7 @@ export function getKeywordInsights(projectId: string): KeywordInsightsResponse {
     newToTop10,
     exitTop10,
     trackedTotal: trackedKws.length,
-    trackedInTop10: trackedKws.filter((k) => k.currentPosition <= 10).length,
+    trackedInTop10: trackedKws.filter((k) => k.currentPosition > 0 && k.currentPosition <= 10).length,
     totalClicks,
     totalImpressions,
   };
