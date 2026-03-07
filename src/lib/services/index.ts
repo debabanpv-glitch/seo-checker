@@ -17,3 +17,4 @@ export * from './monthly-reports-crud.service';
 export * from './strategy-execution-log-crud.service';
 export * from './backlink-import-and-crud.service';
 export * from './backlink-status-checker.service';
+export * from './topic-clusters-crud.service';

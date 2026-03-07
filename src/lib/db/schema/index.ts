@@ -10,3 +10,4 @@ export * from './app-config';
 export * from './audit-results-table';
 export * from './monthly-reports-table';
 export * from './backlinks';
+export * from './topic-clusters';

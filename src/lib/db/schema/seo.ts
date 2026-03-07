@@ -1,6 +1,7 @@
 import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 import { projects } from './projects';
+import { topicClusters } from './topic-clusters';
 
 // --- seo_results table ---
 export const seoResults = sqliteTable('seo_results', {
@@ -32,4 +33,5 @@ export const keywordRankings = sqliteTable('keyword_rankings', {
   ranking_tier: text('ranking_tier'), // Top 1-3, Top 4-5, Top 6-10, Out Top 10
   keyword_type: text('keyword_type'), // KW Cam kết, KW Blog, etc.
   is_tracked: integer('is_tracked', { mode: 'boolean' }).notNull().default(false),
+  cluster_id: text('cluster_id').references(() => topicClusters.id, { onDelete: 'set null' }),
 });

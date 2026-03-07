@@ -20,10 +20,11 @@ export const modules: ModuleConfig[] = [
   { id: 'health-check', name: 'Sức khỏe', icon: 'ShieldCheck', path: '/health-check', order: 7, group: 'core', enabled: true },
   { id: 'keyword-insights', name: 'Phân tích KW', icon: 'Lightbulb', path: '/keyword-insights', order: 8, group: 'core', enabled: true },
   { id: 'backlinks', name: 'Liên kết ngoài', icon: 'Link2', path: '/backlinks', order: 9, group: 'core', enabled: true },
+  { id: 'topical-map', name: 'Topical Map', icon: 'Network', path: '/topical-map', order: 10, group: 'core', enabled: true },
   // EXTENSIONS
-  { id: 'strategy',      name: 'Chiến lược',     icon: 'Target',          path: '/strategy',        order: 10, group: 'extension', enabled: true },
-  { id: 'claude-log',   name: 'Nhật ký Claude', icon: 'Bot',             path: '/claude-log',      order: 11, group: 'extension', enabled: true },
-  { id: 'notes',        name: 'Ghi chú',       icon: 'StickyNote',      path: '/notes',           order: 12, group: 'extension', enabled: true },
+  { id: 'strategy',      name: 'Chiến lược',     icon: 'Target',          path: '/strategy',        order: 11, group: 'extension', enabled: true },
+  { id: 'claude-log',   name: 'Nhật ký Claude', icon: 'Bot',             path: '/claude-log',      order: 12, group: 'extension', enabled: true },
+  { id: 'notes',        name: 'Ghi chú',       icon: 'StickyNote',      path: '/notes',           order: 13, group: 'extension', enabled: true },
   { id: 'gsc',          name: 'Search Console', icon: 'Globe',           path: '/gsc',             order: 14, group: 'extension', enabled: true },
   { id: 'reports',      name: 'Báo cáo',        icon: 'FileText',        path: '/reports',         order: 15, group: 'extension', enabled: true },
   // SETTINGS
