@@ -589,9 +589,9 @@ export function getClusterCompleteness(id: string): ClusterCompleteness {
   const withAnchor = pages.filter((p) => p.anchor_to_pillar && p.anchor_to_pillar.trim() !== '').length;
   const anchorDiversity = pageCount > 0 ? Math.round((withAnchor / pageCount) * 100) : 0;
 
-  // Overlap penalty
+  // Overlap penalty: capped at 30 to avoid crushing score for large clusters
   const overlapWarnings = detectOverlap(id);
-  const overlapPenalty = overlapWarnings.length * 10;
+  const overlapPenalty = Math.min(30, overlapWarnings.length * 3);
 
   // Weighted score calculation
   const metrics: { value: number; weight: number }[] = [];
@@ -633,4 +633,51 @@ export function updateClusterTargets(
     .run();
 
   return db.select().from(topicClusters).where(eq(topicClusters.id, id)).get();
+}
+
+// ── 18. getUnassignedKeywords ─────────────────────────────────────────────────
+export function getUnassignedKeywords(projectId: string): {
+  keywords: { id: string; keyword: string; url: string; current_position: number | null }[];
+} {
+  const { isNull } = require('drizzle-orm');
+  const allRows = db.select({
+    id: keywordRankings.id,
+    keyword: keywordRankings.keyword,
+    url: keywordRankings.url,
+    position: keywordRankings.position,
+    date: keywordRankings.date,
+    cluster_id: keywordRankings.cluster_id,
+  })
+    .from(keywordRankings)
+    .where(and(eq(keywordRankings.project_id, projectId), isNull(keywordRankings.cluster_id)))
+    .all();
+
+  const map = new Map<string, typeof allRows[0]>();
+  for (const row of allRows) {
+    const ex = map.get(row.keyword);
+    if (!ex || row.date > ex.date) map.set(row.keyword, row);
+  }
+  return {
+    keywords: Array.from(map.values())
+      .map((r) => ({ id: r.id, keyword: r.keyword, url: r.url ?? '', current_position: r.position ?? null }))
+      .sort((a, b) => (a.current_position ?? 999) - (b.current_position ?? 999)),
+  };
+}
+
+// ── 19. getKeywordsForCluster ─────────────────────────────────────────────────
+export function getKeywordsForCluster(clusterId: string): {
+  keywords: { id: string; keyword: string; url: string | null; current_position: number | null; previous_position: number | null; clicks: number | null; impressions: number | null }[];
+} {
+  const allRows = db.select().from(keywordRankings).where(eq(keywordRankings.cluster_id, clusterId)).all();
+  const byKeyword = new Map<string, typeof allRows>();
+  for (const row of allRows) {
+    if (!byKeyword.has(row.keyword)) byKeyword.set(row.keyword, []);
+    byKeyword.get(row.keyword)!.push(row);
+  }
+  const keywords = Array.from(byKeyword.entries()).map(([, rows]) => {
+    const sorted = rows.sort((a, b) => b.date.localeCompare(a.date));
+    const cur = sorted[0]; const prev = sorted[1] ?? null;
+    return { id: cur.id, keyword: cur.keyword, url: cur.url ?? null, current_position: cur.position ?? null, previous_position: prev?.position ?? null, clicks: null, impressions: null };
+  }).sort((a, b) => (a.current_position ?? 999) - (b.current_position ?? 999));
+  return { keywords };
 }
