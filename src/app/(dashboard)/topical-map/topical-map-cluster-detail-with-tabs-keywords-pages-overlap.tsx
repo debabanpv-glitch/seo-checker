@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Loader2, Trash2, Edit2, Check, X, Key, Link, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TopicalMapKeywordAssign } from './topical-map-keyword-assign-table-with-gsc-stats-and-modal';
-import { TopicalMapInternalLinks } from './topical-map-internal-links-table-with-pillar-status-and-warnings';
-import { TopicalMapOverlapCheck } from './topical-map-overlap-check-cannibalization-warnings';
+import { TopicalMapInternalLinks } from './topical-map-internal-links-table-with-pillar-status-anchor-text-and-warnings';
+import { TopicalMapEvaluationTab } from './topical-map-evaluation-tab-completeness-anchor-crosslinks-cannibalization';
 
 interface ClusterDetail {
   id: string;
@@ -50,15 +50,17 @@ interface PageRow {
   role: 'pillar' | 'supporting' | 'related';
   links_to_pillar: boolean;
   pillar_links_to_page: boolean;
+  anchor_to_pillar: string;
+  anchor_from_pillar: string;
   notes: string | null;
 }
 
-type DetailTab = 'keywords' | 'pages' | 'overlap';
+type DetailTab = 'keywords' | 'pages' | 'evaluation';
 
 const TABS: { key: DetailTab; label: string; icon: React.ElementType }[] = [
   { key: 'keywords', label: 'Từ khóa', icon: Key },
   { key: 'pages', label: 'Bài viết & Links', icon: Link },
-  { key: 'overlap', label: 'Đánh giá', icon: AlertTriangle },
+  { key: 'evaluation', label: 'Đánh giá', icon: AlertTriangle },
 ];
 
 interface Props {
@@ -112,6 +114,8 @@ export function TopicalMapClusterDetail({ clusterId, onRefresh }: Props) {
         role: (p.role as 'pillar' | 'supporting' | 'related') || 'supporting',
         links_to_pillar: !!p.has_link_to_pillar,
         pillar_links_to_page: !!p.has_link_from_pillar,
+        anchor_to_pillar: (p.anchor_to_pillar as string) || '',
+        anchor_from_pillar: (p.anchor_from_pillar as string) || '',
         notes: (p.notes as string) || null,
       })));
       setStats(statsJson || null);
@@ -328,8 +332,8 @@ export function TopicalMapClusterDetail({ clusterId, onRefresh }: Props) {
           onRefresh={fetchDetail}
         />
       )}
-      {activeTab === 'overlap' && (
-        <TopicalMapOverlapCheck clusterId={clusterId} />
+      {activeTab === 'evaluation' && cluster && (
+        <TopicalMapEvaluationTab clusterId={clusterId} projectId={cluster.project_id} />
       )}
     </div>
   );

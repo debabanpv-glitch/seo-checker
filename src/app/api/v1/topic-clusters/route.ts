@@ -8,6 +8,8 @@ import {
   createCluster,
   updateCluster,
   deleteCluster,
+  updateClusterTargets,
+  getClusterCompleteness,
 } from '@/lib/services/topic-clusters-crud.service';
 
 export const dynamic = 'force-dynamic';
@@ -18,11 +20,12 @@ export function GET(req: NextRequest) {
     const id = sp.get('id');
     const projectId = sp.get('projectId') ?? undefined;
 
-    // GET ?id=xxx&stats=true → cluster stats
+    // GET ?id=xxx&stats=true → cluster stats (includes completeness)
     if (id && sp.get('stats') === 'true') {
       const stats = getClusterStats(id);
       if (!stats) return NextResponse.json({ error: 'Cluster not found' }, { status: 404 });
-      return NextResponse.json(stats);
+      const completeness = getClusterCompleteness(id);
+      return NextResponse.json({ ...stats, completeness });
     }
 
     // GET ?id=xxx&overlap=true → cannibalization warnings
@@ -64,13 +67,19 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, ...updates } = body;
+    const { id, target_keyword_count, target_page_count, ...updates } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'id là bắt buộc' }, { status: 400 });
     }
 
-    const cluster = updateCluster(id, updates);
+    // Update targets if provided
+    if (target_keyword_count !== undefined || target_page_count !== undefined) {
+      updateClusterTargets(id, { target_keyword_count, target_page_count });
+    }
+
+    // Update other fields if any
+    const cluster = updateCluster(id, Object.keys(updates).length > 0 ? updates : {});
     if (!cluster) return NextResponse.json({ error: 'Cluster not found' }, { status: 404 });
     return NextResponse.json(cluster);
   } catch (error) {

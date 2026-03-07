@@ -1,8 +1,8 @@
 import { db } from '@/lib/db';
-import { topicClusters, topicClusterPages } from '@/lib/db/schema/topic-clusters';
+import { topicClusters, topicClusterPages, crossClusterLinks } from '@/lib/db/schema/topic-clusters';
 import { keywordRankings } from '@/lib/db/schema/seo';
 import { gscSnapshots } from '@/lib/db/schema/gsc';
-import { eq, and, sql, inArray, isNull } from 'drizzle-orm';
+import { eq, and, sql, inArray, or } from 'drizzle-orm';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -34,6 +34,8 @@ export interface ClusterPage {
   role: string;
   has_link_to_pillar: boolean;
   has_link_from_pillar: boolean;
+  anchor_to_pillar: string;
+  anchor_from_pillar: string;
   notes: string;
   created_at: string;
 }
@@ -70,6 +72,33 @@ export interface ClusterStats {
   pageCount: number;
   pagesWithLinkToPillar: number;
   linkHealthPct: number;
+  completenessScore: number; // 0-100
+  targetKeywordCount: number;
+  targetPageCount: number;
+}
+
+export interface CrossClusterLink {
+  id: string;
+  source_cluster_id: string;
+  source_cluster_name: string;
+  target_cluster_id: string;
+  target_cluster_name: string;
+  source_url: string;
+  target_url: string;
+  anchor_text: string;
+  relationship: string;
+  verified: boolean;
+}
+
+export interface ClusterCompleteness {
+  score: number;
+  breakdown: {
+    keywordCoverage: number | null;
+    pageCoverage: number | null;
+    linkHealth: number;
+    anchorDiversity: number;
+    overlapPenalty: number;
+  };
 }
 
 export interface CannibalizationWarning {
@@ -386,6 +415,8 @@ export function getClusterStats(id: string): ClusterStats | null {
     ? Math.round((pagesWithLinkToPillar / pageCount) * 100)
     : 0;
 
+  const completeness = getClusterCompleteness(id);
+
   return {
     clusterId: id,
     keywordCount,
@@ -397,6 +428,9 @@ export function getClusterStats(id: string): ClusterStats | null {
     pageCount,
     pagesWithLinkToPillar,
     linkHealthPct,
+    completenessScore: completeness.score,
+    targetKeywordCount: cluster.target_keyword_count ?? 0,
+    targetPageCount: cluster.target_page_count ?? 0,
   };
 }
 
@@ -431,4 +465,172 @@ export function detectOverlap(clusterId: string): CannibalizationWarning[] {
   }
 
   return warnings.sort((a, b) => b.urlCount - a.urlCount);
+}
+
+// ── 13. getCrossClusterLinks ───────────────────────────────────────────────────
+
+export function getCrossClusterLinks(clusterId: string): { outgoing: CrossClusterLink[]; incoming: CrossClusterLink[] } {
+  const allLinks = db.select().from(crossClusterLinks)
+    .where(
+      or(
+        eq(crossClusterLinks.source_cluster_id, clusterId),
+        eq(crossClusterLinks.target_cluster_id, clusterId),
+      ),
+    )
+    .all();
+
+  // Get all cluster names needed
+  const clusterIds = new Set<string>();
+  for (const link of allLinks) {
+    clusterIds.add(link.source_cluster_id);
+    clusterIds.add(link.target_cluster_id);
+  }
+
+  const clusterNameMap = new Map<string, string>();
+  if (clusterIds.size > 0) {
+    const clusters = db.select({ id: topicClusters.id, name: topicClusters.name })
+      .from(topicClusters)
+      .all();
+    for (const c of clusters) {
+      if (clusterIds.has(c.id)) clusterNameMap.set(c.id, c.name);
+    }
+  }
+
+  const toLink = (raw: typeof crossClusterLinks.$inferSelect): CrossClusterLink => ({
+    id: raw.id,
+    source_cluster_id: raw.source_cluster_id,
+    source_cluster_name: clusterNameMap.get(raw.source_cluster_id) ?? raw.source_cluster_id,
+    target_cluster_id: raw.target_cluster_id,
+    target_cluster_name: clusterNameMap.get(raw.target_cluster_id) ?? raw.target_cluster_id,
+    source_url: raw.source_url,
+    target_url: raw.target_url,
+    anchor_text: raw.anchor_text,
+    relationship: raw.relationship,
+    verified: raw.verified,
+  });
+
+  const outgoing = allLinks.filter((l) => l.source_cluster_id === clusterId).map(toLink);
+  const incoming = allLinks.filter((l) => l.target_cluster_id === clusterId).map(toLink);
+
+  return { outgoing, incoming };
+}
+
+// ── 14. addCrossClusterLink ───────────────────────────────────────────────────
+
+export function addCrossClusterLink(data: {
+  source_cluster_id: string;
+  target_cluster_id: string;
+  source_url?: string;
+  target_url?: string;
+  anchor_text?: string;
+  relationship?: string;
+}): typeof crossClusterLinks.$inferSelect {
+  const id = crypto.randomUUID();
+  db.insert(crossClusterLinks).values({
+    id,
+    source_cluster_id: data.source_cluster_id,
+    target_cluster_id: data.target_cluster_id,
+    source_url: data.source_url ?? '',
+    target_url: data.target_url ?? '',
+    anchor_text: data.anchor_text ?? '',
+    relationship: data.relationship ?? 'related',
+    verified: false,
+  }).run();
+
+  return db.select().from(crossClusterLinks).where(eq(crossClusterLinks.id, id)).get()!;
+}
+
+// ── 15. removeCrossClusterLink ────────────────────────────────────────────────
+
+export function removeCrossClusterLink(id: string): { deleted: boolean } {
+  db.delete(crossClusterLinks).where(eq(crossClusterLinks.id, id)).run();
+  return { deleted: true };
+}
+
+// ── 16. getClusterCompleteness ────────────────────────────────────────────────
+
+export function getClusterCompleteness(id: string): ClusterCompleteness {
+  const cluster = db.select().from(topicClusters).where(eq(topicClusters.id, id)).get();
+  if (!cluster) return { score: 0, breakdown: { keywordCoverage: null, pageCoverage: null, linkHealth: 0, anchorDiversity: 0, overlapPenalty: 0 } };
+
+  // Keyword count (deduplicated)
+  const allKwRows = db.select({ keyword: keywordRankings.keyword, date: keywordRankings.date })
+    .from(keywordRankings)
+    .where(eq(keywordRankings.cluster_id, id))
+    .all();
+  const uniqueKwCount = new Set(allKwRows.map((k) => k.keyword)).size;
+
+  // Pages
+  const pages = db.select().from(topicClusterPages)
+    .where(eq(topicClusterPages.cluster_id, id))
+    .all();
+  const pageCount = pages.length;
+
+  // Keyword coverage
+  const targetKw = cluster.target_keyword_count ?? 0;
+  const keywordCoverage = targetKw > 0
+    ? Math.min(100, Math.round((uniqueKwCount / targetKw) * 100))
+    : null;
+
+  // Page coverage
+  const targetPage = cluster.target_page_count ?? 0;
+  const pageCoverage = targetPage > 0
+    ? Math.min(100, Math.round((pageCount / targetPage) * 100))
+    : null;
+
+  // Link health: % pages with bidirectional links
+  const nonPillarPages = pages.filter((p) => p.role !== 'pillar');
+  const bidirectional = nonPillarPages.filter((p) => p.has_link_to_pillar && p.has_link_from_pillar).length;
+  const linkHealth = nonPillarPages.length > 0
+    ? Math.round((bidirectional / nonPillarPages.length) * 100)
+    : 100;
+
+  // Anchor diversity: % pages with non-empty anchor_to_pillar
+  const withAnchor = pages.filter((p) => p.anchor_to_pillar && p.anchor_to_pillar.trim() !== '').length;
+  const anchorDiversity = pageCount > 0 ? Math.round((withAnchor / pageCount) * 100) : 0;
+
+  // Overlap penalty
+  const overlapWarnings = detectOverlap(id);
+  const overlapPenalty = overlapWarnings.length * 10;
+
+  // Weighted score calculation
+  const metrics: { value: number; weight: number }[] = [];
+  if (keywordCoverage !== null) metrics.push({ value: keywordCoverage, weight: 25 });
+  if (pageCoverage !== null) metrics.push({ value: pageCoverage, weight: 25 });
+  metrics.push({ value: linkHealth, weight: 30 });
+  metrics.push({ value: anchorDiversity, weight: 20 });
+
+  let score = 0;
+  if (metrics.length > 0) {
+    const totalWeight = metrics.reduce((s, m) => s + m.weight, 0);
+    const weightedSum = metrics.reduce((s, m) => s + m.value * m.weight, 0);
+    score = Math.round(weightedSum / totalWeight);
+  }
+
+  score = Math.max(0, Math.min(100, score - overlapPenalty));
+
+  return {
+    score,
+    breakdown: {
+      keywordCoverage,
+      pageCoverage,
+      linkHealth,
+      anchorDiversity,
+      overlapPenalty,
+    },
+  };
+}
+
+// ── 17. updateClusterTargets ──────────────────────────────────────────────────
+
+export function updateClusterTargets(
+  id: string,
+  data: { target_keyword_count?: number; target_page_count?: number },
+): typeof topicClusters.$inferSelect | undefined {
+  db.update(topicClusters)
+    .set({ ...data, updated_at: sql`(datetime('now'))` })
+    .where(eq(topicClusters.id, id))
+    .run();
+
+  return db.select().from(topicClusters).where(eq(topicClusters.id, id)).get();
 }
