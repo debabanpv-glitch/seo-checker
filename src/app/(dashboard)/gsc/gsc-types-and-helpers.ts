@@ -1,4 +1,11 @@
 // ---------------------------------------------------------------------------
+// GSC Data Collection Limits
+// Used when querying GSC MCP for top_queries / top_pages (rowLimit param)
+// ---------------------------------------------------------------------------
+export const GSC_TOP_QUERIES_LIMIT = 100;
+export const GSC_TOP_PAGES_LIMIT = 100;
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -6,6 +13,7 @@ export interface GscSnapshot {
   id: string;
   project_id: string;
   date: string;
+  period: string;
   clicks: number;
   impressions: number;
   ctr: number;

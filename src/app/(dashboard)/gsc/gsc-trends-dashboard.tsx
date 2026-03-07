@@ -66,7 +66,8 @@ export default function GscTrendsDashboard() {
     if (!selectedProjectId) return;
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/v1/gsc/trends?project_id=${selectedProjectId}&period=daily`);
+      // Fetch all snapshots (daily + weekly) — daily for charts, weekly for keyword comparison
+      const res = await fetch(`/api/v1/gsc/trends?project_id=${selectedProjectId}`);
       if (res.ok) {
         const data = await res.json();
         setRawSnapshots(data.trends || data.snapshots || []);
@@ -84,10 +85,28 @@ export default function GscTrendsDashboard() {
 
   // Chronological order (oldest first) for charts; API returns desc
   const snapshots = useMemo(() => [...rawSnapshots].reverse(), [rawSnapshots]);
-  const latest = snapshots.length > 0 ? snapshots[snapshots.length - 1] : null;
-  const prev = snapshots.length > 1 ? snapshots[snapshots.length - 2] : null;
 
-  // Comparison data
+  // Daily snapshots for line chart (or all if no daily)
+  const chartSnapshots = useMemo(() => {
+    const daily = snapshots.filter((s) => s.period === 'daily');
+    return daily.length > 0 ? daily : snapshots;
+  }, [snapshots]);
+
+  // Weekly snapshots for keyword comparison (have top_queries/top_pages)
+  const weeklySnapshots = useMemo(
+    () => snapshots.filter((s) => s.period === 'weekly'),
+    [snapshots],
+  );
+
+  // Latest snapshot for KPI cards — prefer weekly (has more data)
+  const latest = weeklySnapshots.length > 0
+    ? weeklySnapshots[weeklySnapshots.length - 1]
+    : snapshots.length > 0 ? snapshots[snapshots.length - 1] : null;
+  const prev = weeklySnapshots.length > 1
+    ? weeklySnapshots[weeklySnapshots.length - 2]
+    : snapshots.length > 1 ? snapshots[snapshots.length - 2] : null;
+
+  // Comparison data — from weekly snapshots which have top_queries
   const comparedQueries = useMemo(() => {
     const cur = (latest?.top_queries ?? []) as GscQuery[];
     const prv = (prev?.top_queries ?? []) as GscQuery[];
@@ -102,6 +121,32 @@ export default function GscTrendsDashboard() {
 
   const opportunities = useMemo(() => findOpportunities(comparedQueries), [comparedQueries]);
   const atRisk = useMemo(() => findAtRisk(comparedQueries), [comparedQueries]);
+
+  // Merge ALL queries across weekly snapshots (union) for richer keyword view
+  const allQueriesWithHistory = useMemo(() => {
+    const qMap = new Map<string, { query: string; clicks: number; impressions: number; ctr: number; position: number; history: { date: string; clicks: number; impressions: number; position: number }[] }>();
+    for (const snap of weeklySnapshots) {
+      const queries = (snap.top_queries ?? []) as GscQuery[];
+      for (const q of queries) {
+        const key = q.query.toLowerCase().trim();
+        if (!qMap.has(key)) {
+          qMap.set(key, { query: q.query, clicks: 0, impressions: 0, ctr: 0, position: 0, history: [] });
+        }
+        const entry = qMap.get(key)!;
+        entry.history.push({ date: snap.date, clicks: q.clicks, impressions: q.impressions, position: q.position });
+      }
+    }
+    // Set latest values
+    qMap.forEach((entry) => {
+      entry.history.sort((a, b) => a.date.localeCompare(b.date));
+      const last = entry.history[entry.history.length - 1];
+      entry.clicks = last.clicks;
+      entry.impressions = last.impressions;
+      entry.position = last.position;
+      entry.ctr = entry.impressions > 0 ? entry.clicks / entry.impressions : 0;
+    });
+    return [...qMap.values()].sort((a, b) => b.clicks - a.clicks);
+  }, [weeklySnapshots]);
 
   const insights = useMemo(() => {
     if (!latest) return [];
@@ -120,8 +165,8 @@ export default function GscTrendsDashboard() {
   const newKw = comparedQueries.filter((q) => q.status === 'new');
 
   const projectName = projects.find((p) => p.id === selectedProjectId)?.name ?? '';
-  const periodLabel = snapshots.length > 1
-    ? `${fmtDate(snapshots[0].date)} → ${fmtDate(snapshots[snapshots.length - 1].date)} (${snapshots.length} ngày)`
+  const periodLabel = chartSnapshots.length > 1
+    ? `${fmtDate(chartSnapshots[0].date)} → ${fmtDate(chartSnapshots[chartSnapshots.length - 1].date)} (${chartSnapshots.length} ngày)`
     : latest ? fmtDateFull(latest.date) : '';
 
   const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
@@ -132,30 +177,55 @@ export default function GscTrendsDashboard() {
   ];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-[var(--text-primary)]">Search Console</h1>
-          {periodLabel && (
-            <p className="text-xs text-[#8888a0] mt-0.5">{projectName} — {periodLabel}</p>
-          )}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Search Console</h1>
+
+          {/* Tabs — pill style matching keyword-ranking */}
+          <div className="flex bg-secondary/50 rounded-lg p-0.5 border border-border">
+            {TABS.map(({ key, label, icon: TabIcon }) => (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key)}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all',
+                  activeTab === key
+                    ? 'bg-accent text-white shadow-sm shadow-accent/30'
+                    : 'text-[#8888a0] hover:text-[var(--text-primary)]',
+                )}
+              >
+                <TabIcon className="w-3.5 h-3.5" />
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
+
         <div className="flex items-center gap-2">
           <select
             value={selectedProjectId}
             onChange={(e) => setSelectedProjectId(e.target.value)}
-            className="px-3 py-1.5 bg-card border border-border rounded-lg text-[var(--text-primary)] text-sm"
+            className="px-3 py-1.5 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-xs"
           >
             {projects.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
+
+          {/* Period label */}
+          {periodLabel && (
+            <span className="text-[10px] px-2 py-1 rounded bg-secondary border border-border text-[#8888a0] font-mono hidden sm:inline">
+              {periodLabel}
+            </span>
+          )}
+
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent/90 rounded-lg text-white text-sm font-medium"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-white text-xs font-medium transition-colors"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-3.5 h-3.5" />
             Thêm dữ liệu
           </button>
         </div>
@@ -223,30 +293,10 @@ export default function GscTrendsDashboard() {
             </div>
           )}
 
-          {/* Tabs */}
-          <div className="flex bg-card border border-border rounded-lg overflow-hidden text-sm w-fit">
-            {TABS.map(({ key, label, icon: TabIcon }) => (
-              <button
-                key={key}
-                onClick={() => setActiveTab(key)}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 font-medium transition-colors',
-                  activeTab === key ? 'bg-accent text-white' : 'text-[#8888a0] hover:text-[var(--text-primary)]',
-                )}
-              >
-                <TabIcon className="w-3.5 h-3.5" />
-                {label}
-                {key === 'queries' && comparedQueries.length > 0 && (
-                  <span className="text-[10px] opacity-70">({comparedQueries.length})</span>
-                )}
-              </button>
-            ))}
-          </div>
-
           {/* Tab Content */}
           {activeTab === 'overview' && (
             <OverviewTab
-              snapshots={snapshots}
+              snapshots={chartSnapshots}
               winners={winners}
               losers={losers}
               newKw={newKw}
@@ -257,7 +307,7 @@ export default function GscTrendsDashboard() {
             />
           )}
           {activeTab === 'queries' && (
-            <QueriesTab queries={comparedQueries} opportunities={opportunities} atRisk={atRisk} />
+            <QueriesTab queries={comparedQueries} opportunities={opportunities} atRisk={atRisk} allQueries={allQueriesWithHistory} />
           )}
           {activeTab === 'pages' && (
             <PagesTab pages={comparedPages} />

@@ -140,21 +140,29 @@ export function OverviewTab({
 }) {
   return (
     <div className="space-y-4">
-      {/* Quick Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        {[
-          { label: 'Tăng', value: winners.length, icon: TrendingUp, cls: 'text-green-400' },
-          { label: 'Giảm', value: losers.length, icon: TrendingDown, cls: 'text-red-400' },
-          { label: 'Mới', value: newKw.length, icon: Zap, cls: 'text-blue-400' },
-          { label: 'Cơ hội', value: opportunities.length, icon: Target, cls: 'text-orange-400' },
-          { label: 'Rủi ro', value: atRisk.length, icon: AlertTriangle, cls: 'text-yellow-400' },
-        ].map(({ label, value, icon: Icon, cls }) => (
-          <div key={label} className="bg-card border border-border rounded-xl p-3 text-center">
-            <Icon className={cn('w-4 h-4 mx-auto mb-1', cls)} />
-            <p className="text-xl font-bold text-[var(--text-primary)]">{value}</p>
-            <p className="text-[10px] text-[#8888a0]">{label}</p>
-          </div>
-        ))}
+      {/* Quick Stats — compact inline bar */}
+      <div className="bg-card border border-border rounded-xl p-3">
+        <div className="flex items-center gap-1 mb-2">
+          <h3 className="text-xs font-semibold text-[var(--text-primary)]">Biến động từ khóa</h3>
+          <span className="text-[10px] text-[#8888a0] ml-auto">{topQueries.length} từ khóa</span>
+        </div>
+        <div className="flex gap-2">
+          {[
+            { label: 'Tăng', value: winners.length, icon: TrendingUp, cls: 'text-green-400', bg: 'bg-green-400/10' },
+            { label: 'Giảm', value: losers.length, icon: TrendingDown, cls: 'text-red-400', bg: 'bg-red-400/10' },
+            { label: 'Mới', value: newKw.length, icon: Zap, cls: 'text-blue-400', bg: 'bg-blue-400/10' },
+            { label: 'Cơ hội', value: opportunities.length, icon: Target, cls: 'text-orange-400', bg: 'bg-orange-400/10' },
+            { label: 'Rủi ro', value: atRisk.length, icon: AlertTriangle, cls: 'text-yellow-400', bg: 'bg-yellow-400/10' },
+          ].map(({ label, value, icon: Icon, cls, bg }) => (
+            <div key={label} className={cn('flex-1 rounded-lg p-2.5 text-center', bg)}>
+              <div className="flex items-center justify-center gap-1 mb-0.5">
+                <Icon className={cn('w-3.5 h-3.5', cls)} />
+                <span className={cn('text-lg font-bold', cls)}>{value}</span>
+              </div>
+              <p className="text-[10px] text-[#8888a0]">{label}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* SVG Line Chart */}
@@ -176,7 +184,7 @@ export function OverviewTab({
               </tr>
             </thead>
             <tbody>
-              {topQueries.slice(0, 15).map((q, i) => (
+              {topQueries.slice(0, 25).map((q, i) => (
                 <tr key={i} className="border-b border-border last:border-0 hover:bg-secondary/30">
                   <td className="px-3 py-1.5 text-[#8888a0]">{i + 1}</td>
                   <td className="px-3 py-1.5 text-[var(--text-primary)] font-medium max-w-[200px] truncate">{q.query}</td>
@@ -213,7 +221,7 @@ export function OverviewTab({
               </tr>
             </thead>
             <tbody>
-              {topPages.slice(0, 10).map((p, i) => (
+              {topPages.slice(0, 20).map((p, i) => (
                 <tr key={i} className="border-b border-border last:border-0 hover:bg-secondary/30">
                   <td className="px-3 py-1.5 text-[#8888a0]">{i + 1}</td>
                   <td className="px-3 py-1.5 text-[var(--text-primary)] font-medium max-w-[250px] truncate" title={p.page}>{shortUrl(p.page)}</td>

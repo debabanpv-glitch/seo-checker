@@ -129,8 +129,9 @@ export function getKeywordInsights(projectId: string): KeywordInsightsResponse {
       kw.url = r.url || kw.url;
       kw.ranking_tier = r.ranking_tier ?? kw.ranking_tier;
       kw.keyword_type = r.keyword_type ?? kw.keyword_type;
-      kw.is_tracked = kw.is_tracked || !!r.is_tracked;
     }
+    // OR is_tracked across ALL dates (not just latest)
+    kw.is_tracked = kw.is_tracked || !!r.is_tracked;
     if (r.date === previousDate && kw.previousPosition === null) {
       kw.previousPosition = r.position;
     }

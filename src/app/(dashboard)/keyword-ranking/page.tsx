@@ -1,54 +1,38 @@
 'use client';
 
 // ---------------------------------------------------------------------------
-// Keyword Ranking Page — Orchestrator
-// Imports: types, shared components, GSC section, keyword row, sheet modal
+// Keyword Ranking Page — Orchestrator (SE Ranking style)
+// Two tabs: Summary (overview charts) + Detailed (filterable keyword table)
+// Data: keyword-insights API + growth API + projects + sheet configs
 // ---------------------------------------------------------------------------
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
-  TrendingUp,
-  TrendingDown,
-  RefreshCw,
-  Loader2,
-  CheckCircle,
-  AlertCircle,
-  Settings2,
-  Search,
-  Target,
-  Eye,
-  Zap,
-  MousePointerClick,
-  BarChart2,
+  BarChart3, List, RefreshCw, Loader2, CheckCircle, AlertCircle, Settings2,
 } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
 import { cn } from '@/lib/utils';
 import { Project } from '@/types';
 
-import {
-  type KeywordRanking,
-  type KeywordTrend,
-  type SheetConfig,
-  type GscSnapshot,
-  type ViewTab,
-  buildGscQueryMap,
-} from './keyword-ranking-types-and-helpers';
-import { ScoreCard } from './keyword-ranking-shared-sub-components';
-import { GscTrafficSection } from './keyword-ranking-gsc-traffic-overview-section';
-import { KeywordRow } from './keyword-ranking-keyword-row-with-expand';
+import type { KeywordInsightsResponse } from '@/lib/services/keyword-insights-aggregator.service';
+import type { GrowthSnapshot } from './keyword-ranking-position-timeline-chart';
+import { type SheetConfig } from './keyword-ranking-types-and-helpers';
 import { SheetConfigModal } from './keyword-ranking-sheet-config-modal';
+import { RankingSummaryTab } from './keyword-ranking-summary-tab';
+import { RankingDetailedTab } from './keyword-ranking-detailed-tab';
+
+type MainTab = 'summary' | 'detailed';
 
 export default function KeywordRankingPage() {
-  const [rankings, setRankings] = useState<KeywordRanking[]>([]);
+  const [mainTab, setMainTab] = useState<MainTab>('summary');
   const [projects, setProjects] = useState<Project[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<ViewTab>('all');
-  const [expandedKw, setExpandedKw] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'position' | 'change' | 'keyword' | 'clicks'>('position');
-  const [sortAsc, setSortAsc] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Data
+  const [insights, setInsights] = useState<KeywordInsightsResponse | null>(null);
+  const [growthSnapshots, setGrowthSnapshots] = useState<GrowthSnapshot[]>([]);
 
   // Sync state
   const [sheetConfigs, setSheetConfigs] = useState<SheetConfig[]>([]);
@@ -57,33 +41,38 @@ export default function KeywordRankingPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  // GSC state
-  const [gscSnapshots, setGscSnapshots] = useState<GscSnapshot[]>([]);
-
-  // ── Data fetching ─────────────────────────────────────────────────────
+  // ── Data fetching ───────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const fetches: Promise<Response>[] = [
-        fetch(`/api/v1/keyword-rankings?limit=5000${selectedProject ? `&projectId=${selectedProject}` : ''}`),
+      // Always fetch projects + sheet configs
+      const [projectsRes, configRes] = await Promise.all([
         fetch('/api/v1/projects'),
         fetch('/api/v1/keyword-rankings/sync-all'),
-      ];
-      if (selectedProject) {
-        fetches.push(fetch(`/api/v1/gsc/snapshot?project_id=${selectedProject}&limit=14`));
-      }
-      const responses = await Promise.all(fetches);
-      const [rankingsData, projectsData, configData] = await Promise.all([
-        responses[0].json(), responses[1].json(), responses[2].json(),
       ]);
-      setRankings(rankingsData.rankings || []);
+      const projectsData = await projectsRes.json();
+      const configData = await configRes.json();
       setProjects(projectsData.projects || []);
       setSheetConfigs(configData.configs || []);
-      if (selectedProject && responses[3]) {
-        const gscData = await responses[3].json();
-        setGscSnapshots(gscData.snapshots || []);
+
+      // Auto-select first project if none selected
+      const projList: Project[] = projectsData.projects || [];
+      const projId = selectedProject || projList[0]?.id || '';
+      if (!selectedProject && projId) setSelectedProject(projId);
+
+      // Fetch insights + growth for selected project
+      if (projId) {
+        const [insightsRes, growthRes] = await Promise.all([
+          fetch(`/api/v1/keyword-insights?projectId=${projId}`),
+          fetch(`/api/v1/keyword-rankings/growth?projectId=${projId}&days=90`),
+        ]);
+        const insightsData = await insightsRes.json();
+        const growthData = await growthRes.json();
+        setInsights(insightsData.error ? null : insightsData);
+        setGrowthSnapshots(growthData.snapshots || []);
       } else {
-        setGscSnapshots([]);
+        setInsights(null);
+        setGrowthSnapshots([]);
       }
     } catch (error) {
       console.error('Failed to fetch:', error);
@@ -94,7 +83,7 @@ export default function KeywordRankingPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // ── Sync ──────────────────────────────────────────────────────────────
+  // ── Sync ────────────────────────────────────────────────────────────────
   const handleSyncAll = async () => {
     if (sheetConfigs.length === 0) { setEditConfigs([]); setShowConfigModal(true); return; }
     setSyncing(true);
@@ -124,303 +113,121 @@ export default function KeywordRankingPage() {
     setShowConfigModal(false);
   };
 
-  // ── GSC query map ────────────────────────────────────────────────────
-  const gscQueryMap = useMemo(() => buildGscQueryMap(gscSnapshots), [gscSnapshots]);
-
-  // ── Process trends ────────────────────────────────────────────────────
-  const keywordTrends = useMemo(() => {
-    const keywordMap = new Map<string, KeywordRanking[]>();
-    rankings.forEach((r) => {
-      const key = r.keyword.toLowerCase();
-      if (!keywordMap.has(key)) keywordMap.set(key, []);
-      keywordMap.get(key)!.push(r);
-    });
-
-    const trends: KeywordTrend[] = [];
-    keywordMap.forEach((records) => {
-      const sorted = records.sort((a, b) => b.date.localeCompare(a.date));
-      const latest = sorted[0];
-      const previous = sorted[1];
-
-      const history: { date: string; position: number }[] = [];
-      const seenDates = new Set<string>();
-      sorted.forEach((r) => {
-        if (!seenDates.has(r.date)) {
-          seenDates.add(r.date);
-          history.push({ date: r.date, position: r.position });
-        }
+  // ── Toggle tracked ───────────────────────────────────────────────────────
+  const handleToggleTracked = async (keyword: string, projectId: string, tracked: boolean) => {
+    try {
+      await fetch('/api/v1/keyword-insights', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyword, project_id: projectId, is_tracked: tracked }),
       });
-      history.sort((a, b) => a.date.localeCompare(b.date));
-
-      const gscData = gscQueryMap.get(latest.keyword.toLowerCase().trim());
-
-      trends.push({
-        keyword: latest.keyword,
-        url: latest.url,
-        currentPosition: latest.position,
-        previousPosition: previous?.position ?? null,
-        change: previous ? previous.position - latest.position : null,
-        history,
-        ranking_tier: latest.ranking_tier,
-        keyword_type: latest.keyword_type,
-        gscClicks: gscData?.clicks,
-        gscImpressions: gscData?.impressions,
-        gscCtr: gscData?.ctr,
-        gscPosition: gscData?.position,
-      });
-    });
-    return trends;
-  }, [rankings, gscQueryMap]);
-
-  // ── GSC-only queries (in console but not tracked in sheet) ───────────
-  const gscOnlyQueries = useMemo(() => {
-    if (gscQueryMap.size === 0) return [];
-    const trackedKeys = new Set(keywordTrends.map((t) => t.keyword.toLowerCase().trim()));
-    const result: KeywordTrend[] = [];
-    gscQueryMap.forEach((q, key) => {
-      if (!trackedKeys.has(key)) {
-        result.push({
-          keyword: q.query, url: '', currentPosition: Math.round(q.position * 10) / 10,
-          previousPosition: null, change: null, history: [],
-          gscClicks: q.clicks, gscImpressions: q.impressions, gscCtr: q.ctr, gscPosition: q.position,
-        });
-      }
-    });
-    return result.sort((a, b) => (b.gscClicks ?? 0) - (a.gscClicks ?? 0));
-  }, [gscQueryMap, keywordTrends]);
-
-  // ── Stats ─────────────────────────────────────────────────────────────
-  const stats = useMemo(() => {
-    const total = keywordTrends.length;
-    const top3 = keywordTrends.filter((t) => t.currentPosition <= 3).length;
-    const top10 = keywordTrends.filter((t) => t.currentPosition <= 10).length;
-    const improved = keywordTrends.filter((t) => t.change !== null && t.change > 0).length;
-    const declined = keywordTrends.filter((t) => t.change !== null && t.change < 0).length;
-    const camKet = keywordTrends.filter((t) => t.keyword_type === 'KW Cam kết').length;
-    const blog = keywordTrends.filter((t) => t.keyword_type === 'KW Blog').length;
-    const opportunity = keywordTrends.filter((t) => t.currentPosition >= 11 && t.currentPosition <= 20).length;
-    const totalClicks = keywordTrends.reduce((s, t) => s + (t.gscClicks ?? 0), 0);
-    const totalImpressions = keywordTrends.reduce((s, t) => s + (t.gscImpressions ?? 0), 0);
-    const hasGscData = gscQueryMap.size > 0;
-    const gscOnlyCount = gscOnlyQueries.length;
-    return { total, top3, top10, improved, declined, camKet, blog, opportunity, totalClicks, totalImpressions, hasGscData, gscOnlyCount };
-  }, [keywordTrends, gscQueryMap, gscOnlyQueries]);
-
-  // ── Filter + Sort ─────────────────────────────────────────────────────
-  const filtered = useMemo(() => {
-    if (activeTab === 'gsc_only') {
-      let result = [...gscOnlyQueries];
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        result = result.filter((t) => t.keyword.toLowerCase().includes(q));
-      }
-      result.sort((a, b) => {
-        let cmp = 0;
-        if (sortBy === 'clicks') cmp = (b.gscClicks ?? 0) - (a.gscClicks ?? 0);
-        else if (sortBy === 'position') cmp = a.currentPosition - b.currentPosition;
-        else if (sortBy === 'keyword') cmp = a.keyword.localeCompare(b.keyword);
-        else cmp = (b.gscClicks ?? 0) - (a.gscClicks ?? 0);
-        return sortAsc ? cmp : -cmp;
-      });
-      return result;
+      fetchData(); // refresh
+    } catch (error) {
+      console.error('Toggle tracked failed:', error);
     }
-
-    let result = [...keywordTrends];
-    switch (activeTab) {
-      case 'cam_ket': result = result.filter((t) => t.keyword_type === 'KW Cam kết'); break;
-      case 'blog': result = result.filter((t) => t.keyword_type === 'KW Blog'); break;
-      case 'opportunity': result = result.filter((t) => t.currentPosition >= 11 && t.currentPosition <= 20); break;
-      case 'declining': result = result.filter((t) => t.change !== null && t.change < 0); break;
-    }
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter((t) => t.keyword.toLowerCase().includes(q) || t.url.toLowerCase().includes(q));
-    }
-    result.sort((a, b) => {
-      let cmp = 0;
-      if (sortBy === 'position') cmp = a.currentPosition - b.currentPosition;
-      else if (sortBy === 'change') cmp = (b.change ?? 0) - (a.change ?? 0);
-      else if (sortBy === 'clicks') cmp = (b.gscClicks ?? 0) - (a.gscClicks ?? 0);
-      else cmp = a.keyword.localeCompare(b.keyword);
-      return sortAsc ? cmp : -cmp;
-    });
-    return result;
-  }, [keywordTrends, gscOnlyQueries, activeTab, searchQuery, sortBy, sortAsc]);
-
-  const toggleSort = (col: 'position' | 'change' | 'keyword' | 'clicks') => {
-    if (sortBy === col) setSortAsc(!sortAsc);
-    else { setSortBy(col); setSortAsc(col === 'position'); }
   };
 
-  const dates = useMemo(() => {
-    const s = new Set(rankings.map((r) => r.date));
-    return Array.from(s).sort();
-  }, [rankings]);
-  const latestDate = dates[dates.length - 1];
+  // ── Computed ────────────────────────────────────────────────────────────
+  const allKeywords = insights
+    ? [...insights.tiers.top5, ...insights.tiers.top10, ...insights.tiers.top15, ...insights.tiers.top30, ...insights.tiers.beyond30]
+    : [];
+  const hasData = insights !== null && allKeywords.length > 0;
 
   if (isLoading) return <PageLoading />;
 
   return (
     <div className="space-y-5">
-      {/* ── Header ──────────────────────────────────────────────────── */}
+      {/* ── Header ──────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
+        <div className="flex items-center gap-4">
           <h1 className="text-2xl font-bold text-[var(--text-primary)]">Thứ hạng từ khóa</h1>
-          {stats.total > 0 ? (
-            <div className="flex items-center gap-2 flex-wrap mt-0.5">
-              <span className="text-[#8888a0] text-sm">{stats.total} từ khóa</span>
-              {selectedProject ? (
-                <>
-                  <span className="text-[#555570]">·</span>
-                  <span className="text-sm font-medium text-emerald-400">
-                    Check mới nhất: {latestDate ? new Date(latestDate).toLocaleDateString('vi-VN') : '—'}
-                  </span>
-                  <span className="text-[#555570]">·</span>
-                  <div className="flex items-center gap-1">
-                    {dates.map((d) => (
-                      <span key={d} className={cn(
-                        'text-[10px] px-1.5 py-0.5 rounded border font-mono',
-                        d === latestDate ? 'bg-emerald-400/10 border-emerald-400/20 text-emerald-400' : 'bg-secondary border-border text-[#8888a0]'
-                      )}>
-                        {new Date(d).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
-                      </span>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <span className="text-[#8888a0] text-sm">· Chọn dự án để xem ngày check</span>
-              )}
-            </div>
-          ) : (
-            <p className="text-[#8888a0] text-sm mt-0.5">Chưa có dữ liệu. Cấu hình Google Sheet để bắt đầu.</p>
-          )}
+
+          {/* Main tabs: Summary / Detailed */}
+          <div className="flex bg-secondary/50 rounded-lg p-0.5 border border-border">
+            {([
+              { key: 'summary' as MainTab, label: 'Tổng quan', icon: BarChart3 },
+              { key: 'detailed' as MainTab, label: 'Chi tiết', icon: List },
+            ]).map((tab) => (
+              <button key={tab.key} onClick={() => setMainTab(tab.key)}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all',
+                  mainTab === tab.key
+                    ? 'bg-accent text-white shadow-sm shadow-accent/30'
+                    : 'text-[#8888a0] hover:text-[var(--text-primary)]',
+                )}>
+                <tab.icon className="w-3.5 h-3.5" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
+
         <div className="flex items-center gap-2">
+          {/* Project selector */}
+          <select value={selectedProject} onChange={(e) => setSelectedProject(e.target.value)}
+            className="px-3 py-1.5 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-xs">
+            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+
+          {/* Check dates */}
+          {insights?.meta.checkDates && insights.meta.checkDates.length > 0 && (
+            <div className="flex items-center gap-1 hidden sm:flex">
+              {insights.meta.checkDates.slice(-4).map((d) => (
+                <span key={d} className={cn(
+                  'text-[10px] px-1.5 py-0.5 rounded border font-mono',
+                  d === insights.meta.latestDate
+                    ? 'bg-emerald-400/10 border-emerald-400/20 text-emerald-400'
+                    : 'bg-secondary border-border text-[#8888a0]',
+                )}>
+                  {new Date(d).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Sync result */}
           {syncResult && (
-            <span className={cn('text-xs px-2 py-1 rounded animate-in fade-in', syncResult.success ? 'bg-emerald-400/10 text-emerald-400' : 'bg-red-400/10 text-red-400')}>
+            <span className={cn('text-xs px-2 py-1 rounded animate-in fade-in',
+              syncResult.success ? 'bg-emerald-400/10 text-emerald-400' : 'bg-red-400/10 text-red-400')}>
               {syncResult.success ? <CheckCircle className="w-3 h-3 inline mr-1" /> : <AlertCircle className="w-3 h-3 inline mr-1" />}
               {syncResult.message}
             </span>
           )}
+
+          {/* Sync button */}
           <button onClick={handleSyncAll} disabled={syncing}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 rounded-lg text-white font-medium text-sm transition-colors">
-            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-            {syncing ? 'Đang đồng bộ...' : sheetConfigs.length > 0 ? 'Đồng bộ' : 'Cấu hình Sheet'}
+            className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 rounded-lg text-white font-medium text-xs transition-colors">
+            {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+            {syncing ? 'Đồng bộ...' : 'Đồng bộ'}
           </button>
+
+          {/* Settings */}
           <button onClick={() => { setEditConfigs([...sheetConfigs]); setShowConfigModal(true); }}
-            className="p-2 hover:bg-secondary border border-border rounded-lg text-[#8888a0] transition-colors" title="Cấu hình Sheets">
-            <Settings2 className="w-4 h-4" />
+            className="p-1.5 hover:bg-secondary border border-border rounded-lg text-[#8888a0] transition-colors" title="Cấu hình Sheets">
+            <Settings2 className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {stats.total === 0 ? (
-        <EmptyState icon={TrendingUp} title="Chưa có dữ liệu thứ hạng từ khóa"
-          description="Nhấn 'Cấu hình Sheet' để thêm Google Sheet URL, sau đó bấm Đồng bộ" />
+      {/* ── Content ─────────────────────────────────────────────────────── */}
+      {!hasData ? (
+        <EmptyState icon={BarChart3} title="Chưa có dữ liệu thứ hạng"
+          description={selectedProject
+            ? "Nhấn 'Đồng bộ' để lấy dữ liệu từ Google Sheet"
+            : "Chọn dự án và đồng bộ dữ liệu từ Google Sheet"
+          } />
+      ) : mainTab === 'summary' ? (
+        <RankingSummaryTab insights={insights!} growthSnapshots={growthSnapshots} />
       ) : (
-        <>
-          {/* ── Score Cards ──────────────────────────────────────────── */}
-          <div className={cn('grid gap-3', stats.hasGscData ? 'grid-cols-3 sm:grid-cols-6' : 'grid-cols-2 sm:grid-cols-4')}>
-            <ScoreCard label="Top 3" value={stats.top3} total={stats.total} color="text-emerald-400" bgColor="bg-emerald-400" />
-            <ScoreCard label="Top 10" value={stats.top10} total={stats.total} color="text-accent" bgColor="bg-accent" />
-            <ScoreCard label="Tăng hạng" value={stats.improved} icon={<TrendingUp className="w-4 h-4 text-emerald-400" />} color="text-emerald-400" />
-            <ScoreCard label="Giảm hạng" value={stats.declined} icon={<TrendingDown className="w-4 h-4 text-red-400" />} color="text-red-400" />
-            {stats.hasGscData && (
-              <>
-                <ScoreCard label="Clicks" value={stats.totalClicks} icon={<MousePointerClick className="w-4 h-4 text-sky-400" />} color="text-sky-400" />
-                <ScoreCard label="Impressions" value={stats.totalImpressions} icon={<Eye className="w-4 h-4 text-purple-400" />} color="text-purple-400" />
-              </>
-            )}
-          </div>
-
-          {/* ── GSC Traffic Overview ─────────────────────────────────── */}
-          {selectedProject && gscSnapshots.length > 0 && (
-            <GscTrafficSection snapshots={gscSnapshots} />
-          )}
-
-          {/* ── Tabs + Search + Project ──────────────────────────────── */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-            <div className="flex items-center gap-1 bg-secondary/50 rounded-lg p-1 overflow-x-auto">
-              {([
-                { key: 'all' as ViewTab, label: 'Tất cả', count: stats.total, icon: null as React.ReactNode },
-                { key: 'cam_ket' as ViewTab, label: 'Cam kết', count: stats.camKet, icon: <Target className="w-3 h-3" /> as React.ReactNode },
-                { key: 'blog' as ViewTab, label: 'Blog', count: stats.blog, icon: <Eye className="w-3 h-3" /> as React.ReactNode },
-                { key: 'opportunity' as ViewTab, label: 'Cơ hội', count: stats.opportunity, icon: <Zap className="w-3 h-3" /> as React.ReactNode },
-                { key: 'declining' as ViewTab, label: 'Giảm', count: stats.declined, icon: <TrendingDown className="w-3 h-3" /> as React.ReactNode },
-                ...(stats.hasGscData ? [{ key: 'gsc_only' as ViewTab, label: 'GSC', count: stats.gscOnlyCount, icon: <BarChart2 className="w-3 h-3" /> as React.ReactNode }] : []),
-              ]).map((tab) => (
-                <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                  className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all',
-                    activeTab === tab.key ? 'bg-card text-[var(--text-primary)] shadow-sm' : 'text-[#8888a0] hover:text-[var(--text-primary)]')}>
-                  {tab.icon}
-                  {tab.label}
-                  <span className={cn('text-[10px] px-1 py-0.5 rounded', activeTab === tab.key ? 'bg-accent/15 text-accent' : 'bg-secondary')}>{tab.count}</span>
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-2 flex-1">
-              <select value={selectedProject} onChange={(e) => setSelectedProject(e.target.value)}
-                className="px-3 py-1.5 bg-secondary border border-border rounded-lg text-[var(--text-primary)] text-xs">
-                <option value="">Tất cả dự án</option>
-                {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-              <div className="relative flex-1 max-w-xs">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8888a0]" />
-                <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Tìm keyword / URL..."
-                  className="w-full pl-8 pr-3 py-1.5 bg-secondary border border-border rounded-lg text-[var(--text-primary)] placeholder-[#8888a0] text-xs" />
-              </div>
-            </div>
-          </div>
-
-          {/* ── Table ────────────────────────────────────────────────── */}
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border text-[10px] uppercase tracking-wider text-[#8888a0]">
-                  <th className="px-3 py-2.5 text-left w-10">#</th>
-                  <th className="px-3 py-2.5 text-left cursor-pointer hover:text-[var(--text-primary)]" onClick={() => toggleSort('keyword')}>
-                    Từ khóa {sortBy === 'keyword' && (sortAsc ? '↑' : '↓')}
-                  </th>
-                  <th className="px-3 py-2.5 text-center w-20 cursor-pointer hover:text-[var(--text-primary)]" onClick={() => toggleSort('position')}>
-                    Vị trí {sortBy === 'position' && (sortAsc ? '↑' : '↓')}
-                  </th>
-                  <th className="px-3 py-2.5 text-center w-20 cursor-pointer hover:text-[var(--text-primary)]" onClick={() => toggleSort('change')}>
-                    +/- {sortBy === 'change' && (sortAsc ? '↑' : '↓')}
-                  </th>
-                  {stats.hasGscData && (
-                    <>
-                      <th className="px-3 py-2.5 text-center w-20 cursor-pointer hover:text-[var(--text-primary)] hidden sm:table-cell" onClick={() => toggleSort('clicks')}>
-                        Clicks {sortBy === 'clicks' && (sortAsc ? '↑' : '↓')}
-                      </th>
-                      <th className="px-3 py-2.5 text-center w-24 hidden lg:table-cell">Impr.</th>
-                    </>
-                  )}
-                  <th className="px-3 py-2.5 text-left hidden md:table-cell">URL</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/50">
-                {filtered.map((trend, idx) => (
-                  <KeywordRow key={trend.keyword} trend={trend} idx={idx}
-                    expanded={expandedKw === trend.keyword}
-                    onToggle={() => setExpandedKw(expandedKw === trend.keyword ? null : trend.keyword)}
-                    showGsc={stats.hasGscData} />
-                ))}
-              </tbody>
-            </table>
-            {filtered.length === 0 && (
-              <div className="p-8 text-center text-[#8888a0] text-sm">Không có kết quả phù hợp</div>
-            )}
-          </div>
-
-          <p className="text-[10px] text-[#666680] text-right">
-            {filtered.length} / {activeTab === 'gsc_only' ? stats.gscOnlyCount : stats.total} từ khóa
-            {activeTab === 'gsc_only' && ' (chỉ từ Google Search Console)'}
-          </p>
-        </>
+        <RankingDetailedTab
+          keywords={allKeywords}
+          checkDates={insights!.meta.checkDates}
+          projectId={selectedProject}
+          onToggleTracked={handleToggleTracked}
+        />
       )}
 
-      {/* ── Sheet Config Modal ──────────────────────────────────────── */}
+      {/* ── Sheet Config Modal ──────────────────────────────────────────── */}
       {showConfigModal && (
         <SheetConfigModal
           configs={editConfigs}

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import ScoreRing from '@/components/score-ring-svg-circle';
 import { PageLoading } from '@/components/LoadingSpinner';
+import DashboardWPContentStatsSection from './dashboard-wp-content-stats-section';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -187,6 +188,9 @@ export default function DashboardSEOOverviewTab() {
           <p className="text-xs text-[#8888a0] mt-0.5">thời gian tải trang</p>
         </div>
       </div>
+
+      {/* ── WordPress Content Stats ── */}
+      <DashboardWPContentStatsSection />
 
       {/* ── Strategy Roadmap ── */}
       {strategyPhases.length > 0 && (
