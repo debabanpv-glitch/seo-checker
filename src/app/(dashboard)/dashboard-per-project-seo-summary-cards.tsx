@@ -28,7 +28,16 @@ interface ProjectKeywords {
   declined: number;
 }
 
-interface ProjectSummary {
+export interface CategoryScores {
+  content: number;
+  technical: number;
+  images: number;
+  links: number;
+  eeat: number;
+  aiReadiness: number;
+}
+
+export interface DashboardProjectSummary {
   id: string;
   name: string;
   slug: string | null;
@@ -37,13 +46,14 @@ interface ProjectSummary {
   keywords: ProjectKeywords;
   healthScore: number;
   auditDate: string | null;
+  categoryScores?: CategoryScores | null;
 }
 
 // ---------------------------------------------------------------------------
 // Single project card
 // ---------------------------------------------------------------------------
 
-function ProjectSeoSummaryCard({ project }: { project: ProjectSummary }) {
+function ProjectSeoSummaryCard({ project }: { project: DashboardProjectSummary }) {
   const href = `/projects/${project.slug || project.id}`;
   const { gsc, keywords } = project;
   const hasData = gsc.clicks > 0 || gsc.impressions > 0 || keywords.total > 0;
@@ -109,26 +119,46 @@ function ProjectSeoSummaryCard({ project }: { project: ProjectSummary }) {
             </div>
           )}
 
-          {/* Improved / declined */}
-          {(keywords.improved > 0 || keywords.declined > 0) && (
-            <div className="flex items-center gap-3 pt-2 border-t border-border">
-              {keywords.improved > 0 && (
-                <span className="flex items-center gap-1 text-[10px] text-green-400">
-                  <TrendingUp className="w-3 h-3" /> {keywords.improved} tăng
-                </span>
-              )}
-              {keywords.declined > 0 && (
-                <span className="flex items-center gap-1 text-[10px] text-red-400">
-                  <TrendingDown className="w-3 h-3" /> {keywords.declined} giảm
-                </span>
-              )}
-              {project.auditDate && (
-                <span className="ml-auto text-[10px] text-[#8888a0]">
-                  Audit: {new Date(project.auditDate).toLocaleDateString('vi-VN')}
-                </span>
-              )}
+          {/* Audit category scores */}
+          {project.categoryScores && (
+            <div className="pt-2 border-t border-border space-y-1">
+              {([
+                ['Nội dung', project.categoryScores.content],
+                ['Kỹ thuật', project.categoryScores.technical],
+                ['Hình ảnh', project.categoryScores.images],
+                ['Liên kết', project.categoryScores.links],
+                ['E-E-A-T', project.categoryScores.eeat],
+                ['AI', project.categoryScores.aiReadiness],
+              ] as [string, number][]).map(([label, score]) => (
+                <div key={label} className="flex items-center gap-2">
+                  <span className="text-[10px] text-[#8888a0] w-12 flex-shrink-0">{label}</span>
+                  <div className="flex-1 h-1 bg-secondary rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${score >= 80 ? 'bg-green-400' : score >= 60 ? 'bg-yellow-400' : 'bg-red-400'}`} style={{ width: `${score}%` }} />
+                  </div>
+                  <span className={`text-[10px] font-semibold w-6 text-right ${score >= 80 ? 'text-green-400' : score >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>{score}</span>
+                </div>
+              ))}
             </div>
           )}
+
+          {/* Improved / declined + audit date */}
+          <div className="flex items-center gap-3 pt-2 border-t border-border">
+            {keywords.improved > 0 && (
+              <span className="flex items-center gap-1 text-[10px] text-green-400">
+                <TrendingUp className="w-3 h-3" /> {keywords.improved} tăng
+              </span>
+            )}
+            {keywords.declined > 0 && (
+              <span className="flex items-center gap-1 text-[10px] text-red-400">
+                <TrendingDown className="w-3 h-3" /> {keywords.declined} giảm
+              </span>
+            )}
+            {project.auditDate && (
+              <span className="ml-auto text-[10px] text-[#8888a0]">
+                Audit: {new Date(project.auditDate).toLocaleDateString('vi-VN')}
+              </span>
+            )}
+          </div>
         </>
       ) : (
         <p className="text-xs text-[#8888a0] py-4 text-center">Chưa có dữ liệu GSC / keywords</p>
@@ -167,7 +197,7 @@ function MiniStatBox({
 // DashboardPerProjectSeoSummaryCards — Row 3, grid of project cards
 // ---------------------------------------------------------------------------
 
-export default function DashboardPerProjectSeoSummaryCards({ projects }: { projects: ProjectSummary[] }) {
+export default function DashboardPerProjectSeoSummaryCards({ projects }: { projects: DashboardProjectSummary[] }) {
   if (projects.length === 0) return null;
 
   return (

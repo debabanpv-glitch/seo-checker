@@ -108,6 +108,7 @@ export function GET() {
         // --- Health score from latest audit ---
         let healthScore = 0;
         let auditDate: string | null = null;
+        let categoryScores: Record<string, number> | null = null;
         try {
           const latestAudit = db.select().from(auditResults)
             .where(eq(auditResults.project_id, project.id))
@@ -119,6 +120,17 @@ export function GET() {
             auditDate = latestAudit.audit_date;
             const summary = (latestAudit.summary || {}) as AuditSummary;
             healthScore = summary.seo_score || 0;
+            // Category scores from seo-master-auditor
+            if (summary.content_score != null) {
+              categoryScores = {
+                content: summary.content_score || 0,
+                technical: summary.technical_score || 0,
+                images: summary.images_score || 0,
+                links: summary.links_score || 0,
+                eeat: summary.eeat_score || 0,
+                aiReadiness: summary.ai_readiness_score || 0,
+              };
+            }
           }
         } catch {
           // no audit data
@@ -133,6 +145,7 @@ export function GET() {
           keywords,
           healthScore,
           auditDate,
+          categoryScores,
         };
       } catch {
         // Fallback for this project

@@ -81,9 +81,13 @@ export default function DashboardSeoKpiCardsRow({ totals, prevTotals }: {
     ? Math.round((totals.keywordsInTop10 / totals.totalKeywords) * 100)
     : 0;
 
-  // Weighted avg position across projects — not available at totals level, show '--'
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div>
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-xs font-semibold text-[var(--text-primary)]">Tổng hợp tất cả dự án</span>
+        <span className="text-[10px] text-[#8888a0] bg-secondary px-2 py-0.5 rounded-full">7 ngày gần nhất</span>
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <KpiCard
         label="Tổng lượt click"
         value={totals.clicks.toLocaleString()}
@@ -118,6 +122,7 @@ export default function DashboardSeoKpiCardsRow({ totals, prevTotals }: {
         gradientFrom="from-orange-500/5"
         iconColor="text-orange-400"
       />
+      </div>
     </div>
   );
 }

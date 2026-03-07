@@ -15,40 +15,9 @@ import DashboardWPContentStatsSection from './dashboard-wp-content-stats-section
 import DashboardSeoKpiCardsRow from './dashboard-seo-kpi-cards-row';
 import DashboardKeywordDistributionBoxes from './dashboard-keyword-distribution-boxes';
 import DashboardTrafficTrendMiniChart from './dashboard-traffic-trend-mini-chart';
-import DashboardPerProjectSeoSummaryCards from './dashboard-per-project-seo-summary-cards';
+import DashboardPerProjectSeoSummaryCards, { type DashboardProjectSummary } from './dashboard-per-project-seo-summary-cards';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-interface ProjectGsc {
-  clicks: number;
-  impressions: number;
-  ctr: number;
-  position: number;
-  prevClicks: number | null;
-  prevImpressions: number | null;
-}
-
-interface ProjectKeywords {
-  total: number;
-  top3: number;
-  top10: number;
-  top20: number;
-  top50: number;
-  beyond50: number;
-  improved: number;
-  declined: number;
-}
-
-interface ProjectSummary {
-  id: string;
-  name: string;
-  slug: string | null;
-  domain: string | null;
-  gsc: ProjectGsc;
-  keywords: ProjectKeywords;
-  healthScore: number;
-  auditDate: string | null;
-}
 
 interface SeoSummaryTotals {
   clicks: number;
@@ -74,7 +43,7 @@ interface Distribution {
 }
 
 interface SeoSummaryData {
-  projects: ProjectSummary[];
+  projects: DashboardProjectSummary[];
   totals: SeoSummaryTotals;
   dailyTrend: DailyPoint[];
   distribution: Distribution;
