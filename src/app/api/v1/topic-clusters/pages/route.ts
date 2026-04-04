@@ -6,14 +6,23 @@ import {
   updatePage,
   removePage,
 } from '@/lib/services/topic-clusters-crud.service';
+import { checkClusterInternalLinks } from '@/lib/services/topic-cluster-link-checker.service';
 
 export const dynamic = 'force-dynamic';
 
 export function GET(req: NextRequest) {
   try {
-    const clusterId = new URL(req.url).searchParams.get('clusterId');
+    const sp = new URL(req.url).searchParams;
+    const clusterId = sp.get('clusterId');
     if (!clusterId) {
       return NextResponse.json({ error: 'clusterId là bắt buộc' }, { status: 400 });
+    }
+
+    // GET ?clusterId=xxx&action=check-links → crawl and check internal links
+    if (sp.get('action') === 'check-links') {
+      return checkClusterInternalLinks(clusterId).then(result =>
+        NextResponse.json(result)
+      );
     }
 
     const detail = getClusterDetail(clusterId);

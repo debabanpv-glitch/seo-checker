@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Check, X, Loader2, AlertTriangle, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Check, X, Loader2, AlertTriangle, Edit2, Trash2, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface PageRow {
@@ -131,6 +131,8 @@ function AnchorCell({ pageId, value, field, onSaved }: AnchorCellProps) {
 // ── Main Component ─────────────────────────────────────────────────────────────
 
 export function TopicalMapInternalLinks({ clusterId, pages, pillarUrl, onRefresh }: Props) {
+  const [isCheckingLinks, setIsCheckingLinks] = useState(false);
+  const [checkResult, setCheckResult] = useState<{ total: number; withLinkToPillar: number; withLinkFromPillar: number; bidirectional: number } | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [addForm, setAddForm] = useState<EditState>({
     url: '', title: '', role: 'supporting',
@@ -148,6 +150,22 @@ export function TopicalMapInternalLinks({ clusterId, pages, pillarUrl, onRefresh
   });
   const [isSaving, setIsSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Auto-check internal links by crawling pages
+  const handleCheckLinks = async () => {
+    setIsCheckingLinks(true);
+    setCheckResult(null);
+    try {
+      const res = await fetch(`/api/v1/topic-clusters/pages?clusterId=${clusterId}&action=check-links`);
+      const data = await res.json();
+      setCheckResult(data.summary);
+      onRefresh(); // Reload pages with updated link status
+    } catch (e) {
+      console.error('Failed to check links:', e);
+    } finally {
+      setIsCheckingLinks(false);
+    }
+  };
 
   // Warnings
   const missingLinksFromPage = pages.filter((p) => p.role !== 'pillar' && !p.links_to_pillar).length;
@@ -260,14 +278,36 @@ export function TopicalMapInternalLinks({ clusterId, pages, pillarUrl, onRefresh
               </p>
             )}
           </div>
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Thêm bài viết
-          </button>
+          <div className="flex items-center gap-2">
+            {pages.length > 0 && pillarUrl && (
+              <button
+                onClick={handleCheckLinks}
+                disabled={isCheckingLinks}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-medium hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+              >
+                {isCheckingLinks ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                {isCheckingLinks ? 'Đang kiểm tra...' : 'Kiểm tra links'}
+              </button>
+            )}
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Thêm bài viết
+            </button>
+          </div>
         </div>
+
+        {/* Check result banner */}
+        {checkResult && (
+          <div className="px-4 py-2 border-b border-[var(--border)] bg-emerald-500/5 text-xs flex items-center gap-4">
+            <span className="font-medium text-emerald-600">Kết quả kiểm tra:</span>
+            <span>{checkResult.withLinkToPillar}/{checkResult.total - 1} bài link → Pillar</span>
+            <span>{checkResult.withLinkFromPillar}/{checkResult.total - 1} bài Pillar link →</span>
+            <span className="font-medium">{checkResult.bidirectional} liên kết 2 chiều</span>
+          </div>
+        )}
 
         {/* Add form */}
         {showAddForm && (
