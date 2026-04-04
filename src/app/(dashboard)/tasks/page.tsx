@@ -333,6 +333,8 @@ export default function TasksPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('all');
   const [filterProject, setFilterProject] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [filterCategory, setFilterCategory] = useState('');
+  const [filterWeek, setFilterWeek] = useState('');
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
 
   useEffect(() => {
@@ -350,13 +352,24 @@ export default function TasksPage() {
     [...new Set(notionTasks.map(t => t.project).filter(Boolean))] as string[]
   , [notionTasks]);
 
-  // Filtered tasks (applied globally)
+  // Filtered tasks (applied globally — includes chart filters)
   const filtered = useMemo(() => {
     let result = notionTasks;
     if (filterProject) result = result.filter(t => t.project === filterProject);
     if (filterStatus) result = result.filter(t => t.status === filterStatus);
+    if (filterCategory) result = result.filter(t => (t.category || 'Khác') === filterCategory);
+    if (filterWeek) {
+      const weekStart = new Date(filterWeek);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      result = result.filter(t => {
+        if (!t.deadline) return false;
+        const d = new Date(t.deadline);
+        return d >= weekStart && d <= weekEnd;
+      });
+    }
     return result;
-  }, [notionTasks, filterProject, filterStatus]);
+  }, [notionTasks, filterProject, filterStatus, filterCategory, filterWeek]);
 
   // Week tasks — deadline in current week
   const weekTasks = useMemo(() => {
@@ -450,8 +463,16 @@ export default function TasksPage() {
         />
       </div>
 
-      {/* Progress Charts */}
-      <TasksProgressCharts tasks={notionTasks} />
+      {/* Progress Charts — click to filter */}
+      <TasksProgressCharts
+        tasks={notionTasks}
+        activeStatus={filterStatus}
+        activeCategory={filterCategory}
+        activeWeek={filterWeek}
+        onFilterStatus={(s) => { setFilterStatus(s); setFilterCategory(''); setFilterWeek(''); }}
+        onFilterCategory={(c) => { setFilterCategory(c); setFilterStatus(''); setFilterWeek(''); }}
+        onFilterWeek={(w) => { setFilterWeek(w); setFilterStatus(''); setFilterCategory(''); }}
+      />
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
@@ -466,9 +487,15 @@ export default function TasksPage() {
           <option value="">Tất cả trạng thái</option>
           {STATUS_ORDER.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        {(filterProject || filterStatus) && (
-          <button onClick={() => { setFilterProject(''); setFilterStatus(''); }}
+        {(filterProject || filterStatus || filterCategory || filterWeek) && (
+          <button onClick={() => { setFilterProject(''); setFilterStatus(''); setFilterCategory(''); setFilterWeek(''); }}
             className="text-xs text-accent hover:underline">Xóa bộ lọc</button>
+        )}
+        {(filterCategory || filterWeek) && (
+          <span className="text-xs text-[var(--text-primary)] bg-accent/10 px-2 py-0.5 rounded-full">
+            {filterCategory && `📌 ${filterCategory}`}
+            {filterWeek && `📅 Tuần ${new Date(filterWeek).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}`}
+          </span>
         )}
       </div>
 

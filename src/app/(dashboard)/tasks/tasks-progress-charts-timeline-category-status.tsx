@@ -35,9 +35,15 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 interface Props {
   tasks: NotionTask[];
+  activeStatus?: string;
+  activeCategory?: string;
+  activeWeek?: string;
+  onFilterStatus?: (status: string) => void;
+  onFilterCategory?: (category: string) => void;
+  onFilterWeek?: (weekStart: string) => void;
 }
 
-export default function TasksProgressCharts({ tasks }: Props) {
+export default function TasksProgressCharts({ tasks, activeStatus, activeCategory, activeWeek, onFilterStatus, onFilterCategory, onFilterWeek }: Props) {
   // ── Status distribution ──
   const statusData = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -119,13 +125,15 @@ export default function TasksProgressCharts({ tasks }: Props) {
         {/* Legend */}
         <div className="space-y-1.5">
           {statusData.map(([status, count]) => (
-            <div key={status} className="flex items-center justify-between text-xs">
+            <button key={status} onClick={() => onFilterStatus?.(activeStatus === status ? '' : status)}
+              className={cn('flex items-center justify-between text-xs w-full rounded px-1 py-0.5 transition-colors',
+                activeStatus === status ? 'bg-accent/10 ring-1 ring-accent/30' : 'hover:bg-secondary')}>
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: STATUS_COLORS[status] || '#9ca3af' }} />
                 <span className="text-[var(--text-primary)]">{status}</span>
               </div>
               <span className="text-[#8888a0] font-medium">{count} ({Math.round(count / tasks.length * 100)}%)</span>
-            </div>
+            </button>
           ))}
         </div>
       </div>
@@ -138,8 +146,10 @@ export default function TasksProgressCharts({ tasks }: Props) {
         </div>
         <div className="space-y-2">
           {categoryData.map(([cat, count]) => (
-            <div key={cat} className="flex items-center gap-2">
-              <span className="text-[10px] text-[var(--text-primary)] w-24 truncate shrink-0">{cat}</span>
+            <button key={cat} onClick={() => onFilterCategory?.(activeCategory === cat ? '' : cat)}
+              className={cn('flex items-center gap-2 w-full rounded px-1 py-0.5 transition-colors',
+                activeCategory === cat ? 'bg-accent/10 ring-1 ring-accent/30' : 'hover:bg-secondary')}>
+              <span className="text-[10px] text-[var(--text-primary)] w-24 truncate shrink-0 text-left">{cat}</span>
               <div className="flex-1 h-3 bg-secondary rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all"
@@ -147,7 +157,7 @@ export default function TasksProgressCharts({ tasks }: Props) {
                 />
               </div>
               <span className="text-[10px] text-[#8888a0] w-6 text-right font-medium">{count}</span>
-            </div>
+            </button>
           ))}
         </div>
       </div>
@@ -174,7 +184,10 @@ export default function TasksProgressCharts({ tasks }: Props) {
                 })();
 
                 return (
-                  <div key={week} className="flex-1 flex flex-col justify-end gap-[1px]" title={`Tuần ${week}: ${data.total} tasks (${data.done} done)`}>
+                  <div key={week} onClick={() => onFilterWeek?.(activeWeek === week ? '' : week)}
+                    className={cn('flex-1 flex flex-col justify-end gap-[1px] cursor-pointer rounded transition-all',
+                      activeWeek === week ? 'ring-2 ring-accent/40 bg-accent/5' : 'hover:bg-secondary/30')}
+                    title={`Tuần ${week}: ${data.total} tasks (${data.done} done)`}>
                     {data.backlog > 0 && (
                       <div className="rounded-t" style={{ height: `${(data.backlog / maxTimeline) * 100}%`, background: '#9ca3af', minHeight: data.backlog > 0 ? '2px' : 0 }} />
                     )}
