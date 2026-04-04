@@ -18,7 +18,7 @@ interface LinkCheckResult {
   error?: string;
 }
 
-/** Fetch a page's HTML and extract all <a> hrefs with their anchor text */
+/** Fetch a page's HTML and extract ALL <a> hrefs (including breadcrumb, nav, sidebar) */
 async function extractLinks(url: string): Promise<{ href: string; anchor: string }[]> {
   try {
     const res = await fetch(url, {
@@ -28,13 +28,13 @@ async function extractLinks(url: string): Promise<{ href: string; anchor: string
     if (!res.ok) return [];
     const html = await res.text();
 
-    // Simple regex extraction — good enough for checking internal links
+    // Extract ALL <a> tags — breadcrumb, nav, content, sidebar, footer
     const links: { href: string; anchor: string }[] = [];
     const regex = /<a\s[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
     let match;
     while ((match = regex.exec(html)) !== null) {
-      const href = match[1].split('#')[0].split('?')[0]; // strip hash/query
-      const anchor = match[2].replace(/<[^>]+>/g, '').trim(); // strip inner HTML tags
+      const href = match[1].split('#')[0].split('?')[0];
+      const anchor = match[2].replace(/<[^>]+>/g, '').trim();
       if (href) links.push({ href, anchor });
     }
     return links;
