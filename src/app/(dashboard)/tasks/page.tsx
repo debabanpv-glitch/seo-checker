@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { Project } from '@/types';
 import { PageLoading } from '@/components/LoadingSpinner';
 import TasksStrategyActionsTab from './tasks-strategy-actions-tab';
+import TasksProgressCharts from './tasks-progress-charts-timeline-category-status';
 
 // ── Notion Task type ─────────────────────────────────────────────────────────
 
@@ -448,6 +449,9 @@ export default function TasksPage() {
           colorClass="text-success"
         />
       </div>
+
+      {/* Progress Charts */}
+      <TasksProgressCharts tasks={notionTasks} />
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
