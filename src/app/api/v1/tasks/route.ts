@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export function GET(request: NextRequest) {
   try {
     const sp = new URL(request.url).searchParams;
-    const project = sp.get('project') || undefined;
+    const project = sp.get('project') || sp.get('project_id') || undefined;
     const month = sp.get('month') ? parseInt(sp.get('month')!) : undefined;
     const year = sp.get('year') ? parseInt(sp.get('year')!) : undefined;
     const published = sp.get('published') === 'true';

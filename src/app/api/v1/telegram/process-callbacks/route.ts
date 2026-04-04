@@ -72,10 +72,10 @@ function formatTraffic(): string {
   for (const proj of projects) {
     const snaps = getSnapshots(proj.id, 2);
     if (!snaps.length) { lines.push(`${proj.name}: chưa có dữ liệu`); continue; }
-    const latest = snaps[0] as { clicks: number; impressions: number; ctr: number; position: number; snapshot_date: string };
-    let line = `<b>${proj.name}</b> (${latest.snapshot_date})\n  ${latest.clicks} clicks | ${latest.impressions} imp | CTR ${(latest.ctr * 100).toFixed(1)}% | Pos ${latest.position.toFixed(1)}`;
+    const latest = snaps[0] as unknown as { clicks: number; impressions: number; ctr: number; position: number; date: string };
+    let line = `<b>${proj.name}</b> (${latest.date})\n  ${latest.clicks} clicks | ${latest.impressions} imp | CTR ${(latest.ctr * 100).toFixed(1)}% | Pos ${latest.position.toFixed(1)}`;
     if (snaps.length > 1) {
-      const prev = snaps[1] as { clicks: number; impressions: number };
+      const prev = snaps[1] as unknown as { clicks: number; impressions: number };
       const diffC = latest.clicks - prev.clicks;
       const diffI = latest.impressions - prev.impressions;
       line += `\n  vs trước: ${diffC >= 0 ? '+' : ''}${diffC} clicks, ${diffI >= 0 ? '+' : ''}${diffI} imp`;
@@ -92,10 +92,11 @@ function formatKeywords(): string {
     try {
       const data = getKeywordInsights(proj.id);
       const s = data.summary;
+      const inTop10 = data.tiers.top5.length + data.tiers.top10.length;
       lines.push(
         `<b>${proj.name}</b>` +
-        `\n  Tổng: ${s.total} | Top10: ${s.inTop10} | Tăng: ${s.improved} | Giảm: ${s.declined}` +
-        `\n  Surging: ${data.surging.length} | Dropping: ${data.dropping.length} | Boundary: ${data.boundary.length}` +
+        `\n  Tổng: ${s.total} | Top10: ${inTop10} | Tăng: ${s.improved} | Giảm: ${s.declined}` +
+        `\n  Surging: ${data.movers.surging.length} | Dropping: ${data.movers.dropping.length} | Boundary: ${data.boundary.length}` +
         (s.totalClicks ? `\n  Clicks: ${s.totalClicks} | Imp: ${s.totalImpressions}` : '')
       );
     } catch {

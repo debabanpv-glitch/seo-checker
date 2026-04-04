@@ -15,6 +15,12 @@ export const dynamic = 'force-dynamic';
 
 interface AuditSummary {
   seo_score?: number;
+  content_score?: number;
+  technical_score?: number;
+  images_score?: number;
+  links_score?: number;
+  eeat_score?: number;
+  ai_readiness_score?: number;
   [key: string]: unknown;
 }
 

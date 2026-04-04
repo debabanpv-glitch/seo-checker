@@ -131,8 +131,8 @@ export function QueriesTab({
 
     // Sort
     result.sort((a, b) => {
-      const aVal = (a as Record<string, unknown>)[sortKey] as number ?? 0;
-      const bVal = (b as Record<string, unknown>)[sortKey] as number ?? 0;
+      const aVal = (a as unknown as Record<string, unknown>)[sortKey] as number ?? 0;
+      const bVal = (b as unknown as Record<string, unknown>)[sortKey] as number ?? 0;
       return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
     });
 

@@ -22,6 +22,11 @@ import {
   ShieldCheck,
   Lightbulb,
   Link2,
+  Star,
+  Eye,
+  ChevronDown,
+  Network,
+  FileBarChart,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -45,6 +50,10 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   ShieldCheck,
   Lightbulb,
   Link2,
+  Star,
+  Eye,
+  Network,
+  FileBarChart,
 };
 
 const enabledModules = modules.filter((m) => m.enabled).sort((a, b) => a.order - b.order);
@@ -55,8 +64,48 @@ const settingsModules = enabledModules.filter((m) => m.group === 'settings');
 
 function NavItem({ item, onClick }: { item: ModuleConfig; onClick: () => void }) {
   const pathname = usePathname();
+  const fullUrl = typeof window !== 'undefined' ? pathname + window.location.search : pathname;
   const isActive = pathname === item.path;
+  const hasChildren = item.children && item.children.length > 0;
+  const isChildActive = hasChildren && item.children!.some(c => fullUrl === c.path || pathname === c.path.split('?')[0]);
+  const [expanded, setExpanded] = useState(isActive || isChildActive);
   const Icon = iconMap[item.icon];
+
+  if (hasChildren) {
+    return (
+      <div>
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className={cn('nav-link w-full justify-between', (isActive || isChildActive) && 'active')}
+        >
+          <span className="flex items-center gap-3">
+            {Icon && <Icon className="w-5 h-5" />}
+            <span>{item.name}</span>
+          </span>
+          <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', expanded && 'rotate-180')} />
+        </button>
+        {expanded && (
+          <div className="ml-4 mt-0.5 space-y-0.5 border-l border-border pl-3">
+            {item.children!.map(child => {
+              const ChildIcon = iconMap[child.icon];
+              const childActive = fullUrl === child.path || (pathname === child.path.split('?')[0] && child.path.includes('?') && fullUrl.includes(child.path.split('?')[1]));
+              return (
+                <Link
+                  key={child.id}
+                  href={child.path}
+                  onClick={onClick}
+                  className={cn('nav-link text-sm py-1.5', childActive && 'active')}
+                >
+                  {ChildIcon && <ChildIcon className="w-4 h-4" />}
+                  <span>{child.name}</span>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <Link

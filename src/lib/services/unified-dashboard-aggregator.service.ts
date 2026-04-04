@@ -1,0 +1,817 @@
+// ---------------------------------------------------------------------------
+// Unified Dashboard Aggregator Service
+// Reads ALL data sources → produces a unified KPI summary for the dashboard.
+// SYNC only — no async/await (better-sqlite3 sync API).
+// ---------------------------------------------------------------------------
+
+import { db } from '@/lib/db';
+import {
+  projects,
+  gscSnapshots,
+  keywordRankings,
+  notionContent,
+  notionBacklinks,
+  sheetContent,
+  backlinks,
+  auditResults,
+  topicClusters,
+  topicClusterPages,
+  strategyPhases,
+  strategyActions,
+  activityLog,
+  tasks,
+} from '@/lib/db/schema';
+import { eq, and, desc, sql, isNotNull } from 'drizzle-orm';
+import { getAppConfig } from './app-config-crud.service';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface UnifiedDashboardSummary {
+  traffic: {
+    totalClicks: number;
+    totalImpressions: number;
+    avgPosition: number;
+    clicksTrend: number; // % change vs previous period
+    impressionsTrend: number;
+  };
+  keywords: {
+    total: number;
+    top3: number;
+    top10: number;
+    top30: number;
+    trackedFromNotion: number;
+    moversUp: number;
+    moversDown: number;
+  };
+  content: {
+    totalPublished: number;
+    totalDrafts: number;
+    publishedThisMonth: number;
+    fromAI: number; // notion_content source
+    fromManual: number; // sheet_content source
+  };
+  tasks: {
+    total: number;
+    done: number;
+    inProgress: number;
+    overdue: number;
+    byCategory: Record<string, { total: number; done: number }>;
+  };
+  backlinks: {
+    total: number;
+    alive: number;
+    dead: number;
+    newThisMonth: number;
+    avgDR: number;
+  };
+  seoStrength: {
+    auditScores: Record<string, number>;
+    avgAuditScore: number;
+    clusterCount: number;
+    avgCompleteness: number;
+    orphanPages: number;
+  };
+  strategy: {
+    totalActions: number;
+    completedActions: number;
+    completionRate: number;
+    activePhases: number;
+  };
+  projects: Array<{
+    id: string;
+    name: string;
+    clicks: number;
+    kwTop10: number;
+    kwTrackedTotal: number;
+    kwTrackedTop10: number;
+    kwFollowTotal: number;
+    kwFollowTop10: number;
+    contentPublished: number;
+    auditScore: number;
+    progressPercent: number;
+    tasksDone: number;
+    tasksTotal: number;
+    backlinksAlive: number;
+    backlinksTotal: number;
+    strategyRate: number;
+  }>;
+  recentActivity: Array<{
+    source: string;
+    action: string;
+    description: string;
+    project_id?: string;
+    created_at: string;
+  }>;
+  projectGoals: Record<string, {
+    start_date: string;
+    deadline: string;
+    targets: { weekly_clicks: number; top10_keywords: number; strategy_completion: number; seo_score: number };
+  }>;
+  meta: {
+    generatedAt: string;
+    projectFilter: string | null;
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+function safePct(current: number, previous: number): number {
+  if (previous === 0) return 0;
+  return Math.round(((current - previous) / previous) * 100 * 10) / 10;
+}
+
+function currentMonthPrefix(): string {
+  const now = new Date();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  return `${now.getFullYear()}-${m}`;
+}
+
+// ---------------------------------------------------------------------------
+// Traffic — latest vs previous GSC snapshot
+// ---------------------------------------------------------------------------
+
+function getTrafficKpi(projectId?: string): UnifiedDashboardSummary['traffic'] {
+  // Fetch 2 most recent snapshots per project (or overall)
+  const baseQuery = db
+    .select({
+      project_id: gscSnapshots.project_id,
+      date: gscSnapshots.date,
+      clicks: gscSnapshots.clicks,
+      impressions: gscSnapshots.impressions,
+      position: gscSnapshots.position,
+    })
+    .from(gscSnapshots);
+
+  const rows = projectId
+    ? baseQuery.where(and(eq(gscSnapshots.project_id, projectId), eq(gscSnapshots.period, 'weekly')))
+        .orderBy(desc(gscSnapshots.date))
+        .limit(10)
+        .all()
+    : baseQuery.where(eq(gscSnapshots.period, 'weekly'))
+        .orderBy(desc(gscSnapshots.date))
+        .limit(30)
+        .all();
+
+  if (rows.length === 0) {
+    return { totalClicks: 0, totalImpressions: 0, avgPosition: 0, clicksTrend: 0, impressionsTrend: 0 };
+  }
+
+  // Group by project, take latest 2 dates
+  const byProject = new Map<string, typeof rows>();
+  for (const r of rows) {
+    const arr = byProject.get(r.project_id) ?? [];
+    arr.push(r);
+    byProject.set(r.project_id, arr);
+  }
+
+  let latestClicks = 0;
+  let latestImpressions = 0;
+  let latestPositionSum = 0;
+  let latestPositionCount = 0;
+  let prevClicks = 0;
+  let prevImpressions = 0;
+
+  for (const snapshots of byProject.values()) {
+    // Already ordered desc by date
+    const latest = snapshots[0];
+    const prev = snapshots[1] ?? null;
+
+    latestClicks += latest.clicks;
+    latestImpressions += latest.impressions;
+    if (latest.position > 0) {
+      latestPositionSum += latest.position;
+      latestPositionCount++;
+    }
+    if (prev) {
+      prevClicks += prev.clicks;
+      prevImpressions += prev.impressions;
+    }
+  }
+
+  return {
+    totalClicks: latestClicks,
+    totalImpressions: latestImpressions,
+    avgPosition: latestPositionCount > 0 ? Math.round((latestPositionSum / latestPositionCount) * 10) / 10 : 0,
+    clicksTrend: safePct(latestClicks, prevClicks),
+    impressionsTrend: safePct(latestImpressions, prevImpressions),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Keywords — positions from latest check date
+// ---------------------------------------------------------------------------
+
+function getKeywordsKpi(projectId?: string): UnifiedDashboardSummary['keywords'] {
+  // Get all unique check dates for this project, latest 2
+  const dateQuery = db
+    .selectDistinct({ date: keywordRankings.date })
+    .from(keywordRankings);
+
+  const dates = projectId
+    ? dateQuery.where(and(eq(keywordRankings.project_id, projectId), isNotNull(keywordRankings.date)))
+        .orderBy(desc(keywordRankings.date))
+        .limit(2)
+        .all()
+    : dateQuery.where(isNotNull(keywordRankings.date))
+        .orderBy(desc(keywordRankings.date))
+        .limit(2)
+        .all();
+
+  if (dates.length === 0) {
+    return { total: 0, top3: 0, top10: 0, top30: 0, trackedFromNotion: 0, moversUp: 0, moversDown: 0 };
+  }
+
+  const latestDate = dates[0].date;
+  const prevDate = dates[1]?.date ?? null;
+
+  // Latest snapshot counts
+  const latestRows = projectId
+    ? db.select({ position: keywordRankings.position, is_tracked: keywordRankings.is_tracked, keyword: keywordRankings.keyword })
+        .from(keywordRankings)
+        .where(and(eq(keywordRankings.project_id, projectId), eq(keywordRankings.date, latestDate)))
+        .all()
+    : db.select({ position: keywordRankings.position, is_tracked: keywordRankings.is_tracked, keyword: keywordRankings.keyword })
+        .from(keywordRankings)
+        .where(eq(keywordRankings.date, latestDate))
+        .all();
+
+  let top3 = 0, top10 = 0, top30 = 0, trackedCount = 0;
+  const latestByKw = new Map<string, number>();
+
+  for (const r of latestRows) {
+    const pos = r.position;
+    latestByKw.set(r.keyword, pos);
+    if (pos > 0 && pos <= 3) top3++;
+    if (pos > 0 && pos <= 10) top10++;
+    if (pos > 0 && pos <= 30) top30++;
+    if (r.is_tracked) trackedCount++;
+  }
+
+  // Movers — compare with previous date
+  let moversUp = 0, moversDown = 0;
+
+  if (prevDate) {
+    const prevRows = projectId
+      ? db.select({ keyword: keywordRankings.keyword, position: keywordRankings.position })
+          .from(keywordRankings)
+          .where(and(eq(keywordRankings.project_id, projectId), eq(keywordRankings.date, prevDate)))
+          .all()
+      : db.select({ keyword: keywordRankings.keyword, position: keywordRankings.position })
+          .from(keywordRankings)
+          .where(eq(keywordRankings.date, prevDate))
+          .all();
+
+    const prevByKw = new Map<string, number>();
+    for (const r of prevRows) prevByKw.set(r.keyword, r.position);
+
+    for (const [kw, curPos] of latestByKw.entries()) {
+      const prevPos = prevByKw.get(kw);
+      if (prevPos !== undefined && curPos > 0 && prevPos > 0) {
+        const delta = prevPos - curPos; // positive = improved (lower rank number)
+        if (delta >= 5) moversUp++;
+        else if (delta <= -5) moversDown++;
+      }
+    }
+  }
+
+  return {
+    total: latestRows.length,
+    top3,
+    top10,
+    top30,
+    trackedFromNotion: trackedCount,
+    moversUp,
+    moversDown,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Content — notion_content + sheet_content
+// ---------------------------------------------------------------------------
+
+function getContentKpi(projectId?: string): UnifiedDashboardSummary['content'] {
+  const monthPrefix = currentMonthPrefix();
+
+  // notion_content: published items
+  let notionPublishedQuery = db
+    .select({ status: notionContent.status, publish_date: notionContent.publish_date })
+    .from(notionContent);
+
+  const notionRows = notionPublishedQuery.all();
+
+  let notionPublished = 0, notionDrafts = 0, notionThisMonth = 0;
+
+  for (const r of notionRows) {
+    const status = (r.status ?? '').toLowerCase();
+    if (status.includes('published') || status.includes('done') || status.includes('live')) {
+      notionPublished++;
+      if (r.publish_date && r.publish_date.startsWith(monthPrefix)) notionThisMonth++;
+    } else {
+      notionDrafts++;
+    }
+  }
+
+  // sheet_content: filter by project if needed
+  let sheetRows: { content_status: string | null; publish_date: string | null }[] = [];
+  if (projectId) {
+    sheetRows = db
+      .select({ content_status: sheetContent.content_status, publish_date: sheetContent.publish_date })
+      .from(sheetContent)
+      .where(eq(sheetContent.project_id, projectId))
+      .all();
+  } else {
+    sheetRows = db
+      .select({ content_status: sheetContent.content_status, publish_date: sheetContent.publish_date })
+      .from(sheetContent)
+      .all();
+  }
+
+  let sheetPublished = 0, sheetDrafts = 0, sheetThisMonth = 0;
+  for (const r of sheetRows) {
+    const status = (r.content_status ?? '').toLowerCase();
+    if (status.includes('published') || status.includes('done') || status.includes('live') || status === 'đã đăng') {
+      sheetPublished++;
+      if (r.publish_date && r.publish_date.startsWith(monthPrefix)) sheetThisMonth++;
+    } else if (status.length > 0) {
+      sheetDrafts++;
+    }
+  }
+
+  return {
+    totalPublished: notionPublished + sheetPublished,
+    totalDrafts: notionDrafts + sheetDrafts,
+    publishedThisMonth: notionThisMonth + sheetThisMonth,
+    fromAI: notionPublished,
+    fromManual: sheetPublished,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Tasks — tasks table (project tasks)
+// ---------------------------------------------------------------------------
+
+function getTasksKpi(projectId?: string): UnifiedDashboardSummary['tasks'] {
+  const today = new Date().toISOString().slice(0, 10);
+
+  const taskRows = projectId
+    ? db.select({
+        status_content: tasks.status_content,
+        category: tasks.category,
+        deadline: tasks.deadline,
+      }).from(tasks).where(eq(tasks.project_id, projectId)).all()
+    : db.select({
+        status_content: tasks.status_content,
+        category: tasks.category,
+        deadline: tasks.deadline,
+      }).from(tasks).all();
+
+  let done = 0, inProgress = 0, overdue = 0;
+  const byCategory: Record<string, { total: number; done: number }> = {};
+
+  for (const t of taskRows) {
+    const status = (t.status_content ?? '').toLowerCase();
+    const cat = t.category ?? 'other';
+
+    if (!byCategory[cat]) byCategory[cat] = { total: 0, done: 0 };
+    byCategory[cat].total++;
+
+    if (status.includes('publish') || status.includes('done') || status.includes('đã đăng') || status.includes('live')) {
+      done++;
+      byCategory[cat].done++;
+    } else if (status.includes('qc') || status.includes('fix') || status.includes('doing') || status.includes('progress') || status.includes('writing')) {
+      inProgress++;
+    }
+
+    if (t.deadline && t.deadline < today && !status.includes('publish') && !status.includes('done') && !status.includes('live')) {
+      overdue++;
+    }
+  }
+
+  return {
+    total: taskRows.length,
+    done,
+    inProgress,
+    overdue,
+    byCategory,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Backlinks
+// ---------------------------------------------------------------------------
+
+function getBacklinksKpi(projectId?: string): UnifiedDashboardSummary['backlinks'] {
+  const monthPrefix = currentMonthPrefix();
+
+  const blRows = projectId
+    ? db.select({
+        status: backlinks.status,
+        created_at: backlinks.created_at,
+      }).from(backlinks).where(eq(backlinks.project_id, projectId)).all()
+    : db.select({
+        status: backlinks.status,
+        created_at: backlinks.created_at,
+      }).from(backlinks).all();
+
+  let alive = 0, dead = 0, newThisMonth = 0;
+  for (const bl of blRows) {
+    if (bl.status === 'alive') alive++;
+    else if (bl.status === 'dead') dead++;
+    if (bl.created_at && bl.created_at.startsWith(monthPrefix)) newThisMonth++;
+  }
+
+  // avgDR from notion_backlinks (has dr column, no project_id FK)
+  const drResult = db
+    .select({ avgDR: sql<number>`AVG(${notionBacklinks.dr})` })
+    .from(notionBacklinks)
+    .where(isNotNull(notionBacklinks.dr))
+    .get() as { avgDR: number | null } | undefined;
+
+  return {
+    total: blRows.length,
+    alive,
+    dead,
+    newThisMonth,
+    avgDR: drResult?.avgDR ? Math.round(drResult.avgDR) : 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// SEO Strength — audit scores + cluster completeness
+// ---------------------------------------------------------------------------
+
+function getSeoStrengthKpi(projectId?: string): UnifiedDashboardSummary['seoStrength'] {
+  // Latest audit per project
+  const auditRows = projectId
+    ? db.select({ project_id: auditResults.project_id, summary: auditResults.summary })
+        .from(auditResults)
+        .where(and(eq(auditResults.project_id, projectId), isNotNull(auditResults.summary)))
+        .orderBy(desc(auditResults.created_at))
+        .limit(1)
+        .all()
+    : db.select({ project_id: auditResults.project_id, summary: auditResults.summary })
+        .from(auditResults)
+        .where(isNotNull(auditResults.summary))
+        .orderBy(desc(auditResults.created_at))
+        .limit(20)
+        .all();
+
+  // Dedupe by project_id, keep latest
+  const latestByProject = new Map<string, { seo_score?: number }>();
+  for (const row of auditRows) {
+    if (row.project_id && !latestByProject.has(row.project_id)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const summary = row.summary as Record<string, any> | null;
+      latestByProject.set(row.project_id, summary ?? {});
+    }
+  }
+
+  const auditScores: Record<string, number> = {};
+  let scoreSum = 0, scoreCount = 0;
+
+  for (const [pid, summary] of latestByProject.entries()) {
+    const score = typeof summary?.seo_score === 'number' ? summary.seo_score : 0;
+    auditScores[pid] = score;
+    if (score > 0) { scoreSum += score; scoreCount++; }
+  }
+
+  // Topic clusters
+  const clusterRows = projectId
+    ? db.select({ id: topicClusters.id, target_keyword_count: topicClusters.target_keyword_count })
+        .from(topicClusters)
+        .where(eq(topicClusters.project_id, projectId))
+        .all()
+    : db.select({ id: topicClusters.id, target_keyword_count: topicClusters.target_keyword_count })
+        .from(topicClusters)
+        .all();
+
+  const clusterCount = clusterRows.length;
+
+  // Completeness: pages with both pillar links / total pages per cluster
+  let completenessSum = 0;
+  let completenessCount = 0;
+
+  if (clusterCount > 0) {
+    for (const cluster of clusterRows) {
+      const pages = db
+        .select({
+          has_link_to_pillar: topicClusterPages.has_link_to_pillar,
+          has_link_from_pillar: topicClusterPages.has_link_from_pillar,
+          role: topicClusterPages.role,
+        })
+        .from(topicClusterPages)
+        .where(eq(topicClusterPages.cluster_id, cluster.id))
+        .all();
+
+      if (pages.length === 0) continue;
+
+      const supporting = pages.filter(p => p.role !== 'pillar');
+      if (supporting.length === 0) continue;
+
+      const linked = supporting.filter(p => p.has_link_to_pillar && p.has_link_from_pillar).length;
+      completenessSum += linked / supporting.length;
+      completenessCount++;
+    }
+  }
+
+  // Orphan pages: cluster pages with neither link direction
+  const orphanResult = db
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(topicClusterPages)
+    .where(
+      and(
+        eq(topicClusterPages.has_link_to_pillar, false),
+        eq(topicClusterPages.has_link_from_pillar, false),
+        sql`${topicClusterPages.role} != 'pillar'`
+      )
+    )
+    .get() as { count: number } | undefined;
+
+  return {
+    auditScores,
+    avgAuditScore: scoreCount > 0 ? Math.round(scoreSum / scoreCount) : 0,
+    clusterCount,
+    avgCompleteness: completenessCount > 0 ? Math.round((completenessSum / completenessCount) * 100) : 0,
+    orphanPages: orphanResult?.count ?? 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Strategy
+// ---------------------------------------------------------------------------
+
+function getStrategyKpi(projectId?: string): UnifiedDashboardSummary['strategy'] {
+  const phaseRows = projectId
+    ? db.select({ id: strategyPhases.id, status: strategyPhases.status })
+        .from(strategyPhases)
+        .where(eq(strategyPhases.project_id, projectId))
+        .all()
+    : db.select({ id: strategyPhases.id, status: strategyPhases.status })
+        .from(strategyPhases)
+        .all();
+
+  const activePhases = phaseRows.filter(p => p.status === 'in_progress').length;
+
+  const actionRows = projectId
+    ? db.select({ status: strategyActions.status })
+        .from(strategyActions)
+        .where(eq(strategyActions.project_id, projectId))
+        .all()
+    : db.select({ status: strategyActions.status })
+        .from(strategyActions)
+        .all();
+
+  const totalActions = actionRows.length;
+  const completedActions = actionRows.filter(a => a.status === 'done').length;
+
+  return {
+    totalActions,
+    completedActions,
+    completionRate: totalActions > 0 ? Math.round((completedActions / totalActions) * 100) : 0,
+    activePhases,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Per-project summary row
+// ---------------------------------------------------------------------------
+
+function getProjectRows(projectId?: string): UnifiedDashboardSummary['projects'] {
+  const projectList = projectId
+    ? db.select({ id: projects.id, name: projects.name }).from(projects).where(eq(projects.id, projectId)).all()
+    : db.select({ id: projects.id, name: projects.name }).from(projects).all();
+
+  return projectList.map(proj => {
+    // Clicks: latest weekly snapshot
+    const snap = db
+      .select({ clicks: gscSnapshots.clicks })
+      .from(gscSnapshots)
+      .where(and(eq(gscSnapshots.project_id, proj.id), eq(gscSnapshots.period, 'weekly')))
+      .orderBy(desc(gscSnapshots.date))
+      .limit(1)
+      .get() as { clicks: number } | undefined;
+
+    // KW top10: latest date
+    const latestDateRow = db
+      .selectDistinct({ date: keywordRankings.date })
+      .from(keywordRankings)
+      .where(eq(keywordRankings.project_id, proj.id))
+      .orderBy(desc(keywordRankings.date))
+      .limit(1)
+      .get() as { date: string } | undefined;
+
+    let kwTop10 = 0;
+    let kwTrackedTotal = 0;
+    let kwTrackedTop10 = 0;
+    let kwFollowTotal = 0;
+    let kwFollowTop10 = 0;
+    if (latestDateRow) {
+      const kwResult = db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(keywordRankings)
+        .where(
+          and(
+            eq(keywordRankings.project_id, proj.id),
+            eq(keywordRankings.date, latestDateRow.date),
+            sql`${keywordRankings.position} > 0`,
+            sql`${keywordRankings.position} <= 10`
+          )
+        )
+        .get() as { count: number } | undefined;
+      kwTop10 = kwResult?.count ?? 0;
+
+      // Cam kết (tracked) keyword stats — count unique across all dates
+      const trackedStats = db
+        .select({
+          total: sql<number>`COUNT(DISTINCT LOWER(keyword))`,
+          top10: sql<number>`SUM(CASE WHEN position > 0 AND position <= 10 THEN 1 ELSE 0 END)`,
+        })
+        .from(keywordRankings)
+        .where(
+          and(
+            eq(keywordRankings.project_id, proj.id),
+            eq(keywordRankings.date, latestDateRow.date),
+            sql`${keywordRankings.is_tracked} = 1`
+          )
+        )
+        .get() as { total: number; top10: number } | undefined;
+      kwTrackedTotal = trackedStats?.total ?? 0;
+      kwTrackedTop10 = trackedStats?.top10 ?? 0;
+
+      // Tự follow keyword stats
+      const followStats = db
+        .select({
+          total: sql<number>`COUNT(DISTINCT LOWER(keyword))`,
+          top10: sql<number>`SUM(CASE WHEN position > 0 AND position <= 10 THEN 1 ELSE 0 END)`,
+        })
+        .from(keywordRankings)
+        .where(
+          and(
+            eq(keywordRankings.project_id, proj.id),
+            eq(keywordRankings.date, latestDateRow.date),
+            sql`${keywordRankings.is_tracked} = 0`
+          )
+        )
+        .get() as { total: number; top10: number } | undefined;
+      kwFollowTotal = followStats?.total ?? 0;
+      kwFollowTop10 = followStats?.top10 ?? 0;
+    }
+
+    // Content published (sheet_content)
+    const contentResult = db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(sheetContent)
+      .where(
+        and(
+          eq(sheetContent.project_id, proj.id),
+          sql`LOWER(${sheetContent.content_status}) IN ('published', 'done', 'live', 'đã đăng')`
+        )
+      )
+      .get() as { count: number } | undefined;
+
+    // Audit score: latest
+    const auditRow = db
+      .select({ summary: auditResults.summary })
+      .from(auditResults)
+      .where(and(eq(auditResults.project_id, proj.id), isNotNull(auditResults.summary)))
+      .orderBy(desc(auditResults.created_at))
+      .limit(1)
+      .get() as { summary: Record<string, number> | null } | undefined;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const auditScore = typeof (auditRow?.summary as any)?.seo_score === 'number'
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? (auditRow!.summary as any).seo_score as number
+      : 0;
+
+    // Strategy progress
+    const allActions = db
+      .select({ status: strategyActions.status })
+      .from(strategyActions)
+      .where(eq(strategyActions.project_id, proj.id))
+      .all();
+
+    const doneActions = allActions.filter(a => a.status === 'done').length;
+    const progressPercent = allActions.length > 0
+      ? Math.round((doneActions / allActions.length) * 100)
+      : 0;
+    const strategyRate = progressPercent;
+
+    // Tasks per project (status_content holds content task status)
+    const allTasks = db
+      .select({ status_content: tasks.status_content })
+      .from(tasks)
+      .where(eq(tasks.project_id, proj.id))
+      .all();
+    const tasksDone = allTasks.filter(t => {
+      const s = (t.status_content || '').toLowerCase();
+      return s.includes('done') || s.includes('publish') || s.includes('đã đăng') || s.includes('live');
+    }).length;
+    const tasksTotal = allTasks.length;
+
+    // Backlinks per project
+    const blAliveResult = db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(backlinks)
+      .where(and(eq(backlinks.project_id, proj.id), sql`${backlinks.status} = 'alive'`))
+      .get() as { count: number } | undefined;
+    const blTotalResult = db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(backlinks)
+      .where(eq(backlinks.project_id, proj.id))
+      .get() as { count: number } | undefined;
+
+    return {
+      id: proj.id,
+      name: proj.name,
+      clicks: snap?.clicks ?? 0,
+      kwTop10,
+      kwTrackedTotal,
+      kwTrackedTop10,
+      kwFollowTotal,
+      kwFollowTop10,
+      contentPublished: contentResult?.count ?? 0,
+      auditScore,
+      progressPercent,
+      tasksDone,
+      tasksTotal,
+      backlinksAlive: blAliveResult?.count ?? 0,
+      backlinksTotal: blTotalResult?.count ?? 0,
+      strategyRate,
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Recent Activity
+// ---------------------------------------------------------------------------
+
+function getRecentActivity(projectId?: string): UnifiedDashboardSummary['recentActivity'] {
+  const rows = projectId
+    ? db.select({
+        source: activityLog.source,
+        action: activityLog.action,
+        description: activityLog.description,
+        project_id: activityLog.project_id,
+        created_at: activityLog.created_at,
+      })
+        .from(activityLog)
+        .where(eq(activityLog.project_id, projectId))
+        .orderBy(desc(activityLog.created_at))
+        .limit(20)
+        .all()
+    : db.select({
+        source: activityLog.source,
+        action: activityLog.action,
+        description: activityLog.description,
+        project_id: activityLog.project_id,
+        created_at: activityLog.created_at,
+      })
+        .from(activityLog)
+        .orderBy(desc(activityLog.created_at))
+        .limit(20)
+        .all();
+
+  return rows.map(r => ({
+    source: r.source,
+    action: r.action,
+    description: r.description,
+    project_id: r.project_id ?? undefined,
+    created_at: r.created_at,
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// Main exported function
+// ---------------------------------------------------------------------------
+
+export function getUnifiedDashboardSummary(projectId?: string): UnifiedDashboardSummary {
+  // Load project goals from app_config
+  const goalsRow = getAppConfig('project_goals');
+  const goalsArr: Array<{ project_id: string; start_date: string; deadline: string; targets: { weekly_clicks: number; top10_keywords: number; strategy_completion: number; seo_score: number } }> = goalsRow?.value ? JSON.parse(goalsRow.value) : [];
+  const projectGoals: UnifiedDashboardSummary['projectGoals'] = {};
+  for (const g of goalsArr) {
+    projectGoals[g.project_id] = { start_date: g.start_date, deadline: g.deadline, targets: g.targets };
+  }
+
+  return {
+    traffic: getTrafficKpi(projectId),
+    keywords: getKeywordsKpi(projectId),
+    content: getContentKpi(projectId),
+    tasks: getTasksKpi(projectId),
+    backlinks: getBacklinksKpi(projectId),
+    seoStrength: getSeoStrengthKpi(projectId),
+    strategy: getStrategyKpi(projectId),
+    projects: getProjectRows(projectId),
+    recentActivity: getRecentActivity(projectId),
+    projectGoals,
+    meta: {
+      generatedAt: new Date().toISOString(),
+      projectFilter: projectId ?? null,
+    },
+  };
+}

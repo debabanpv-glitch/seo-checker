@@ -120,12 +120,12 @@ export function getKeywordInsights(projectId: string): KeywordInsightsResponse {
 
     // Collect history (all dates)
     if (!kw.history.find((h) => h.date === r.date)) {
-      kw.history.push({ date: r.date, position: r.position });
+      kw.history.push({ date: r.date, position: Math.round(r.position) });
     }
 
     // Set current/previous positions
     if (r.date === latestDate && kw.currentPosition === 0) {
-      kw.currentPosition = r.position;
+      kw.currentPosition = Math.round(r.position);
       kw.url = r.url || kw.url;
       kw.ranking_tier = r.ranking_tier ?? kw.ranking_tier;
       kw.keyword_type = r.keyword_type ?? kw.keyword_type;
@@ -133,7 +133,7 @@ export function getKeywordInsights(projectId: string): KeywordInsightsResponse {
     // OR is_tracked across ALL dates (not just latest)
     kw.is_tracked = kw.is_tracked || !!r.is_tracked;
     if (r.date === previousDate && kw.previousPosition === null) {
-      kw.previousPosition = r.position;
+      kw.previousPosition = Math.round(r.position);
     }
   }
 
@@ -158,8 +158,13 @@ export function getKeywordInsights(projectId: string): KeywordInsightsResponse {
       .sort((a, b) => a.currentPosition - b.currentPosition),
     top30: allKeywords.filter((k) => k.currentPosition >= 16 && k.currentPosition <= 30)
       .sort((a, b) => a.currentPosition - b.currentPosition),
-    beyond30: allKeywords.filter((k) => k.currentPosition > 30)
-      .sort((a, b) => a.currentPosition - b.currentPosition),
+    beyond30: allKeywords.filter((k) => k.currentPosition > 30 || k.currentPosition === 0)
+      .sort((a, b) => {
+        // KW with position=0 go to bottom
+        if (a.currentPosition === 0 && b.currentPosition > 0) return 1;
+        if (b.currentPosition === 0 && a.currentPosition > 0) return -1;
+        return a.currentPosition - b.currentPosition;
+      }),
   };
 
   const movers = {

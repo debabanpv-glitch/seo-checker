@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Báo Cáo Tổng Hợp SEO — 24/03/2026</title>
+<style>
+:root { --bg: #0f1117; --card: #1a1d27; --border: #2a2d3a; --text: #e2e4ea; --muted: #8b8fa3; --accent: #6366f1; --green: #22c55e; --red: #ef4444; --yellow: #eab308; --orange: #f97316; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; padding: 24px; max-width: 1400px; margin: 0 auto; }
+h1 { font-size: 28px; margin-bottom: 8px; }
+h2 { font-size: 22px; margin: 32px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+h3 { font-size: 17px; margin: 20px 0 10px; color: var(--accent); }
+.subtitle { color: var(--muted); margin-bottom: 24px; font-size: 14px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 16px 0; }
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin: 16px 0; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.score-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 14px; }
+.score-critical { background: rgba(239,68,68,0.15); color: var(--red); }
+.score-warning { background: rgba(234,179,8,0.15); color: var(--yellow); }
+.score-ok { background: rgba(34,197,94,0.15); color: var(--green); }
+.stat-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.stat-row:last-child { border-bottom: none; }
+.stat-label { color: var(--muted); font-size: 13px; }
+.stat-value { font-weight: 600; }
+.delta-up { color: var(--green); }
+.delta-down { color: var(--red); }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; margin: 2px; }
+.tag-critical { background: rgba(239,68,68,0.2); color: var(--red); }
+.tag-high { background: rgba(249,115,22,0.2); color: var(--orange); }
+.tag-medium { background: rgba(234,179,8,0.2); color: var(--yellow); }
+.tag-low { background: rgba(99,102,241,0.2); color: var(--accent); }
+.warning-list { list-style: none; }
+.warning-list li { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.warning-list li:last-child { border-bottom: none; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; padding: 10px 8px; background: rgba(99,102,241,0.1); color: var(--accent); font-weight: 600; border-bottom: 2px solid var(--border); }
+td { padding: 8px; border-bottom: 1px solid var(--border); }
+tr:hover { background: rgba(255,255,255,0.02); }
+.progress-bar { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; margin-top: 4px; }
+.progress-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+.summary-box { background: linear-gradient(135deg, rgba(99,102,241,0.1), rgba(99,102,241,0.05)); border: 1px solid rgba(99,102,241,0.3); border-radius: 12px; padding: 20px; margin: 20px 0; }
+.kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 12px 0; }
+.kpi-item { text-align: center; }
+.kpi-value { font-size: 28px; font-weight: 700; }
+.kpi-label { font-size: 11px; color: var(--muted); text-transform: uppercase; }
+.section-divider { height: 3px; background: linear-gradient(90deg, var(--accent), transparent); margin: 40px 0; border-radius: 2px; }
+.project-header { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+.project-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; }
+.audit-bar { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+.audit-bar-label { width: 100px; font-size: 12px; color: var(--muted); }
+.audit-bar-track { flex: 1; height: 6px; background: var(--border); border-radius: 3px; }
+.audit-bar-fill { height: 100%; border-radius: 3px; }
+@media (max-width: 900px) { .grid-3 { grid-template-columns: 1fr; } .grid-2 { grid-template-columns: 1fr; } .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+
+<h1>📊 Báo Cáo Tổng Hợp SEO</h1>
+<p class="subtitle">Ngày báo cáo: 24/03/2026 · Dữ liệu GSC: tuần 10-13/2026 · 3 dự án</p>
+
+<!-- ===== EXECUTIVE SUMMARY ===== -->
+<div class="summary-box">
+<h3 style="margin-top:0">Tổng Quan Nhanh</h3>
+<div class="kpi-grid">
+<div class="kpi-item"><div class="kpi-value">432</div><div class="kpi-label">Clicks/tuần</div></div>
+<div class="kpi-item"><div class="kpi-value">6,069</div><div class="kpi-label">Impressions/tuần</div></div>
+<div class="kpi-item"><div class="kpi-value">166</div><div class="kpi-label">KW Top 10</div></div>
+<div class="kpi-item"><div class="kpi-value">59/100</div><div class="kpi-label">Audit TB</div></div>
+</div>
+<p style="font-size:13px; color:var(--muted); margin-top:8px;">
+⚠️ Traffic giảm 17.9% so tuần trước · Impressions giảm 28.2% · Strategy completion rất thấp (0.4%) · 1007/1530 backlinks sống (66%)
+</p>
+</div>
+
+<!-- ===== PROJECT 1: SAMCO ===== -->
+<div class="section-divider"></div>
+<div class="project-header">
+<div class="project-icon" style="background:rgba(99,102,241,0.2); color:var(--accent);">S</div>
+<div>
+<h2 style="margin:0; border:none; padding:0;">Samco Tech — samcotech.com.vn</h2>
+<p class="subtitle" style="margin:0;">ID: 930d428d · Bắt đầu: 14/02 · Deadline: 14/08/2026</p>
+</div>
+<span class="score-badge score-warning">54/100 Yếu</span>
+</div>
+
+<div class="grid-3">
+<div class="card">
+<h3 style="margin-top:0">🎯 KPI vs Mục Tiêu</h3>
+<div class="stat-row"><span class="stat-label">Clicks/tuần</span><span class="stat-value">18 <span style="color:var(--muted)">/100</span> <span class="delta-down">(18%)</span></span></div>
+<div class="stat-row"><span class="stat-label">KW Top 10</span><span class="stat-value">28 <span style="color:var(--muted)">/50</span> <span class="delta-up">(56%)</span></span></div>
+<div class="stat-row"><span class="stat-label">SEO Score</span><span class="stat-value">63 <span style="color:var(--muted)">/75</span> <span class="delta-up">(84%)</span></span></div>
+<div class="stat-row"><span class="stat-label">Strategy</span><span class="stat-value">0% <span style="color:var(--muted)">/80%</span> <span class="delta-down">(0%)</span></span></div>
+<div class="stat-row"><span class="stat-label">Timeline</span><span class="stat-value">21% đã qua (5.3/6 tháng còn lại)</span></div>
+</div>
+
+<div class="card">
+<h3 style="margin-top:0">📈 Traffic GSC</h3>
+<div class="stat-row"><span class="stat-label">Clicks tuần hiện tại</span><span class="stat-value">18</span></div>
+<div class="stat-row"><span class="stat-label">Xu hướng</span><span class="stat-value delta-down">Giảm -74%</span></div>
+<div class="stat-row"><span class="stat-label">CTR</span><span class="stat-value">2.2%</span></div>
+<div class="stat-row"><span class="stat-label">Response time</span><span class="stat-value delta-down">8.4s (chậm)</span></div>
+<table style="margin-top:8px">
+<tr><th>Tuần</th><th>Clicks</th><th>Imp</th></tr>
+<tr><td>T13</td><td>183</td><td>8,308</td></tr>
+<tr><td>T10</td><td>183</td><td>4,600</td></tr>
+<tr><td>T9</td><td>38</td><td>1,237</td></tr>
+<tr><td>T8</td><td>60</td><td>4,885</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h3 style="margin-top:0">🔑 Từ Khóa</h3>
+<div class="stat-row"><span class="stat-label">Tổng KW</span><span class="stat-value">210</span></div>
+<div class="stat-row"><span class="stat-label">Top 3</span><span class="stat-value delta-up">188 (89.5%)</span></div>
+<div class="stat-row"><span class="stat-label">Top 10</span><span class="stat-value delta-up">199 (94.8%)</span></div>
+<div class="stat-row"><span class="stat-label">Ngoài Top 10</span><span class="stat-value">11</span></div>
+<div class="stat-row"><span class="stat-label">Cam kết (tracked)</span><span class="stat-value">197</span></div>
+<div class="stat-row"><span class="stat-label">Cam kết Top 10</span><span class="stat-value">28</span></div>
+</div>
+</div>
+
+<div class="grid-2">
+<div class="card">
+<h3 style="margin-top:0">🏗️ Audit Scores</h3>
+<div class="audit-bar"><span class="audit-bar-label">Technical</span><div class="audit-bar-track"><div class="audit-bar-fill" style="width:71%;background:var(--yellow)"></div></div><span style="font-size:12px;width:40px;text-align:right">71</span></div>
+<div class="audit-bar"><span class="audit-bar-label">Content</span><div class="audit-bar-track"><div class="audit-bar-fill" style="width:84%;background:var(--green)"></div></div><span style="font-size:12px;width:40px;text-align:right">84</span></div>
+<div class="audit-bar"><span class="audit-bar-label">Images</span><div class="audit-bar-track"><div class="audit-bar-fill" style="width:43%;background:var(--red)"></div></div><span style="font-size:12px;width:40px;text-align:right">43</span></div>
+<div class="audit-bar"><span class="audit-bar-label">Links</span><div class="audit-bar-track"><div class="audit-bar-fill" style="width:100%;background:var(--green)"></div></div><span style="font-size:12px;width:40px;text-align:right">100</span></div>
+<div class="audit-bar"><span class="audit-bar-label">E-E-A-T</span><div class="audit-bar-track"><div class="audit-bar-fill" style="width:57%;background:var(--yellow)"></div></div><span style="font-size:12px;width:40px;text-align:right">57</span></div>
+<div class="audit-bar"><span class="audit-bar-label">AI Ready</span><div class="audit-bar-track"><div class="audit-bar-fill" style="width:79%;background:var(--green)"></div></div><span style="font-size:12px;width:40px;text-align:right">79</span></div>
+</div>
+
+<div class="card">
+<h3 style="margin-top:0">⚠️ Cảnh Báo & Hành Động</h3>
+<ul class="warning-list">
+<li><span class="tag tag-critical">CRITICAL</span> Traffic sụt giảm nghiêm trọng: 70 → 18 clicks (-74%)</li>
+<li><span class="tag tag-high">HIGH</span> Strategy 0/234 actions hoàn thành — chưa bắt đầu</li>
+<li><span class="tag tag-high">HIGH</span> Tốc độ phản hồi chậm: 8.4s</li>
+<li><span class="tag tag-medium">MEDIUM</span> Điểm hình ảnh thấp (43/100) — thiếu alt text</li>
+<li><span class="tag tag-low">LOW</span> CTR 2.2% dưới target 3-5%</li>
+<li><span class="tag tag-low">LOW</span> Dữ liệu keyword chưa cập nhật 17 ngày</li>
+</ul>
+</div>
+</div>
+
+<div class="card" style="margin:16px 0">
+<h3 style="margin-top:0">📋 Thực Thi</h3>
+<div class="grid-3" style="margin:0">
+<div><span class="stat-label">Tasks</span><br><span class="stat-value">51/71 done (72%)</span>
+<div class="progress-bar"><div class="progress-fill" style="width:72%;background:var(--green)"></div></div></div>
+<div><span class="stat-label">Backlinks</span><br><span class="stat-value">0 (chưa có)</span></div>
+<div><span class="stat-label">Clusters</span><br><span class="stat-value">23 clusters, 0 KW gán</span></div>
+</div>
+</div>
+
+<!-- ===== PROJECT 2: TCNET ===== -->
+<div class="section-divider"></div>
+<div class="project-header">
+<div class="project-icon" style="background:rgba(234,179,8,0.2); color:var(--yellow);">T</div>
+<div>
+<h2 style="margin:0; border:none; padding:0;">TCNET — mangthanhcong.vn</h2>
+<p class="subtitle" style="margin:0;">ID: fc9fa363 · Bắt đầu: 14/02 · Deadline: 14/08/2026</p>
+</div>
+<span class="score-badge score-warning">49/100 Yếu</span>
+</div>
+
+<div class="grid-3">
+<div class="card">
+<h3 style="margin-top:0">🎯 KPI vs Mục Tiêu</h3>
+<div class="stat-row"><span class="stat-label">Clicks/tuần</span><span class="stat-value">26 <span style="color:var(--muted)">/100</span> <span class="delta-down">(26%)</span></span></div>
+<div class="stat-row"><span class="stat-label">KW Top 10</span><span class="stat-value">41 <span style="color:var(--muted)">/50</span> <span class="delta-up">(82%)</span></span></div>
+<div class="stat-row"><span class="stat-label">SEO Score</span><span class="stat-value">55 <span style="color:var(--muted)">/70</span> <span class="delta-up">(79%)</span></span></div>
+<div class="stat-row"><span class="stat-label">Strategy</span><span class="stat-value">0% <span style="color:var(--muted)">/80%</span> <span class="delta-down">(0%)</span></span></div>
+<div class="stat-row"><span class="stat-label">Timeline</span><span class="stat-value">21% đã qua (5.3/6 tháng còn lại)</span></div>
+</div>
+
+<div class="card">
+<h3 style="margin-top:0">📈 Traffic GSC</h3>
+<div class="stat-row"><span class="stat-label">Clicks tuần hiện tại</span><span class="stat-value">26</span></div>
+<div class="stat-row"><span class="stat-label">Xu hướng</span><span class="stat-value delta-down">Giảm -75%</span></div>
+<div class="stat-row"><span class="stat-label">CTR</span><span class="stat-value">1.5%</span></div>
+<div class="stat-row"><span class="stat-label">Response time</span><span class="stat-value delta-down">29.8s (rất chậm!)</span></div>
+<table style="margin-top:8px">
+<tr><th>Tuần</th><th>Clicks</th><th>Imp</th></tr>
+<tr><td>T13</td><td>274</td><td>17,968</td></tr>
+<tr><td>T10</td><td>432</td><td>6,683</td></tr>
+<tr><td>T9</td><td>42</td><td>1,573</td></tr>
+<tr><td>T8</td><td>62</td><td>3,050</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h3 style="margin-top:0">🔑 Từ Khóa</h3>
+<div class="stat-row"><span class="stat-label">Tổng KW</span><span class="stat-value">175</span></div>
+<div class="stat-row"><span class="stat-label">Top 3</span><span class="stat-value delta-up">96 (54.9%)</span></div>
+<div class="stat-row"><span class="stat-label">Top 10</span><span class="stat-value delta-up">106 (60.6%)</span></div>
+<div class="stat-row"><span class="stat-label">Ngoài Top 10</span><span class="stat-value">69</span></div>
+<div class="stat-row"><span class="stat-label">Cam kết (tracked)</span><span class="stat-value">68</span></div>
+<div class="stat-row"><span class="stat-label">Tự follow</span><span class="stat-value">107 (39 top10)</span></div>
+</div>
+</div>
+
+<div class="grid-2">
+<div class="card">
+<h3 style="margin-top:0">🏗️ Audit Scores</h3>
+<div class="audit-bar"><span class="audit-bar-label">Technical</span><div class="audit-bar-track"><div class="audit-bar-fill" style="width:70%;background:var(--yellow)"></div></div><span style="font-size:12px;width:40px;text-align:right">70</span></div>
+<div class="audit-bar"><span class="audit-bar-label">Content</span><div class="audit-bar-track"><div class="audit-bar-fill" style="width:85%;background:var(--green)"></div></div><span style="font-size:12px;width:40px;text-align:right">85</span></div>
+<div class="audit-bar"><span class="audit-bar-label">Images</span><div class="audit-bar-track"><div class="audit-bar-fill" style="width:95%;background:var(--green)"></div></div><span style="font-size:12px;width:40px;text-align:right">95</span></div>
+<div class="audit-bar"><span class="audit-bar-label">Links</span><div class="audit-bar-track"><div class="audit-bar-fill" style="width:97%;background:var(--green)"></div></div><span style="font-size:12px;width:40px;text-align:right">97</span></div>
+<div class="audit-bar"><span class="audit-bar-label">E-E-A-T</span><div class="audit-bar-track"><div class="audit-bar-fill" style="width:44%;background:var(--red)"></div></div><span style="font-size:12px;width:40px;text-align:right">44</span></div>
+<div class="audit-bar"><span class="audit-bar-label">AI Ready</span><div class="audit-bar-track"><div class="audit-bar-fill" style="width:60%;background:var(--yellow)"></div></div><span style="font-size:12px;width:40px;text-align:right">60</span></div>
+</div>
+
+<div class="card">
+<h3 style="margin-top:0">⚠️ Cảnh Báo & Hành Động</h3>
+<ul class="warning-list">
+<li><span class="tag tag-critical">CRITICAL</span> Traffic sụt -75%: 105 → 26 clicks</li>
+<li><span class="tag tag-high">HIGH</span> SEO Score cần cải thiện (55/100)</li>
+<li><span class="tag tag-high">HIGH</span> Strategy 0/20 actions — chưa bắt đầu</li>
+<li><span class="tag tag-high">HIGH</span> Tốc độ phản hồi 29.8s — rất chậm!</li>
+<li><span class="tag tag-medium">MEDIUM</span> E-E-A-T cần cải thiện (44/100)</li>
+<li><span class="tag tag-low">LOW</span> CTR 1.5% dưới target 3-5%</li>
+</ul>
+</div>
+</div>
+
+<div class="card" style="margin:16px 0">
+<h3 style="margin-top:0">📋 Thực Thi</h3>
+<div class="grid-3" style="margin:0">
+<div><span class="stat-label">Tasks</span><br><span class="stat-value">76/94 done (81%)</span>
+<div class="progress-bar"><div class="progress-fill" style="width:81%;background:var(--green)"></div></div></div>
+<div><span class="stat-label">Backlinks</span><br><span class="stat-value">0 (chưa có)</span></div>
+<div><span class="stat-label">Clusters</span><br><span class="stat-value">23 clusters, 0 KW gán</span></div>
+</div>
+</div>
+
+<!-- ===== PROJECT 3: DLBM ===== -->
+<div class="section-divider"></div>
+<div class="project-header">
+<div class="project-icon" style="background:rgba(34,197,94,0.2); color:var(--green);">D</div>
+<div>
+<h2 style="margin:0; border:none; padding:0;">Du Lịch Bình Minh — dulichbinhminh.com</h2>
+<p class="subtitle" style="margin:0;">ID: b324ac3a · Bắt đầu: 26/01 · Deadline: 26/07/2026</p>
+</div>
+<span class="score-badge score-warning">48/100 Yếu</span>
+</div>
+
+<div class="grid-3">
+<div class="card">
+<h3 style="margin-top:0">🎯 KPI vs Mục Tiêu</h3>
+<div class="stat-row"><span class="stat-label">Clicks/tuần</span><span class="stat-value">388 <span style="color:var(--muted)">/500</span> <span class="delta-up">(78%)</span></span></div>
+<div class="stat-row"><span class="stat-label">KW Top 10</span><span class="stat-value">97 <span style="color:var(--muted)">/80</span> <span class="delta-up" style="color:var(--green)">✓ 121%</span></span></div>
+<div class="stat-row"><span class="stat-label">SEO Score</span><span class="stat-value">58 <span style="color:var(--muted)">/75</span> <span class="delta-down">(77%)</span></span></div>
+<div class="stat-row"><span class="stat-label">Strategy</span><span class="stat-value">5% <span style="color:var(--muted)">/80%</span> <span class="delta-down">(6%)</span></span></div>
+<div class="stat-row"><span class="stat-label">Timeline</span><span class="stat-value">32% đã qua (4.1/6 tháng còn lại)</span></div>
+</div>
+
+<div class="card">
+<h3 style="margin-top:0">📈 Traffic GSC</h3>
+<div class="stat-row"><span class="stat-label">Clicks tuần hiện tại</span><span class="stat-value">388</span></div>
+<div class="stat-row"><span class="stat-label">Xu hướng</span><span class="stat-value delta-down">Giảm -75% (vs peak)</span></div>
+<div class="stat-row"><span class="stat-label">Clicks T13</span><span class="stat-value delta-up">3,693 (+923)</span></div>
+<table style="margin-top:8px">
+<tr><th>Tuần</th><th>Clicks</th><th>Imp</th></tr>
+<tr><td>T13</td><td>3,693</td><td>36,139</td></tr>
+<tr><td>T10</td><td>361</td><td>7,594</td></tr>
+<tr><td>T9</td><td>631</td><td>10,631</td></tr>
+<tr><td>T8</td><td>437</td><td>7,831</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h3 style="margin-top:0">🔑 Từ Khóa</h3>
+<div class="stat-row"><span class="stat-label">Tổng KW</span><span class="stat-value">306</span></div>
+<div class="stat-row"><span class="stat-label">Top 3</span><span class="stat-value delta-up">86 (28.1%)</span></div>
+<div class="stat-row"><span class="stat-label">Top 10</span><span class="stat-value delta-up">169 (55.2%)</span></div>
+<div class="stat-row"><span class="stat-label">Ngoài Top 10</span><span class="stat-value">137</span></div>
+<div class="stat-row"><span class="stat-label">Cam kết (tracked)</span><span class="stat-value">163 (59 top10)</span></div>
+<div class="stat-row"><span class="stat-label">Tự follow</span><span class="stat-value">143 (38 top10)</span></div>
+</div>
+</div>
+
+<div class="grid-2">
+<div class="card">
+<h3 style="margin-top:0">🏗️ Audit Scores</h3>
+<div class="audit-bar"><span class="audit-bar-label">Technical</span><div class="audit-bar-track"><div class="audit-bar-fill" style="width:100%;background:var(--green)"></div></div><span style="font-size:12px;width:40px;text-align:right">100</span></div>
+<div class="audit-bar"><span class="audit-bar-label">Content</span><div class="audit-bar-track"><div class="audit-bar-fill" style="width:99%;background:var(--green)"></div></div><span style="font-size:12px;width:40px;text-align:right">99</span></div>
+<div class="audit-bar"><span class="audit-bar-label">Images</span><div class="audit-bar-track"><div class="audit-bar-fill" style="width:95%;background:var(--green)"></div></div><span style="font-size:12px;width:40px;text-align:right">95</span></div>
+<div class="audit-bar"><span class="audit-bar-label">Links</span><div class="audit-bar-track"><div class="audit-bar-fill" style="width:100%;background:var(--green)"></div></div><span style="font-size:12px;width:40px;text-align:right">100</span></div>
+<div class="audit-bar"><span class="audit-bar-label">E-E-A-T</span><div class="audit-bar-track"><div class="audit-bar-fill" style="width:34%;background:var(--red)"></div></div><span style="font-size:12px;width:40px;text-align:right">34</span></div>
+<div class="audit-bar"><span class="audit-bar-label">AI Ready</span><div class="audit-bar-track"><div class="audit-bar-fill" style="width:68%;background:var(--yellow)"></div></div><span style="font-size:12px;width:40px;text-align:right">68</span></div>
+</div>
+
+<div class="card">
+<h3 style="margin-top:0">⚠️ Cảnh Báo & Hành Động</h3>
+<ul class="warning-list">
+<li><span class="tag tag-critical">CRITICAL</span> Traffic sụt -75%: 1550 → 388 clicks</li>
+<li><span class="tag tag-high">HIGH</span> SEO Score cần cải thiện (58/100)</li>
+<li><span class="tag tag-high">HIGH</span> Strategy mới 5% (1/20 actions)</li>
+<li><span class="tag tag-medium">MEDIUM</span> E-E-A-T rất thấp (34/100) — cần author bio, citations</li>
+<li><span class="tag tag-low">LOW</span> 137 KW ngoài Top 10 — cơ hội tối ưu</li>
+<li><span class="tag tag-low">LOW</span> Dữ liệu keyword chưa cập nhật 29 ngày</li>
+</ul>
+</div>
+</div>
+
+<div class="grid-2" style="margin:16px 0">
+<div class="card">
+<h3 style="margin-top:0">📋 Thực Thi</h3>
+<div class="stat-row"><span class="stat-label">Tasks</span><span class="stat-value">112/123 done (91%)</span></div>
+<div class="progress-bar"><div class="progress-fill" style="width:91%;background:var(--green)"></div></div>
+<div class="stat-row" style="margin-top:8px"><span class="stat-label">Strategy actions</span><span class="stat-value delta-down">1/20 (5%)</span></div>
+<div class="progress-bar"><div class="progress-fill" style="width:5%;background:var(--red)"></div></div>
+</div>
+
+<div class="card">
+<h3 style="margin-top:0">🔗 Backlinks</h3>
+<div class="stat-row"><span class="stat-label">Tổng</span><span class="stat-value">1,530</span></div>
+<div class="stat-row"><span class="stat-label">Sống</span><span class="stat-value delta-up">1,007 (66%)</span></div>
+<div class="stat-row"><span class="stat-label">Chết</span><span class="stat-value delta-down">523 (34%)</span></div>
+<div class="stat-row"><span class="stat-label">Unique domains</span><span class="stat-value">10</span></div>
+<div class="stat-row"><span class="stat-label">Dofollow</span><span class="stat-value">1,530 (100%)</span></div>
+</div>
+</div>
+
+<!-- ===== COMPARISON TABLE ===== -->
+<div class="section-divider"></div>
+<h2>📊 So Sánh 3 Dự Án</h2>
+
+<div class="card">
+<table>
+<thead>
+<tr>
+<th>Chỉ số</th>
+<th style="text-align:center">Samco</th>
+<th style="text-align:center">TCNET</th>
+<th style="text-align:center">DLBM</th>
+</tr>
+</thead>
+<tbody>
+<tr><td><strong>Health Score</strong></td><td style="text-align:center"><span class="score-badge score-warning">54</span></td><td style="text-align:center"><span class="score-badge score-warning">49</span></td><td style="text-align:center"><span class="score-badge score-warning">48</span></td></tr>
+<tr><td>Audit Score</td><td style="text-align:center">63</td><td style="text-align:center">55</td><td style="text-align:center">58</td></tr>
+<tr><td>Clicks/tuần</td><td style="text-align:center">18</td><td style="text-align:center">26</td><td style="text-align:center"><strong>388</strong></td></tr>
+<tr><td>Clicks target</td><td style="text-align:center">100</td><td style="text-align:center">100</td><td style="text-align:center">500</td></tr>
+<tr><td>% Target clicks</td><td style="text-align:center"><span class="delta-down">18%</span></td><td style="text-align:center"><span class="delta-down">26%</span></td><td style="text-align:center"><span class="delta-up">78%</span></td></tr>
+<tr><td>KW Total</td><td style="text-align:center">210</td><td style="text-align:center">175</td><td style="text-align:center"><strong>306</strong></td></tr>
+<tr><td>KW Top 3</td><td style="text-align:center"><strong>188</strong></td><td style="text-align:center">96</td><td style="text-align:center">86</td></tr>
+<tr><td>KW Top 10</td><td style="text-align:center">199</td><td style="text-align:center">106</td><td style="text-align:center">169</td></tr>
+<tr><td>KW Top 10 target</td><td style="text-align:center">50</td><td style="text-align:center">50</td><td style="text-align:center">80</td></tr>
+<tr><td>% Target KW</td><td style="text-align:center"><span class="delta-up">✓ 56%</span></td><td style="text-align:center"><span class="delta-up">✓ 82%</span></td><td style="text-align:center"><span class="delta-up">✓ 121%</span></td></tr>
+<tr><td>Tasks done</td><td style="text-align:center">51/71 (72%)</td><td style="text-align:center">76/94 (81%)</td><td style="text-align:center"><strong>112/123 (91%)</strong></td></tr>
+<tr><td>Strategy %</td><td style="text-align:center"><span class="delta-down">0%</span></td><td style="text-align:center"><span class="delta-down">0%</span></td><td style="text-align:center"><span class="delta-down">5%</span></td></tr>
+<tr><td>Backlinks</td><td style="text-align:center">0</td><td style="text-align:center">0</td><td style="text-align:center">1,530 (66% sống)</td></tr>
+<tr><td>E-E-A-T</td><td style="text-align:center">57</td><td style="text-align:center">44</td><td style="text-align:center"><span class="delta-down">34</span></td></tr>
+<tr><td>Response time</td><td style="text-align:center"><span class="delta-down">8.4s</span></td><td style="text-align:center"><span class="delta-down">29.8s</span></td><td style="text-align:center">—</td></tr>
+<tr><td>Deadline</td><td style="text-align:center">14/08</td><td style="text-align:center">14/08</td><td style="text-align:center">26/07</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ===== PRIORITIES ===== -->
+<div class="section-divider"></div>
+<h2>🚨 Ưu Tiên Hành Động (Top 10)</h2>
+
+<div class="card">
+<table>
+<thead>
+<tr><th>#</th><th>Ưu tiên</th><th>Dự án</th><th>Mức</th><th>Chi tiết</th></tr>
+</thead>
+<tbody>
+<tr><td>1</td><td><strong>Fix tốc độ TCNET</strong></td><td>TCNET</td><td><span class="tag tag-critical">P0</span></td><td>29.8s response time → target <3s. Ảnh hưởng ranking trực tiếp</td></tr>
+<tr><td>2</td><td><strong>Sync lại GSC data</strong></td><td>Tất cả</td><td><span class="tag tag-critical">P0</span></td><td>Data GSC cũ 17-29 ngày. Cần sync MCP trong Claude Code session</td></tr>
+<tr><td>3</td><td><strong>Điều tra traffic giảm</strong></td><td>Tất cả</td><td><span class="tag tag-critical">P0</span></td><td>Cả 3 site giảm -74% đến -75%. Cần xác định nguyên nhân (algo update? index?)</td></tr>
+<tr><td>4</td><td><strong>Bắt đầu Strategy actions</strong></td><td>Tất cả</td><td><span class="tag tag-high">P1</span></td><td>0-5% completion, target 80%. 21-32% timeline đã qua</td></tr>
+<tr><td>5</td><td><strong>Cải thiện E-E-A-T</strong></td><td>DLBM, TCNET</td><td><span class="tag tag-high">P1</span></td><td>DLBM 34, TCNET 44 — cần author bio, citations, schema markup</td></tr>
+<tr><td>6</td><td><strong>Xử lý backlinks chết</strong></td><td>DLBM</td><td><span class="tag tag-high">P1</span></td><td>523 link chết (34%) — liên hệ bên dịch vụ</td></tr>
+<tr><td>7</td><td><strong>Tối ưu hình ảnh Samco</strong></td><td>Samco</td><td><span class="tag tag-medium">P2</span></td><td>Images score 43/100 — thiếu alt text, chưa tối ưu</td></tr>
+<tr><td>8</td><td><strong>Gán KW vào clusters</strong></td><td>Tất cả</td><td><span class="tag tag-medium">P2</span></td><td>23 clusters tạo rồi, 0 KW được gán → chưa có topical authority tracking</td></tr>
+<tr><td>9</td><td><strong>Sync keyword sheets</strong></td><td>Tất cả</td><td><span class="tag tag-medium">P2</span></td><td>Dữ liệu keyword cũ. Chạy cron sync hoặc manual</td></tr>
+<tr><td>10</td><td><strong>Tăng CTR</strong></td><td>Samco, TCNET</td><td><span class="tag tag-low">P3</span></td><td>CTR 1.5-2.2% vs target 3-5%. Cải thiện title & description</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ===== DATA FRESHNESS ===== -->
+<h2>🔄 Độ Mới Dữ Liệu</h2>
+<div class="card">
+<table>
+<thead><tr><th>Nguồn</th><th>Lần sync cuối</th><th>Trạng thái</th></tr></thead>
+<tbody>
+<tr><td>GSC (Google Search Console)</td><td>07/03/2026</td><td><span class="tag tag-critical">Cũ 17 ngày</span></td></tr>
+<tr><td>Keyword Sheets</td><td>23/02/2026</td><td><span class="tag tag-critical">Cũ 29 ngày</span></td></tr>
+<tr><td>Notion Tasks</td><td>22/03/2026</td><td><span class="tag tag-low">2 ngày trước</span></td></tr>
+<tr><td>Backlink Check</td><td>~03/2026</td><td><span class="tag tag-medium">Kiểm tra weekly</span></td></tr>
+<tr><td>SEO Audit</td><td>~02/2026</td><td><span class="tag tag-high">Cần re-audit</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<div style="margin-top:40px; padding:16px; text-align:center; color:var(--muted); font-size:12px; border-top:1px solid var(--border);">
+Báo cáo tự động tạo bởi SEO Manager Local · Dữ liệu từ Health Check, GSC, Keyword Insights, Backlinks, Strategy APIs · 24/03/2026
+</div>
+
+</body>
+</html>

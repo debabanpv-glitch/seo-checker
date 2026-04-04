@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kế hoạch khắc phục Index — mangthanhcong.vn</title>
+<style>
+  :root {
+    --bg: #0f172a; --surface: #1e293b; --surface2: #334155;
+    --text: #e2e8f0; --text-dim: #94a3b8; --accent: #38bdf8;
+    --green: #4ade80; --red: #f87171; --yellow: #fbbf24; --orange: #fb923c;
+    --purple: #a78bfa; --border: #475569;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; padding: 2rem; }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 1.75rem; margin-bottom: 0.25rem; }
+  h2 { font-size: 1.25rem; margin: 2.5rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); color: var(--accent); }
+  h3 { font-size: 1rem; margin: 1.25rem 0 0.5rem; color: var(--text); }
+  .subtitle { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 2rem; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+  .badge-green { background: #064e3b; color: var(--green); }
+  .badge-red { background: #7f1d1d; color: var(--red); }
+  .badge-yellow { background: #713f12; color: var(--yellow); }
+  .badge-blue { background: #0c4a6e; color: var(--accent); }
+  .badge-purple { background: #3b0764; color: var(--purple); }
+
+  /* Summary box */
+  .summary-box { background: linear-gradient(135deg, #1e3a5f, #1e293b); border: 1px solid var(--accent); border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; }
+  .summary-box h3 { margin-top: 0; color: var(--accent); }
+  .summary-stats { display: flex; gap: 2rem; margin-top: 1rem; flex-wrap: wrap; }
+  .summary-stat { text-align: center; }
+  .summary-stat .val { font-size: 1.5rem; font-weight: 700; }
+  .summary-stat .lbl { font-size: 0.75rem; color: var(--text-dim); }
+
+  /* Phase cards */
+  .phase { background: var(--surface); border-radius: 12px; margin: 1.5rem 0; overflow: hidden; }
+  .phase-header { padding: 1rem 1.25rem; display: flex; align-items: center; gap: 1rem; }
+  .phase-num { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1rem; flex-shrink: 0; }
+  .phase-title { font-weight: 700; font-size: 1.05rem; }
+  .phase-meta { margin-left: auto; display: flex; gap: 0.75rem; align-items: center; font-size: 0.8rem; }
+  .phase-body { padding: 0 1.25rem 1.25rem; }
+
+  /* Timeline */
+  .timeline { font-size: 0.8rem; color: var(--text-dim); background: var(--surface2); padding: 4px 12px; border-radius: 9999px; }
+
+  /* Task list */
+  .task-list { list-style: none; }
+  .task-list li { padding: 0.6rem 0; border-bottom: 1px solid var(--surface2); display: flex; gap: 0.75rem; align-items: flex-start; }
+  .task-list li:last-child { border-bottom: none; }
+  .task-check { width: 18px; height: 18px; border: 2px solid var(--border); border-radius: 4px; flex-shrink: 0; margin-top: 2px; }
+  .task-text { font-size: 0.85rem; }
+  .task-text strong { color: var(--text); }
+  .task-text code { background: var(--surface2); padding: 1px 6px; border-radius: 4px; font-size: 0.8rem; color: var(--accent); }
+
+  /* Impact meter */
+  .impact { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.75rem; font-size: 0.8rem; }
+  .impact-bar { height: 6px; border-radius: 3px; }
+
+  /* Before/After */
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+  .compare-card { background: var(--surface); border-radius: 10px; padding: 1rem; }
+  .compare-card h4 { font-size: 0.85rem; margin-bottom: 0.5rem; }
+  .compare-card.before { border-top: 3px solid var(--red); }
+  .compare-card.after { border-top: 3px solid var(--green); }
+  .compare-card ul { list-style: none; font-size: 0.8rem; }
+  .compare-card ul li { padding: 3px 0; }
+  .compare-card ul li::before { content: '•'; margin-right: 6px; }
+
+  /* Code block */
+  .code-block { background: #0d1117; border: 1px solid var(--surface2); border-radius: 8px; padding: 1rem; font-family: 'Fira Code', monospace; font-size: 0.8rem; overflow-x: auto; margin: 0.75rem 0; color: var(--text-dim); white-space: pre; line-height: 1.5; }
+  .code-block .comment { color: #6a737d; }
+  .code-block .tag { color: #7ee787; }
+  .code-block .attr { color: #d2a8ff; }
+  .code-block .str { color: #a5d6ff; }
+
+  /* Priority table */
+  table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.85rem; }
+  th { background: var(--surface2); text-align: left; padding: 8px 12px; font-weight: 600; color: var(--text-dim); font-size: 0.75rem; text-transform: uppercase; }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--surface2); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* Gantt-like timeline */
+  .gantt { margin: 1rem 0; }
+  .gantt-header { display: grid; grid-template-columns: 180px repeat(8, 1fr); font-size: 0.7rem; color: var(--text-dim); text-align: center; padding: 4px 0; border-bottom: 1px solid var(--surface2); }
+  .gantt-row { display: grid; grid-template-columns: 180px repeat(8, 1fr); padding: 6px 0; border-bottom: 1px solid rgba(71,85,105,0.3); align-items: center; }
+  .gantt-label { font-size: 0.8rem; padding-right: 8px; }
+  .gantt-bar { height: 24px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 600; color: #fff; }
+
+  .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--text-dim); font-size: 0.75rem; text-align: center; }
+
+  @media (max-width: 768px) {
+    .compare-grid { grid-template-columns: 1fr; }
+    .summary-stats { flex-direction: column; gap: 0.75rem; }
+    body { padding: 1rem; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>Kế hoạch khắc phục Index — mangthanhcong.vn</h1>
+<p class="subtitle">TCNET (Mạng Thành Công) &bull; 14/03/2026 &bull; Mục tiêu: Tăng coverage từ 3.5% → 60%+ trong 8 tuần</p>
+
+<!-- Executive Summary -->
+<div class="summary-box">
+  <h3>Tóm tắt vấn đề</h3>
+  <p style="font-size:0.9rem;color:var(--text-dim)">Site có 5,732 URLs nhưng chỉ ~200 trang xuất hiện trên Google. Trang danh mục hoàn toàn không được index. 21/35 sitemaps chưa submit. Crawl budget bị lãng phí cho sản phẩm trùng lặp.</p>
+  <div class="summary-stats">
+    <div class="summary-stat"><div class="val" style="color:var(--red)">3.5%</div><div class="lbl">Index Coverage hiện tại</div></div>
+    <div class="summary-stat"><div class="val" style="color:var(--red)">21</div><div class="lbl">Sitemaps chưa submit</div></div>
+    <div class="summary-stat"><div class="val" style="color:var(--red)">0%</div><div class="lbl">Danh mục được index</div></div>
+    <div class="summary-stat"><div class="val" style="color:var(--yellow)">5,400+</div><div class="lbl">SP cần audit</div></div>
+    <div class="summary-stat"><div class="val" style="color:var(--green)">8 tuần</div><div class="lbl">Timeline dự kiến</div></div>
+  </div>
+</div>
+
+<!-- Timeline Overview -->
+<h2>Timeline tổng quan</h2>
+<div class="gantt" style="overflow-x:auto">
+  <div class="gantt-header">
+    <div></div>
+    <div>T1</div><div>T2</div><div>T3</div><div>T4</div><div>T5</div><div>T6</div><div>T7</div><div>T8</div>
+  </div>
+  <div class="gantt-row">
+    <div class="gantt-label">Phase 1: Sitemap Fix</div>
+    <div style="grid-column:2/4"><div class="gantt-bar" style="background:var(--red)">Tuần 1-2</div></div>
+  </div>
+  <div class="gantt-row">
+    <div class="gantt-label">Phase 2: Danh mục Content</div>
+    <div style="grid-column:2/5"><div class="gantt-bar" style="background:var(--orange)">Tuần 1-3</div></div>
+  </div>
+  <div class="gantt-row">
+    <div class="gantt-label">Phase 3: Internal Links</div>
+    <div style="grid-column:3/6"><div class="gantt-bar" style="background:var(--yellow)">Tuần 2-4</div></div>
+  </div>
+  <div class="gantt-row">
+    <div class="gantt-label">Phase 4: Product Audit</div>
+    <div style="grid-column:4/7"><div class="gantt-bar" style="background:var(--accent)">Tuần 3-5</div></div>
+  </div>
+  <div class="gantt-row">
+    <div class="gantt-label">Phase 5: Boundary KW</div>
+    <div style="grid-column:5/8"><div class="gantt-bar" style="background:var(--purple)">Tuần 4-6</div></div>
+  </div>
+  <div class="gantt-row">
+    <div class="gantt-label">Phase 6: Monitor & Iterate</div>
+    <div style="grid-column:6/10"><div class="gantt-bar" style="background:var(--green)">Tuần 5-8</div></div>
+  </div>
+</div>
+
+<!-- ===== PHASE 1 ===== -->
+<h2>Chi tiết từng Phase</h2>
+
+<div class="phase">
+  <div class="phase-header" style="background:linear-gradient(90deg,rgba(248,113,113,0.15),transparent)">
+    <div class="phase-num" style="background:#7f1d1d;color:var(--red)">1</div>
+    <div>
+      <div class="phase-title">Submit đầy đủ Sitemaps lên GSC</div>
+      <div style="font-size:0.8rem;color:var(--text-dim)">Khẩn cấp — Làm ngay, không cần dev</div>
+    </div>
+    <div class="phase-meta">
+      <span class="badge badge-red">Ưu tiên cao</span>
+      <span class="timeline">Tuần 1-2</span>
+    </div>
+  </div>
+  <div class="phase-body">
+    <ul class="task-list">
+      <li><div class="task-check"></div><div class="task-text"><strong>Submit sitemap_index.xml</strong> — đã submit nhưng chỉ nhận 14/35 con. Kiểm tra lại.</div></li>
+      <li><div class="task-check"></div><div class="task-text"><strong>Submit thủ công từng sitemap còn thiếu:</strong><br>
+        <code>post-sitemap.xml</code> <code>page-sitemap.xml</code> <code>category-sitemap.xml</code><br>
+        <code>product_cat-sitemap1.xml</code> <code>product_cat-sitemap2.xml</code><br>
+        <code>product_tag-sitemap.xml</code> <code>pa_thuong-hieu-sitemap.xml</code> <code>local-sitemap.xml</code><br>
+        <code>product-sitemap13.xml</code> → <code>product-sitemap27.xml</code> (15 files)
+      </div></li>
+      <li><div class="task-check"></div><div class="task-text"><strong>Verify tất cả sitemap trả về 200</strong> — truy cập từng URL đảm bảo không 404/500</div></li>
+      <li><div class="task-check"></div><div class="task-text"><strong>Kiểm tra robots.txt</strong> — đảm bảo không block <code>/danh-muc/</code> hoặc <code>/product_cat/</code></div></li>
+      <li><div class="task-check"></div><div class="task-text"><strong>Request indexing</strong> cho 10 trang danh mục quan trọng nhất qua GSC URL Inspection</div></li>
+    </ul>
+    <div class="impact">
+      <span>Impact dự kiến:</span>
+      <div class="impact-bar" style="width:200px;background:linear-gradient(90deg,var(--red),var(--green))"></div>
+      <span style="color:var(--green)">+500-1000 trang được crawl trong 2-4 tuần</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== PHASE 2 ===== -->
+<div class="phase">
+  <div class="phase-header" style="background:linear-gradient(90deg,rgba(251,146,60,0.15),transparent)">
+    <div class="phase-num" style="background:#7c2d12;color:var(--orange)">2</div>
+    <div>
+      <div class="phase-title">Thêm nội dung cho trang Danh mục</div>
+      <div style="font-size:0.8rem;color:var(--text-dim)">Giải quyết "Crawled - currently not indexed"</div>
+    </div>
+    <div class="phase-meta">
+      <span class="badge badge-red">Ưu tiên cao</span>
+      <span class="timeline">Tuần 1-3</span>
+    </div>
+  </div>
+  <div class="phase-body">
+    <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:1rem">Google crawl trang danh mục nhưng thấy chỉ có danh sách link → đánh giá là thin content → từ chối index. Cần thêm unique content.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card before">
+        <h4 style="color:var(--red)">Hiện tại (Thin Content)</h4>
+        <ul>
+          <li>Chỉ có tiêu đề danh mục</li>
+          <li>Grid sản phẩm + giá</li>
+          <li>Không có text mô tả</li>
+          <li>Không có FAQ</li>
+          <li>Không có internal links đến blog</li>
+        </ul>
+      </div>
+      <div class="compare-card after">
+        <h4 style="color:var(--green)">Mục tiêu (Rich Content)</h4>
+        <ul>
+          <li>H1 + mô tả danh mục 200-300 từ</li>
+          <li>Grid sản phẩm + giá</li>
+          <li>FAQ section (3-5 câu hỏi)</li>
+          <li>Bảng so sánh sản phẩm nổi bật</li>
+          <li>Links đến blog hướng dẫn liên quan</li>
+          <li>Breadcrumb schema markup</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>Danh mục ưu tiên (có search demand)</h3>
+    <table>
+      <thead><tr><th>Danh mục</th><th>URL</th><th>Trạng thái index</th><th>Hành động</th></tr></thead>
+      <tbody>
+        <tr><td>Cáp quang</td><td><code>/danh-muc/cap-quang/</code></td><td><span class="badge badge-yellow">Crawled, not indexed</span></td><td>Viết 300 từ + FAQ</td></tr>
+        <tr><td>Tủ rack</td><td><code>/danh-muc/tu-rack/</code></td><td><span class="badge badge-red">Unknown</span></td><td>Viết 300 từ + FAQ + bảng SS</td></tr>
+        <tr><td>Media Converter</td><td><code>/danh-muc/media-converter/</code></td><td><span class="badge badge-red">Unknown</span></td><td>Viết 300 từ + FAQ</td></tr>
+        <tr><td>Hộp phối quang ODF</td><td><code>/danh-muc/hop-phoi-quang-odf/</code></td><td><span class="badge badge-blue">Indexed (6 clicks)</span></td><td>Mở rộng + thêm FAQ</td></tr>
+        <tr><td>Module SFP</td><td><code>/danh-muc/module-sfp/</code></td><td>Chưa kiểm tra</td><td>Viết 300 từ + FAQ</td></tr>
+        <tr><td>Tủ điện</td><td><code>/danh-muc/tu-dien/</code></td><td>Chưa kiểm tra</td><td>Viết 300 từ + FAQ</td></tr>
+        <tr><td>Đầu nối quang</td><td><code>/danh-muc/dau-noi-quang/</code></td><td>Chưa kiểm tra</td><td>Viết 300 từ + FAQ</td></tr>
+        <tr><td>Switch mạng</td><td><code>/danh-muc/switch-mang/</code></td><td>Chưa kiểm tra</td><td>Viết 300 từ + FAQ</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Template nội dung danh mục</h3>
+    <div class="code-block"><span class="comment">&lt;!-- Thêm vào đầu trang danh mục, trước grid sản phẩm --&gt;</span>
+
+<span class="tag">&lt;div</span> <span class="attr">class</span>=<span class="str">"category-intro"</span><span class="tag">&gt;</span>
+  <span class="tag">&lt;h1&gt;</span>Tủ Rack - Tủ Mạng Chất Lượng Cao<span class="tag">&lt;/h1&gt;</span>
+  <span class="tag">&lt;p&gt;</span>
+    Tủ rack (tủ mạng) là thiết bị lưu trữ và bảo vệ
+    các thiết bị mạng như switch, router, patch panel, ODF...
+    Mạng Thành Công cung cấp tủ rack từ 4U đến 42U,
+    tủ treo tường và tủ đứng, đa dạng kích thước D400-D1000.
+    <span class="comment">&lt;!-- 200-300 từ mô tả unique --&gt;</span>
+  <span class="tag">&lt;/p&gt;</span>
+<span class="tag">&lt;/div&gt;</span>
+
+<span class="comment">&lt;!-- Grid sản phẩm hiện tại giữ nguyên --&gt;</span>
+
+<span class="tag">&lt;div</span> <span class="attr">class</span>=<span class="str">"category-faq"</span><span class="tag">&gt;</span>
+  <span class="tag">&lt;h2&gt;</span>Câu hỏi thường gặp về Tủ Rack<span class="tag">&lt;/h2&gt;</span>
+  <span class="tag">&lt;details&gt;</span>
+    <span class="tag">&lt;summary&gt;</span>Nên chọn tủ rack bao nhiêu U?<span class="tag">&lt;/summary&gt;</span>
+    <span class="tag">&lt;p&gt;</span>Tùy số lượng thiết bị: 4-6U cho văn phòng nhỏ,
+    12-15U cho SMB, 22-42U cho datacenter...<span class="tag">&lt;/p&gt;</span>
+  <span class="tag">&lt;/details&gt;</span>
+  <span class="comment">&lt;!-- 3-5 câu FAQ --&gt;</span>
+<span class="tag">&lt;/div&gt;</span>
+
+<span class="tag">&lt;div</span> <span class="attr">class</span>=<span class="str">"category-related"</span><span class="tag">&gt;</span>
+  <span class="tag">&lt;h3&gt;</span>Bài viết liên quan<span class="tag">&lt;/h3&gt;</span>
+  <span class="tag">&lt;a</span> <span class="attr">href</span>=<span class="str">"/blogs/huong-dan-chon-tu-rack/"</span><span class="tag">&gt;</span>
+    Hướng dẫn chọn tủ rack phù hợp
+  <span class="tag">&lt;/a&gt;</span>
+<span class="tag">&lt;/div&gt;</span></div>
+
+    <ul class="task-list">
+      <li><div class="task-check"></div><div class="task-text"><strong>Liệt kê tất cả trang danh mục</strong> — crawl sitemap <code>product_cat-sitemap1.xml</code> + <code>2.xml</code></div></li>
+      <li><div class="task-check"></div><div class="task-text"><strong>Viết nội dung cho 8 danh mục ưu tiên</strong> — mỗi trang: 200-300 từ intro + 3-5 FAQ</div></li>
+      <li><div class="task-check"></div><div class="task-text"><strong>Thêm FAQ Schema</strong> (JSON-LD) cho mỗi danh mục</div></li>
+      <li><div class="task-check"></div><div class="task-text"><strong>Thêm Breadcrumb Schema</strong> — Trang chủ → Danh mục → Sản phẩm</div></li>
+      <li><div class="task-check"></div><div class="task-text"><strong>Request indexing</strong> từng danh mục đã cập nhật qua GSC</div></li>
+    </ul>
+    <div class="impact">
+      <span>Impact dự kiến:</span>
+      <div class="impact-bar" style="width:250px;background:linear-gradient(90deg,var(--orange),var(--green))"></div>
+      <span style="color:var(--green)">Danh mục được index → +50-100 impressions/danh mục/tuần</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== PHASE 3 ===== -->
+<div class="phase">
+  <div class="phase-header" style="background:linear-gradient(90deg,rgba(251,191,36,0.15),transparent)">
+    <div class="phase-num" style="background:#713f12;color:var(--yellow)">3</div>
+    <div>
+      <div class="phase-title">Xây dựng Internal Links</div>
+      <div style="font-size:0.8rem;color:var(--text-dim)">Tăng crawlability + truyền authority</div>
+    </div>
+    <div class="phase-meta">
+      <span class="badge badge-yellow">Ưu tiên cao</span>
+      <span class="timeline">Tuần 2-4</span>
+    </div>
+  </div>
+  <div class="phase-body">
+    <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:1rem">Blog "lỗi converter quang" (22 clicks) chỉ có 1 referring URL (trang chủ). Cần mạng lưới internal links dày đặc để Google phát hiện và index nhanh hơn.</p>
+
+    <h3>Mô hình Hub & Spoke</h3>
+    <div class="code-block" style="text-align:center;font-size:0.75rem;line-height:1.8">
+                    ┌─────────────────────┐
+                    │    TRANG CHỦ (/)     │
+                    └──────────┬──────────┘
+           ┌───────────────────┼───────────────────┐
+           ▼                   ▼                   ▼
+    ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+    │  /danh-muc/  │  │  /danh-muc/  │  │  /danh-muc/  │
+    │  cap-quang/  │  │  tu-rack/    │  │  media-conv/ │
+    │   (HUB)      │  │   (HUB)      │  │   (HUB)      │
+    └──┬───────┬───┘  └──┬───────┬───┘  └──┬───────┬───┘
+       │       │         │       │         │       │
+       ▼       ▼         ▼       ▼         ▼       ▼
+    [Blog]  [SP 1]    [Blog]  [SP 1]    [Blog]  [SP 1]
+    [Blog]  [SP 2]    [Blog]  [SP 2]    [Blog]  [SP 2]
+    [Blog]  [SP 3]    [Blog]  [SP 3]    [Blog]  [SP 3]
+
+    ← Mỗi Blog link ngược lên Danh mục (HUB) →
+    ← Mỗi Danh mục link xuống Blog + Sản phẩm →
+    ← Blog cùng chủ đề link chéo sang nhau →</div>
+
+    <h3>Mapping internal links cụ thể</h3>
+    <table>
+      <thead><tr><th>Trang nguồn</th><th>→ Link đến</th><th>Anchor text gợi ý</th></tr></thead>
+      <tbody>
+        <tr><td>/blogs/loi-converter-quang/</td><td>/danh-muc/media-converter/</td><td>media converter chất lượng</td></tr>
+        <tr><td>/blogs/loi-converter-quang/</td><td>/blogs/huong-dan-lap-dat-media-converter/</td><td>cách lắp đặt media converter</td></tr>
+        <tr><td>/blogs/cap-quang-4fo-8fo-12fo/</td><td>/danh-muc/cap-quang/</td><td>cáp quang các loại</td></tr>
+        <tr><td>/blogs/cap-quang-4fo-8fo-12fo/</td><td>/blogs/huong-dan-chon-cap-quang-theo-so-soi/</td><td>cách chọn cáp quang theo số sợi</td></tr>
+        <tr><td>/blogs/phan-biet-dau-noi-quang/</td><td>/danh-muc/dau-noi-quang/</td><td>đầu nối quang SC, LC, FC</td></tr>
+        <tr><td>/blogs/loi-module-sfp/</td><td>/blogs/cach-lap-module-sfp-vao-switch/</td><td>hướng dẫn lắp module SFP</td></tr>
+        <tr><td>/blogs/so-sanh-sfp-1-soi-vs-2-soi/</td><td>/blogs/loi-module-sfp/</td><td>lỗi thường gặp khi dùng SFP</td></tr>
+        <tr><td>/danh-muc/cap-quang/</td><td>/blogs/kiem-tra-cap-quang-bi-dut/</td><td>kiểm tra cáp quang bị đứt</td></tr>
+        <tr><td>/danh-muc/tu-rack/</td><td>(viết blog mới về tủ rack)</td><td>cách chọn tủ rack phù hợp</td></tr>
+        <tr><td>/danh-muc/hop-phoi-quang-odf/</td><td>/blogs/huong-dan-dau-noi-odf/</td><td>hướng dẫn đấu nối ODF</td></tr>
+      </tbody>
+    </table>
+
+    <ul class="task-list">
+      <li><div class="task-check"></div><div class="task-text"><strong>Cập nhật 10 bài blog hiện có</strong> — thêm 2-3 internal links/bài đến danh mục + blog liên quan</div></li>
+      <li><div class="task-check"></div><div class="task-text"><strong>Thêm "Bài viết liên quan" vào mỗi trang danh mục</strong> — link đến 3-5 blog relevant</div></li>
+      <li><div class="task-check"></div><div class="task-text"><strong>Thêm "Sản phẩm thuộc danh mục" sidebar</strong> vào bài blog</div></li>
+      <li><div class="task-check"></div><div class="task-text"><strong>Cập nhật breadcrumb navigation</strong> — Trang chủ > Danh mục > Trang hiện tại</div></li>
+    </ul>
+    <div class="impact">
+      <span>Impact dự kiến:</span>
+      <div class="impact-bar" style="width:220px;background:linear-gradient(90deg,var(--yellow),var(--green))"></div>
+      <span style="color:var(--green)">Tăng crawl rate 2-3x, danh mục được phát hiện nhanh hơn</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== PHASE 4 ===== -->
+<div class="phase">
+  <div class="phase-header" style="background:linear-gradient(90deg,rgba(56,189,248,0.15),transparent)">
+    <div class="phase-num" style="background:#0c4a6e;color:var(--accent)">4</div>
+    <div>
+      <div class="phase-title">Audit & Dọn dẹp trang Sản phẩm</div>
+      <div style="font-size:0.8rem;color:var(--text-dim)">Giảm bloat, tối ưu crawl budget</div>
+    </div>
+    <div class="phase-meta">
+      <span class="badge badge-blue">Ưu tiên TB</span>
+      <span class="timeline">Tuần 3-5</span>
+    </div>
+  </div>
+  <div class="phase-body">
+    <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:1rem">5,400+ sản phẩm nhưng chỉ ~50 có traffic. Nhiều sản phẩm trùng lặp hoặc hết hàng đang chiếm crawl budget.</p>
+
+    <ul class="task-list">
+      <li><div class="task-check"></div><div class="task-text"><strong>Export danh sách tất cả sản phẩm</strong> từ WP — lọc: hết hàng, ẩn, draft, trùng title</div></li>
+      <li><div class="task-check"></div><div class="task-text"><strong>Noindex sản phẩm hết hàng / ngừng kinh doanh</strong> — giữ trang nhưng không lãng phí crawl budget</div></li>
+      <li><div class="task-check"></div><div class="task-text"><strong>Canonical cho sản phẩm trùng lặp</strong> — nhiều biến thể cùng 1 SP → canonical về SP chính</div></li>
+      <li><div class="task-check"></div><div class="task-text"><strong>Cải thiện meta title/description</strong> cho top 50 SP có traffic — thêm USP, giá, thương hiệu</div></li>
+      <li><div class="task-check"></div><div class="task-text"><strong>Thêm Product Schema</strong> (JSON-LD) cho SP chưa có — giá, tình trạng kho, review</div></li>
+      <li><div class="task-check"></div><div class="task-text"><strong>Loại bỏ product_tag trùng lặp</strong> — tag pages thường thin content, cân nhắc noindex</div></li>
+    </ul>
+    <div class="impact">
+      <span>Impact dự kiến:</span>
+      <div class="impact-bar" style="width:180px;background:linear-gradient(90deg,var(--accent),var(--green))"></div>
+      <span style="color:var(--green)">Giảm 30-50% URLs cần crawl → budget dành cho trang quan trọng</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== PHASE 5 ===== -->
+<div class="phase">
+  <div class="phase-header" style="background:linear-gradient(90deg,rgba(167,139,250,0.15),transparent)">
+    <div class="phase-num" style="background:#3b0764;color:var(--purple)">5</div>
+    <div>
+      <div class="phase-title">Optimize bài Blog "Boundary" (pos 10-15)</div>
+      <div style="font-size:0.8rem;color:var(--text-dim)">Quick wins — đẩy từ trang 2 lên trang 1</div>
+    </div>
+    <div class="phase-meta">
+      <span class="badge badge-purple">Quick Win</span>
+      <span class="timeline">Tuần 4-6</span>
+    </div>
+  </div>
+  <div class="phase-body">
+    <table>
+      <thead><tr><th>Bài blog</th><th class="num">Impr</th><th class="num">Clicks</th><th class="num">Pos</th><th>Hành động cụ thể</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>/blogs/cap-quang-4fo-8fo-12fo/</td>
+          <td class="num">240</td><td class="num">8</td><td class="num" style="color:var(--yellow)">13.3</td>
+          <td>
+            Update title: "So sánh cáp quang 4FO, 8FO, 12FO — Chọn loại nào?"<br>
+            Thêm bảng so sánh, hình ảnh, 500+ từ bổ sung
+          </td>
+        </tr>
+        <tr>
+          <td>/blogs/kiem-tra-cap-quang-bi-dut/</td>
+          <td class="num">196</td><td class="num">7</td><td class="num" style="color:var(--yellow)">12.3</td>
+          <td>
+            Thêm video hướng dẫn (hoặc embed YouTube)<br>
+            Bổ sung: tools cần thiết, bảng giá dịch vụ kiểm tra
+          </td>
+        </tr>
+        <tr>
+          <td>/blogs/loi-converter-quang/</td>
+          <td class="num">398</td><td class="num">22</td><td class="num">4.8</td>
+          <td>
+            <span class="badge badge-green">Đang top 5</span> — Giữ nguyên, thêm internal links
+          </td>
+        </tr>
+        <tr>
+          <td>/blogs/huong-dan-dau-noi-odf/</td>
+          <td class="num">58</td><td class="num">6</td><td class="num">4.7</td>
+          <td>
+            <span class="badge badge-green">Đang top 5</span> — Thêm FAQ schema + hình ảnh chi tiết
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <ul class="task-list">
+      <li><div class="task-check"></div><div class="task-text"><strong>Cập nhật 2 bài boundary</strong> — thêm nội dung, bảng, hình, internal links</div></li>
+      <li><div class="task-check"></div><div class="task-text"><strong>Thêm FAQ Schema</strong> cho 4 bài blog top — tăng CTR trong SERP</div></li>
+      <li><div class="task-check"></div><div class="task-text"><strong>Optimize meta description</strong> — include CTA + số liệu cụ thể</div></li>
+    </ul>
+    <div class="impact">
+      <span>Impact dự kiến:</span>
+      <div class="impact-bar" style="width:160px;background:linear-gradient(90deg,var(--purple),var(--green))"></div>
+      <span style="color:var(--green)">+20-40 clicks/tuần từ 2 bài boundary lên top 10</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== PHASE 6 ===== -->
+<div class="phase">
+  <div class="phase-header" style="background:linear-gradient(90deg,rgba(74,222,128,0.15),transparent)">
+    <div class="phase-num" style="background:#064e3b;color:var(--green)">6</div>
+    <div>
+      <div class="phase-title">Monitor, Measure & Iterate</div>
+      <div style="font-size:0.8rem;color:var(--text-dim)">Đo lường kết quả, điều chỉnh</div>
+    </div>
+    <div class="phase-meta">
+      <span class="badge badge-green">Liên tục</span>
+      <span class="timeline">Tuần 5-8+</span>
+    </div>
+  </div>
+  <div class="phase-body">
+    <ul class="task-list">
+      <li><div class="task-check"></div><div class="task-text"><strong>Tuần 3:</strong> Kiểm tra GSC Coverage report — số trang "Indexed" tăng bao nhiêu?</div></li>
+      <li><div class="task-check"></div><div class="task-text"><strong>Tuần 4:</strong> So sánh impressions danh mục trước/sau — target: mỗi danh mục 50+ impr/tuần</div></li>
+      <li><div class="task-check"></div><div class="task-text"><strong>Tuần 6:</strong> Full audit lại — batch inspect 50 URLs random, đo tỉ lệ index</div></li>
+      <li><div class="task-check"></div><div class="task-text"><strong>Tuần 8:</strong> Báo cáo tổng kết — coverage target 60%+, clicks target 400+/tuần</div></li>
+      <li><div class="task-check"></div><div class="task-text"><strong>Ongoing:</strong> Xuất bản 3 bài blog/tuần, mỗi bài có internal links đến danh mục liên quan</div></li>
+    </ul>
+
+    <h3>KPI theo dõi</h3>
+    <table>
+      <thead><tr><th>Chỉ số</th><th>Hiện tại</th><th>Target T+4 tuần</th><th>Target T+8 tuần</th></tr></thead>
+      <tbody>
+        <tr><td>Index coverage</td><td style="color:var(--red)">~3.5% (~200/5732)</td><td>20% (~1150)</td><td style="color:var(--green)">60%+ (~3400)</td></tr>
+        <tr><td>Trang danh mục indexed</td><td style="color:var(--red)">1 (ODF)</td><td>8 danh mục chính</td><td style="color:var(--green)">Toàn bộ</td></tr>
+        <tr><td>Clicks/tuần</td><td>~270</td><td>350+</td><td style="color:var(--green)">500+</td></tr>
+        <tr><td>Vị trí trung bình</td><td style="color:var(--yellow)">15.4</td><td>12</td><td style="color:var(--green)">&lt; 10</td></tr>
+        <tr><td>Blog mới/tuần</td><td style="color:var(--red)">0</td><td>2-3</td><td style="color:var(--green)">3</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Summary Priority Matrix -->
+<h2>Ma trận ưu tiên</h2>
+<table>
+  <thead><tr><th>Hành động</th><th>Effort</th><th>Impact</th><th>Ai làm</th><th>Deadline</th></tr></thead>
+  <tbody>
+    <tr style="background:rgba(248,113,113,0.08)"><td><strong>Submit 21 sitemaps</strong></td><td>Thấp (30 phút)</td><td style="color:var(--green)">Cao</td><td>SEO Manager</td><td>Ngay hôm nay</td></tr>
+    <tr style="background:rgba(248,113,113,0.08)"><td><strong>Kiểm tra robots.txt</strong></td><td>Thấp (10 phút)</td><td style="color:var(--green)">Cao</td><td>SEO Manager</td><td>Ngay hôm nay</td></tr>
+    <tr style="background:rgba(251,146,60,0.08)"><td><strong>Viết content 8 danh mục</strong></td><td>TB (2-3 ngày)</td><td style="color:var(--green)">Cao</td><td>Content Writer</td><td>Tuần 1-3</td></tr>
+    <tr style="background:rgba(251,191,36,0.08)"><td><strong>Internal links 10 blog</strong></td><td>TB (1 ngày)</td><td>Trung bình</td><td>Content Writer</td><td>Tuần 2-3</td></tr>
+    <tr style="background:rgba(251,191,36,0.08)"><td><strong>Breadcrumb + FAQ Schema</strong></td><td>TB (1 ngày)</td><td>Trung bình</td><td>Developer</td><td>Tuần 2</td></tr>
+    <tr><td><strong>Audit 5,400 sản phẩm</strong></td><td>Cao (3-5 ngày)</td><td>Trung bình</td><td>SEO + Dev</td><td>Tuần 3-5</td></tr>
+    <tr><td><strong>Optimize 2 blog boundary</strong></td><td>Thấp (1 ngày)</td><td style="color:var(--green)">Cao</td><td>Content Writer</td><td>Tuần 4</td></tr>
+    <tr><td><strong>Noindex SP hết hàng/trùng</strong></td><td>TB (1 ngày)</td><td>Trung bình</td><td>Developer</td><td>Tuần 4-5</td></tr>
+  </tbody>
+</table>
+
+<div class="footer">
+  Kế hoạch khắc phục Index — mangthanhcong.vn &bull; SEO Manager &bull; 14/03/2026<br>
+  Nguồn dữ liệu: Google Search Console API &bull; Sitemap Analysis &bull; URL Inspection API
+</div>
+
+</div>
+</body>
+</html>

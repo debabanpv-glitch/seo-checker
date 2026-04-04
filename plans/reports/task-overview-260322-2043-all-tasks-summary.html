@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tổng hợp Công việc — SEO Manager</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a12; color: #e0e0e8; padding: 24px; line-height: 1.5; }
+  h1 { font-size: 22px; margin-bottom: 8px; color: #fff; }
+  h2 { font-size: 16px; margin: 24px 0 12px; color: #f0c040; border-bottom: 1px solid #2a2a3a; padding-bottom: 6px; }
+  h3 { font-size: 14px; margin: 16px 0 8px; color: #8888a0; }
+  .subtitle { color: #8888a0; font-size: 13px; margin-bottom: 20px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .card { background: #12121e; border: 1px solid #2a2a3a; border-radius: 12px; padding: 16px; }
+  .card-title { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+  .stat { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 13px; }
+  .stat-label { color: #8888a0; }
+  .stat-value { font-weight: 600; }
+  .green { color: #22c55e; }
+  .yellow { color: #eab308; }
+  .red { color: #ef4444; }
+  .blue { color: #3b82f6; }
+  .purple { color: #8b5cf6; }
+  .orange { color: #f97316; }
+  .bar { height: 6px; background: #1e1e30; border-radius: 4px; margin-top: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; font-size: 12px; }
+  th { text-align: left; padding: 8px 10px; background: #1a1a2a; color: #8888a0; font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; }
+  td { padding: 7px 10px; border-bottom: 1px solid #1e1e30; }
+  tr:hover { background: #16162a; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+  .badge-done { background: #22c55e20; color: #22c55e; }
+  .badge-doing { background: #3b82f620; color: #3b82f6; }
+  .badge-review { background: #eab30820; color: #eab308; }
+  .badge-backlog { background: #8888a020; color: #8888a0; }
+  .badge-todo { background: #8888a015; color: #666680; }
+  .badge-high { background: #ef444420; color: #ef4444; }
+  .badge-med { background: #eab30820; color: #eab308; }
+  .badge-low { background: #22c55e20; color: #22c55e; }
+  .section { margin-bottom: 32px; }
+  .summary-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+  .summary-box { background: #12121e; border: 1px solid #2a2a3a; border-radius: 10px; padding: 12px 16px; min-width: 120px; text-align: center; }
+  .summary-box .num { font-size: 24px; font-weight: 800; }
+  .summary-box .lbl { font-size: 10px; color: #8888a0; text-transform: uppercase; margin-top: 2px; }
+  .overdue { color: #ef4444; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Tổng hợp Công việc — Tất cả nguồn</h1>
+<p class="subtitle">Ngày: 22/03/2026 · 5 nguồn: Sheets Content (tasks), Notion Tasks (29), Notion Content (20), Notion Keywords (13), Strategy Actions (274)</p>
+
+<!-- ═══════════════ TỔNG QUAN ═══════════════ -->
+<h2>📊 Tổng quan</h2>
+<div class="summary-row">
+  <div class="summary-box"><div class="num" style="color:#3b82f6">594</div><div class="lbl">Tổng (5 nguồn)</div></div>
+  <div class="summary-box"><div class="num green">221</div><div class="lbl">Hoàn thành</div></div>
+  <div class="summary-box"><div class="num yellow">10</div><div class="lbl">Đang làm</div></div>
+  <div class="summary-box"><div class="num" style="color:#8888a0">363</div><div class="lbl">Chưa làm</div></div>
+  <div class="summary-box"><div class="num" style="color:#fff">37%</div><div class="lbl">Tỉ lệ hoàn thành</div></div>
+</div>
+
+<div class="cards">
+  <div class="card">
+    <div class="card-title">📋 Google Sheets (Content)</div>
+    <div class="stat"><span class="stat-label">Tổng</span><span class="stat-value">258</span></div>
+    <div class="stat"><span class="stat-label">Done / Published</span><span class="stat-value green">215</span></div>
+    <div class="stat"><span class="stat-label">Đang QC / Fix</span><span class="stat-value yellow">5</span></div>
+    <div class="stat"><span class="stat-label">Chưa làm</span><span class="stat-value">38</span></div>
+    <div class="bar"><div class="bar-fill" style="width:83%;background:#22c55e"></div></div>
+    <div style="text-align:right;font-size:11px;color:#22c55e;margin-top:2px">83% done</div>
+  </div>
+  <div class="card">
+    <div class="card-title">📓 Notion Tasks</div>
+    <div class="stat"><span class="stat-label">Tổng</span><span class="stat-value">29</span></div>
+    <div class="stat"><span class="stat-label">✅ Hoàn thành</span><span class="stat-value green">10</span></div>
+    <div class="stat"><span class="stat-label">👀 Chờ review</span><span class="stat-value yellow">2</span></div>
+    <div class="stat"><span class="stat-label">🔄 Đang làm</span><span class="stat-value blue">1</span></div>
+    <div class="stat"><span class="stat-label">📥 Backlog</span><span class="stat-value">16</span></div>
+    <div class="bar"><div class="bar-fill" style="width:34%;background:#22c55e"></div></div>
+    <div style="text-align:right;font-size:11px;color:#eab308;margin-top:2px">34% done</div>
+  </div>
+  <div class="card">
+    <div class="card-title">🎯 Strategy Actions</div>
+    <div class="stat"><span class="stat-label">Tổng</span><span class="stat-value">274</span></div>
+    <div class="stat"><span class="stat-label">Done</span><span class="stat-value green">1</span></div>
+    <div class="stat"><span class="stat-label">Doing</span><span class="stat-value blue">2</span></div>
+    <div class="stat"><span class="stat-label">Todo</span><span class="stat-value">271</span></div>
+    <div class="bar"><div class="bar-fill" style="width:1%;background:#ef4444"></div></div>
+    <div style="text-align:right;font-size:11px;color:#ef4444;margin-top:2px">0.4% done — cần đẩy mạnh!</div>
+  </div>
+</div>
+
+<!-- ═══════════════ THEO DỰ ÁN ═══════════════ -->
+<h2>📁 Theo dự án</h2>
+<div class="cards">
+  <!-- Samco -->
+  <div class="card">
+    <div class="card-title">🏭 Samco Tech</div>
+    <h3>Sheets Content: 71 tasks</h3>
+    <div class="stat"><span class="stat-label">Published</span><span class="stat-value green">51 (72%)</span></div>
+    <div class="stat"><span class="stat-label">Chưa làm</span><span class="stat-value">20</span></div>
+    <h3>Notion: 22 tasks</h3>
+    <div class="stat"><span class="stat-label">✅ Hoàn thành</span><span class="stat-value green">10</span></div>
+    <div class="stat"><span class="stat-label">👀 Chờ review</span><span class="stat-value yellow">2</span></div>
+    <div class="stat"><span class="stat-label">📥 Backlog</span><span class="stat-value">10</span></div>
+    <h3>Strategy: 234 actions</h3>
+    <div class="stat"><span class="stat-label">Technical SEO</span><span class="stat-value">155 todo</span></div>
+    <div class="stat"><span class="stat-label">Content</span><span class="stat-value">31 todo</span></div>
+    <div class="stat"><span class="stat-label">Off-page</span><span class="stat-value">21 todo</span></div>
+    <div class="stat"><span class="stat-label">On-page</span><span class="stat-value">14 todo</span></div>
+    <div class="stat"><span class="stat-label">GEO</span><span class="stat-value">10 todo</span></div>
+    <div class="stat"><span class="stat-label">AEO + AIO</span><span class="stat-value">3 todo</span></div>
+  </div>
+  <!-- DLBM -->
+  <div class="card">
+    <div class="card-title">🌴 Du Lịch Bình Minh</div>
+    <h3>Sheets Content: 94 tasks</h3>
+    <div class="stat"><span class="stat-label">Published</span><span class="stat-value green">76 (81%)</span></div>
+    <div class="stat"><span class="stat-label">Done QC</span><span class="stat-value yellow">3</span></div>
+    <div class="stat"><span class="stat-label">Chưa làm</span><span class="stat-value">15</span></div>
+    <h3>Notion: 7 tasks</h3>
+    <div class="stat"><span class="stat-label">🔄 Đang làm</span><span class="stat-value blue">1</span></div>
+    <div class="stat"><span class="stat-label">📥 Backlog</span><span class="stat-value">6</span></div>
+    <h3>Strategy: 20 actions</h3>
+    <div class="stat"><span class="stat-label">Content</span><span class="stat-value">16 todo · 2 doing</span></div>
+    <div class="stat"><span class="stat-label">Technical</span><span class="stat-value green">1 done</span></div>
+    <div class="stat"><span class="stat-label">Links</span><span class="stat-value">1 todo</span></div>
+  </div>
+  <!-- TCNET -->
+  <div class="card">
+    <div class="card-title">🌐 TCNET (Mạng Thành Công)</div>
+    <h3>Sheets Content: 93 tasks</h3>
+    <div class="stat"><span class="stat-label">Published</span><span class="stat-value green">88 (95%)</span></div>
+    <div class="stat"><span class="stat-label">Đã fix / QC</span><span class="stat-value yellow">3</span></div>
+    <div class="stat"><span class="stat-label">Chưa làm</span><span class="stat-value">2</span></div>
+    <h3>Notion: 0 tasks</h3>
+    <div class="stat"><span class="stat-label" style="color:#666680">Chưa có task trong Notion</span></div>
+    <h3>Strategy: 20 actions</h3>
+    <div class="stat"><span class="stat-label">Content</span><span class="stat-value">9 todo</span></div>
+    <div class="stat"><span class="stat-label">Technical</span><span class="stat-value">9 todo</span></div>
+    <div class="stat"><span class="stat-label">Authority</span><span class="stat-value">2 todo</span></div>
+  </div>
+</div>
+
+<!-- ═══════════════ NOTION TASKS CHI TIẾT ═══════════════ -->
+<h2>📓 Notion Tasks — Chi tiết</h2>
+
+<h3>Samco Tech (22 tasks)</h3>
+<table>
+<thead><tr><th>Task</th><th>Loại</th><th>Trạng thái</th><th>Ưu tiên</th><th>Deadline</th></tr></thead>
+<tbody>
+<tr><td>Phase 1-5: Viết content chuyên sâu ~278 SP Brother</td><td>Content</td><td><span class="badge badge-done">✅ Hoàn thành</span></td><td><span class="badge badge-high">🔴 Cao</span></td><td>14/03</td></tr>
+<tr><td>Phase A: Bổ sung SEO metadata 306 SP non-Brother</td><td>Onpage</td><td><span class="badge badge-done">✅ Hoàn thành</span></td><td><span class="badge badge-high">🔴 Cao</span></td><td>19/03</td></tr>
+<tr><td>Phase B: Bổ sung H2 + FAQ cho 178 SP</td><td>Content</td><td><span class="badge badge-done">✅ Hoàn thành</span></td><td><span class="badge badge-high">🔴 Cao</span></td><td>20/03</td></tr>
+<tr><td>Phase C: Mở rộng content 12 SP dưới 100 từ</td><td>Content</td><td><span class="badge badge-done">✅ Hoàn thành</span></td><td><span class="badge badge-med">🟡 TB</span></td><td>20/03</td></tr>
+<tr><td>Audit SEO chuyên sâu GSC + On-page</td><td>Technical Audit</td><td><span class="badge badge-done">✅ Hoàn thành</span></td><td><span class="badge badge-high">🔴 Cao</span></td><td>22/03</td></tr>
+<tr><td>Cập nhật 4 database Notion SEO Hub</td><td>Report</td><td><span class="badge badge-done">✅ Hoàn thành</span></td><td><span class="badge badge-med">🟡 TB</span></td><td>22/03</td></tr>
+<tr><td>[P0] Submit sitemap + Request indexing</td><td>Technical Audit</td><td><span class="badge badge-review">👀 Chờ review</span></td><td><span class="badge badge-high">🔴 Cao</span></td><td>25/03</td></tr>
+<tr><td>[P1] Sửa meta description — CTR 0.96% ở vị trí 4.4</td><td>Onpage</td><td><span class="badge badge-done">✅ Hoàn thành</span></td><td><span class="badge badge-high">🔴 Cao</span></td><td>27/03</td></tr>
+<tr><td>[P0] Sửa Product Schema — fix Rich Results FAIL</td><td>Technical Audit</td><td><span class="badge badge-done">✅ Hoàn thành</span></td><td><span class="badge badge-high">🔴 Cao</span></td><td>28/03</td></tr>
+<tr><td>Review và publish 19 bài Draft blog/kiến thức</td><td>Content</td><td><span class="badge badge-review">👀 Chờ review</span></td><td><span class="badge badge-high">🔴 Cao</span></td><td>29/03</td></tr>
+<tr><td>Batch update Meta Title + Focus KW cho 502 SP</td><td>Onpage</td><td><span class="badge badge-backlog">📥 Backlog</span></td><td><span class="badge badge-high">🔴 Cao</span></td><td>29/03</td></tr>
+<tr><td>[P2] Thêm outbound links uy tín cho top 20 trang</td><td>Onpage</td><td><span class="badge badge-done">✅ Hoàn thành</span></td><td><span class="badge badge-high">🔴 Cao</span></td><td>04/04</td></tr>
+<tr><td>[P1] Tăng mật độ keyword chính lên 1-2% cho top 20</td><td>Onpage</td><td><span class="badge badge-backlog">📥 Backlog</span></td><td><span class="badge badge-high">🔴 Cao</span></td><td>04/04</td></tr>
+<tr><td>Fix HTML 10 SP TZe core (div/span/CTA)</td><td>Onpage</td><td><span class="badge badge-done">✅ Hoàn thành</span></td><td><span class="badge badge-high">🔴 Cao</span></td><td>05/04</td></tr>
+<tr><td>Viết description cho 13 SP nhãn Brother còn thiếu</td><td>Content</td><td><span class="badge badge-backlog">📥 Backlog</span></td><td><span class="badge badge-med">🟡 TB</span></td><td>05/04</td></tr>
+<tr><td>[P2] Bổ sung E-E-A-T cho trang danh mục</td><td>Onpage</td><td><span class="badge badge-backlog">📥 Backlog</span></td><td><span class="badge badge-med">🟡 TB</span></td><td>11/04</td></tr>
+<tr><td>[P2] Viết bài blog PT-E310BTVP, PT-E850TKW, TZe-241</td><td>Content</td><td><span class="badge badge-backlog">📥 Backlog</span></td><td><span class="badge badge-med">🟡 TB</span></td><td>11/04</td></tr>
+<tr><td>Nâng cấp description 14 SP DK/EK series</td><td>Content</td><td><span class="badge badge-backlog">📥 Backlog</span></td><td><span class="badge badge-med">🟡 TB</span></td><td>12/04</td></tr>
+<tr><td>Batch thêm Schema JSON-LD cho 502 SP nhãn Brother</td><td>Technical Audit</td><td><span class="badge badge-backlog">📥 Backlog</span></td><td><span class="badge badge-med">🟡 TB</span></td><td>12/04</td></tr>
+<tr><td>[P3] Tối ưu title tags lên 60-70 chars + power words</td><td>Onpage</td><td><span class="badge badge-backlog">📥 Backlog</span></td><td><span class="badge badge-med">🟡 TB</span></td><td>18/04</td></tr>
+<tr><td>[P3] Thêm figcaption + cải thiện alt text toàn bộ ảnh</td><td>Onpage</td><td><span class="badge badge-backlog">📥 Backlog</span></td><td><span class="badge badge-low">🟢 Thấp</span></td><td>25/04</td></tr>
+<tr><td>[P4] Backlink building — xây dựng authority</td><td>Backlink</td><td><span class="badge badge-backlog">📥 Backlog</span></td><td><span class="badge badge-med">🟡 TB</span></td><td>30/04</td></tr>
+</tbody>
+</table>
+
+<h3>Du Lịch Bình Minh (7 tasks)</h3>
+<table>
+<thead><tr><th>Task</th><th>Loại</th><th>Trạng thái</th><th>Ưu tiên</th><th>Deadline</th></tr></thead>
+<tbody>
+<tr><td>Fix 39 Title Tags quá ngắn (<30 ký tự)</td><td>Onpage</td><td><span class="badge badge-backlog">📥 Backlog</span></td><td><span class="badge badge-high">🔴 Cao</span></td><td class="overdue">31/03</td></tr>
+<tr><td>Viết lại 65 Meta Description không chuẩn</td><td>Onpage</td><td><span class="badge badge-backlog">📥 Backlog</span></td><td><span class="badge badge-high">🔴 Cao</span></td><td>07/04</td></tr>
+<tr><td>Viết content SEO cho 8 trang đang chạy quảng cáo</td><td>Content</td><td><span class="badge badge-doing">🔄 Đang làm</span></td><td><span class="badge badge-high">🔴 Cao</span></td><td>15/04</td></tr>
+<tr><td>Research danh mục Tour Miền Tây 1 Ngày</td><td>Keyword Research</td><td><span class="badge badge-backlog">📥 Backlog</span></td><td><span class="badge badge-med">🟡 TB</span></td><td>20/04</td></tr>
+<tr><td>Research danh mục Tour Cần Thơ</td><td>Keyword Research</td><td><span class="badge badge-backlog">📥 Backlog</span></td><td><span class="badge badge-med">🟡 TB</span></td><td>20/04</td></tr>
+<tr><td>Phân tích đối thủ cho từ khóa tour Miền Tây</td><td>Competitor Analysis</td><td><span class="badge badge-backlog">📥 Backlog</span></td><td><span class="badge badge-med">🟡 TB</span></td><td>25/04</td></tr>
+<tr><td>Kiểm tra và fix Technical SEO — CWV + Mobile</td><td>Technical Audit</td><td><span class="badge badge-backlog">📥 Backlog</span></td><td><span class="badge badge-med">🟡 TB</span></td><td>30/04</td></tr>
+</tbody>
+</table>
+
+<h3>TCNET — Chưa có task trong Notion</h3>
+<p style="color:#666680;font-size:13px;margin-bottom:16px">Cần tạo task Notion cho TCNET để track công việc SEO chi tiết.</p>
+
+<!-- ═══════════════ CONTENT CHƯA LÀM (SHEETS) ═══════════════ -->
+<h2>📝 Content chưa làm (Google Sheets)</h2>
+
+<h3>Samco Tech — 20 bài chưa làm</h3>
+<table>
+<thead><tr><th>#</th><th>Keyword</th><th>Title</th><th>PIC</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>in nhiệt là gì</td><td>In Nhiệt Là Gì? Cơ Chế In Và Khi Nào Nên Dùng</td><td>—</td></tr>
+<tr><td>2</td><td>in truyền nhiệt là gì</td><td>In Truyền Nhiệt Là Gì? Khác Gì So Với In Nhiệt</td><td>—</td></tr>
+<tr><td>3</td><td>decal in nhãn là gì</td><td>Decal In Nhãn Là Gì? Phân Loại Theo Chất Liệu</td><td>—</td></tr>
+<tr><td>4</td><td>ribbon in nhãn loại nào tốt</td><td>Nên Dùng Loại Ribbon In Nhãn Nào Cho Độ Bền Cao</td><td>—</td></tr>
+<tr><td>5</td><td>decal nhãn in bền</td><td>Các Loại Decal Nhãn In Bền, Chịu Nước, Chịu Nhiệt</td><td>—</td></tr>
+<tr><td>6</td><td>nhãn in chống nước</td><td>Nhãn In Chống Nước: Giải Pháp Cho Môi Trường Ẩm</td><td>—</td></tr>
+<tr><td>7</td><td>thay ribbon máy in nhãn</td><td>Cách Thay Ribbon Máy In Nhãn Đúng Cách</td><td>—</td></tr>
+<tr><td>8</td><td>căn chỉnh máy in nhãn</td><td>Cách Căn Chỉnh Máy In Nhãn Không Bị Lệch</td><td>—</td></tr>
+<tr><td>9</td><td>in mã vạch đúng chuẩn</td><td>Cách In Mã Vạch Trên Nhãn Đúng Chuẩn Scan</td><td>—</td></tr>
+<tr><td>10</td><td>phần mềm in nhãn</td><td>Phần Mềm In Nhãn Phổ Biến Hiện Nay</td><td>—</td></tr>
+</tbody>
+</table>
+
+<h3>Du Lịch Bình Minh — 18 bài chưa làm (AI generated)</h3>
+<table>
+<thead><tr><th>#</th><th>Keyword</th><th>Title</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>tuổi thọ converter quang</td><td>Các Yếu Tố Ảnh Hưởng Đến Tuổi Thọ Của Converter Quang Công Nghiệp</td></tr>
+<tr><td>2</td><td>module SFP chuẩn BIDI giá rẻ</td><td>Đánh Giá Module SFP Chuẩn BIDI Giá Rẻ Có Nên Sử Dụng?</td></tr>
+<tr><td>3</td><td>hộp phối quang gắn tường mini</td><td>Ưu Điểm Của Hộp Phối Quang Gắn Tường Mini Cho Hệ Thống FTTx Nhỏ</td></tr>
+<tr><td>4</td><td>converter quang cho hệ thống SCADA</td><td>Tích Hợp Converter Quang Vào Hệ Thống SCADA</td></tr>
+<tr><td>5</td><td>so sánh GPON và XGS-PON</td><td>So sánh GPON và XGS-PON: Lựa chọn nào cho mạng FTTx</td></tr>
+<tr><td>6</td><td>cáp quang chống mài mòn</td><td>Giải pháp cáp quang chống mài mòn cho môi trường công nghiệp nặng</td></tr>
+<tr><td>7</td><td>so sánh DWDM và OTN</td><td>So Sánh Sự Khác Biệt Giữa DWDM Và OTN</td></tr>
+<tr><td>8</td><td>OSNR quang là gì</td><td>OSNR Quang Là Gì? Giải Mã Tỷ Lệ Tín Hiệu Trên Nhiễu Quang</td></tr>
+</tbody>
+</table>
+
+<h3>TCNET — 5 bài chưa xong</h3>
+<table>
+<thead><tr><th>Keyword</th><th>Title</th><th>Status</th><th>PIC</th></tr></thead>
+<tbody>
+<tr><td>Làng chiếu Định Yên</td><td>—</td><td><span class="badge badge-todo">Chưa làm</span></td><td>—</td></tr>
+<tr><td>Khu di tích mộ cụ Nguyễn Sinh Sắc</td><td>—</td><td><span class="badge badge-todo">Chưa làm</span></td><td>—</td></tr>
+<tr><td>Vườn hồng Tư Tôn</td><td>Vườn hồng Tư Tôn – Điểm check-in miệt vườn</td><td><span class="badge badge-doing">Đã fix</span></td><td>Trúc Nhi</td></tr>
+<tr><td>Khu di tích Gò Tháp</td><td>Khu di tích Gò Tháp – Quần thể di tích lịch sử</td><td><span class="badge badge-doing">Đã fix</span></td><td>Trúc Nhi</td></tr>
+<tr><td>Khu du lịch văn hóa Phương Nam</td><td>Khu du lịch văn hóa Phương Nam</td><td><span class="badge badge-review">QC Content</span></td><td>Trúc Nhi</td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════ STRATEGY ACTIONS ═══════════════ -->
+<h2>🎯 Strategy Actions — Tổng hợp theo Category</h2>
+<table>
+<thead><tr><th>Dự án</th><th>Category</th><th>Tổng</th><th>Done</th><th>Doing</th><th>Todo</th><th>Progress</th></tr></thead>
+<tbody>
+<tr><td rowspan="6" style="font-weight:700;vertical-align:top">Samco Tech</td><td>Technical SEO</td><td>155</td><td class="green">0</td><td class="blue">0</td><td>155</td><td><div class="bar"><div class="bar-fill" style="width:0%;background:#ef4444"></div></div></td></tr>
+<tr><td>Content</td><td>31</td><td class="green">0</td><td class="blue">0</td><td>31</td><td><div class="bar"><div class="bar-fill" style="width:0%;background:#ef4444"></div></div></td></tr>
+<tr><td>Off-page</td><td>21</td><td class="green">0</td><td class="blue">0</td><td>21</td><td><div class="bar"><div class="bar-fill" style="width:0%;background:#ef4444"></div></div></td></tr>
+<tr><td>On-page</td><td>14</td><td class="green">0</td><td class="blue">0</td><td>14</td><td><div class="bar"><div class="bar-fill" style="width:0%;background:#ef4444"></div></div></td></tr>
+<tr><td>GEO</td><td>10</td><td class="green">0</td><td class="blue">0</td><td>10</td><td><div class="bar"><div class="bar-fill" style="width:0%;background:#ef4444"></div></div></td></tr>
+<tr><td>AEO + AIO</td><td>3</td><td class="green">0</td><td class="blue">0</td><td>3</td><td><div class="bar"><div class="bar-fill" style="width:0%;background:#ef4444"></div></div></td></tr>
+<tr><td rowspan="3" style="font-weight:700;vertical-align:top">Du Lịch Bình Minh</td><td>Content</td><td>18</td><td class="green">0</td><td class="blue">2</td><td>16</td><td><div class="bar"><div class="bar-fill" style="width:11%;background:#eab308"></div></div></td></tr>
+<tr><td>Technical</td><td>1</td><td class="green">1</td><td class="blue">0</td><td>0</td><td><div class="bar"><div class="bar-fill" style="width:100%;background:#22c55e"></div></div></td></tr>
+<tr><td>Links</td><td>1</td><td class="green">0</td><td class="blue">0</td><td>1</td><td><div class="bar"><div class="bar-fill" style="width:0%;background:#ef4444"></div></div></td></tr>
+<tr><td rowspan="3" style="font-weight:700;vertical-align:top">TCNET</td><td>Content</td><td>9</td><td class="green">0</td><td class="blue">0</td><td>9</td><td><div class="bar"><div class="bar-fill" style="width:0%;background:#ef4444"></div></div></td></tr>
+<tr><td>Technical</td><td>9</td><td class="green">0</td><td class="blue">0</td><td>9</td><td><div class="bar"><div class="bar-fill" style="width:0%;background:#ef4444"></div></div></td></tr>
+<tr><td>Authority</td><td>2</td><td class="green">0</td><td class="blue">0</td><td>2</td><td><div class="bar"><div class="bar-fill" style="width:0%;background:#ef4444"></div></div></td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════ NOTION CONTENT ═══════════════ -->
+<h2>📄 Notion Content & Onpage (20 items)</h2>
+
+<h3>Samco Tech — 12 items</h3>
+<table>
+<thead><tr><th>Trang</th><th>Loại</th><th>Trạng thái</th><th>KW mục tiêu</th><th>Score</th></tr></thead>
+<tbody>
+<tr><td>Phase 1-5: Content Brother (278 SP)</td><td>Content mới</td><td><span class="badge badge-done">✅ Đã publish</span></td><td>máy in nhãn brother</td><td>—</td></tr>
+<tr><td>Báo cáo tổng hợp tháng 3/2026</td><td>Audit trang</td><td><span class="badge badge-done">✅ Đã publish</span></td><td>samcotech seo report</td><td>73</td></tr>
+<tr><td>Phase A: SEO Metadata 306 SP Non-Brother</td><td>Onpage tối ưu</td><td><span class="badge badge-done">✅ Đã publish</span></td><td>máy in mã vạch, máy quét mã vạch</td><td>—</td></tr>
+<tr><td>Phase B: Cấu trúc H2 + FAQ 178 SP</td><td>Cập nhật content</td><td><span class="badge badge-done">✅ Đã publish</span></td><td>máy in mã vạch, thiết bị brady</td><td>—</td></tr>
+<tr><td>Phase C: Mở rộng 12 SP dưới 100 từ</td><td>Cập nhật content</td><td><span class="badge badge-done">✅ Đã publish</span></td><td>sản phẩm samcotech</td><td>—</td></tr>
+<tr><td>top-may-in-di-dong/ (Blog)</td><td>Audit trang</td><td><span class="badge" style="background:#f9731620;color:#f97316">🔁 Cần cập nhật</span></td><td>máy in di động</td><td>79</td></tr>
+<tr><td>font-chu-in-nhan/ (Blog)</td><td>Audit trang</td><td><span class="badge" style="background:#f9731620;color:#f97316">🔁 Cần cập nhật</span></td><td>font chữ in nhãn</td><td>75</td></tr>
+<tr><td>may-in-ong-max-lm-550a/ (SP)</td><td>Onpage tối ưu</td><td><span class="badge" style="background:#f9731620;color:#f97316">🔁 Cần cập nhật</span></td><td>máy in ống MAX LM-550A</td><td>—</td></tr>
+<tr><td>nhan-in/nhan-in-brother-tze/ (DM)</td><td>Audit trang</td><td><span class="badge" style="background:#f9731620;color:#f97316">🔁 Cần cập nhật</span></td><td>nhãn in Brother TZe</td><td>67</td></tr>
+<tr><td>may-in-nhan-brother-pt-p900w/ (SP)</td><td>Audit trang</td><td><span class="badge" style="background:#f9731620;color:#f97316">🔁 Cần cập nhật</span></td><td>máy in nhãn Brother PT-P900W</td><td>72</td></tr>
+<tr><td>may-in-nhan-cam-tay-brother-pt-e310btvp/</td><td>Onpage tối ưu</td><td><span class="badge" style="background:#f9731620;color:#f97316">🔁 Cần cập nhật</span></td><td>máy in nhãn Brother PT-E310BTVP</td><td>—</td></tr>
+<tr><td>huong-dan-chon-va-su-dung-nhan-in-brother-tze/</td><td>Cập nhật content</td><td><span class="badge" style="background:#f9731620;color:#f97316">🔁 Cần cập nhật</span></td><td>nhãn in Brother TZe, TZe-241</td><td>70</td></tr>
+</tbody>
+</table>
+
+<h3>Du Lịch Bình Minh — 8 items (tất cả Backlog)</h3>
+<table>
+<thead><tr><th>Trang</th><th>Loại</th><th>KW mục tiêu</th></tr></thead>
+<tbody>
+<tr><td>tour-cu-chi-tp-hcm-1-ngay</td><td>Onpage tối ưu</td><td>tour củ chi 1 ngày</td></tr>
+<tr><td>tour-my-tho-ben-tre-1-ngay</td><td>Onpage tối ưu</td><td>tour mỹ tho bến tre 1 ngày</td></tr>
+<tr><td>tour-mui-ne-2-ngay-1-dem</td><td>Onpage tối ưu</td><td>tour mũi né 2 ngày 1 đêm</td></tr>
+<tr><td>tour-tay-ninh-nui-ba-den-1-ngay</td><td>Onpage tối ưu</td><td>tour tây ninh núi bà đen 1 ngày</td></tr>
+<tr><td>tour-sgn-my-tho-ben-tre-can-tho-2n1d</td><td>Onpage tối ưu</td><td>tour mỹ tho bến tre cần thơ 2 ngày</td></tr>
+<tr><td>dlbm25-sgn-cai-be-vinh-long-chau-doc-rung-tra-su-can-tho-ca-mau</td><td>Onpage tối ưu</td><td>tour miền tây 3 ngày 2 đêm</td></tr>
+<tr><td>tour-binh-minh-99-dong-thap-chau-doc-can-tho-3n2d</td><td>Onpage tối ưu</td><td>tour đồng tháp châu đốc rừng trà sư cần thơ</td></tr>
+<tr><td>tour-sai-gon-soc-trang-bac-lieu-ca-mau-can-tho-3n2d</td><td>Onpage tối ưu</td><td>tour sóc trăng bạc liêu cà mau cần thơ 3 ngày</td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════ NOTION KEYWORDS ═══════════════ -->
+<h2>🔑 Notion Keywords Research (13 — Samco only)</h2>
+<table>
+<thead><tr><th>Keyword</th><th>Volume</th><th>Pos hiện tại</th><th>Target</th><th>Intent</th><th>Topic Group</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td>ống lồng</td><td>418</td><td class="green" style="font-weight:700">4.4</td><td>2</td><td>Commercial</td><td>Máy in ống lồng</td><td><span class="badge badge-doing">📈 Đang theo dõi</span></td></tr>
+<tr><td>chi phí vận hành máy in nhãn</td><td>69</td><td class="green" style="font-weight:700">6.0</td><td>3</td><td>Informational</td><td>Máy in nhãn chung</td><td><span class="badge badge-doing">📈 Đang theo dõi</span></td></tr>
+<tr><td>máy in di động</td><td>556</td><td class="yellow" style="font-weight:700">7.2</td><td>3</td><td>Commercial</td><td>Máy in di động A4</td><td><span class="badge badge-doing">📈 Đang theo dõi</span></td></tr>
+<tr><td>HPRT MT53</td><td>78</td><td class="yellow" style="font-weight:700">9.6</td><td>5</td><td>Commercial</td><td>Máy in di động</td><td><span class="badge badge-backlog">📥 Mới</span></td></tr>
+<tr><td>hướng dẫn sử dụng nhãn TZe-241</td><td>101</td><td class="yellow" style="font-weight:700">9.8</td><td>5</td><td>Informational</td><td>Nhãn in Brother TZe</td><td><span class="badge badge-review">🎯 Đã chọn</span></td></tr>
+<tr><td>máy in Brother PT-P900W</td><td>96</td><td style="font-weight:700;color:#eab308">10.0</td><td>5</td><td>Transactional</td><td>Máy in nhãn Brother PT</td><td><span class="badge badge-done">✅ Đã có content</span></td></tr>
+<tr><td>máy in nhãn Brother PT-P900W</td><td>172</td><td style="font-weight:700;color:#eab308">10.1</td><td>5</td><td>Transactional</td><td>Máy in nhãn Brother PT</td><td><span class="badge badge-done">✅ Đã có content</span></td></tr>
+<tr><td>hướng dẫn sử dụng PT-E850TKW</td><td>67</td><td style="font-weight:700;color:#f97316">14.4</td><td>10</td><td>Informational</td><td>Máy in nhãn Brother PT</td><td><span class="badge badge-review">🎯 Đã chọn</span></td></tr>
+<tr><td>máy in Brother PT-P900W giá rẻ</td><td>61</td><td style="font-weight:700;color:#f97316">15.7</td><td>5</td><td>Transactional</td><td>Máy in nhãn Brother PT</td><td><span class="badge badge-done">✅ Đã có content</span></td></tr>
+<tr><td>máy in ống Supvan</td><td>74</td><td style="font-weight:700;color:#f97316">15.7</td><td>10</td><td>Commercial</td><td>Máy in ống lồng</td><td><span class="badge badge-backlog">📥 Mới</span></td></tr>
+<tr><td>hướng dẫn sử dụng PT-E310BTVP</td><td>94</td><td style="font-weight:700;color:#ef4444">23.2</td><td>10</td><td>Informational</td><td>Máy in nhãn Brother PT</td><td><span class="badge badge-review">🎯 Đã chọn</span></td></tr>
+<tr><td>máy in nhãn PT-E310BTVP giá rẻ</td><td>84</td><td style="font-weight:700;color:#ef4444">28.6</td><td>10</td><td>Transactional</td><td>Máy in nhãn Brother PT</td><td><span class="badge badge-done">✅ Đã có content</span></td></tr>
+<tr><td>máy in Brother PT-E310BTVP</td><td>62</td><td style="font-weight:700;color:#ef4444">37.2</td><td>10</td><td>Transactional</td><td>Máy in nhãn Brother PT</td><td><span class="badge badge-done">✅ Đã có content</span></td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════ NHẬN XÉT ═══════════════ -->
+<h2>💡 Nhận xét</h2>
+<div class="card" style="margin-top:8px">
+<ul style="padding-left:20px;font-size:13px;line-height:2">
+  <li><strong>Content (Sheets)</strong>: tốt — 83% done. TCNET dẫn đầu 95%, DLBM 81%, Samco 72%</li>
+  <li><strong>Notion tasks</strong>: Samco (22) + DLBM (7). <span class="red">TCNET chưa có task nào</span></li>
+  <li><strong>Notion Content</strong>: 20 items — Samco 5 published + 7 cần cập nhật, DLBM 8 trang cần onpage tối ưu</li>
+  <li><strong>Notion Keywords</strong>: 13 KW Samco — 3 đang top 10, 3 KW đã chọn cần push (pos 9.8-23.2), 2 KW mới chưa optimize</li>
+  <li><strong style="color:#ef4444">Strategy Actions: gần như chưa bắt đầu</strong> — 1/274 done (0.4%). Samco có 155 technical SEO actions cần xử lý</li>
+  <li><strong>DLBM lộn dữ liệu</strong>: content sheets hiện "converter quang", "module SFP" — đây là nội dung TCNET, không phải du lịch. Cần kiểm tra lại</li>
+  <li><strong>Ưu tiên tuần tới</strong>:
+    <ul style="padding-left:16px">
+      <li>Samco: Review + publish 19 bài draft · Batch update Meta Title 502 SP</li>
+      <li>DLBM: Fix 39 title tags (deadline 31/03) · Viết content 8 trang quảng cáo</li>
+      <li>TCNET: Tạo task Notion · Bắt đầu strategy actions</li>
+    </ul>
+  </li>
+</ul>
+</div>
+
+<p style="color:#555570;font-size:11px;margin-top:24px;text-align:center">Generated 22/03/2026 20:43 — SEO Manager Local</p>
+</body>
+</html>

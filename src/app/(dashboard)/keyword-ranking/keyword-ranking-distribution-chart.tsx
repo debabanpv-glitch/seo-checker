@@ -86,19 +86,12 @@ export function buildTierData(
   tiers: { top5: unknown[]; top10: unknown[]; top15: unknown[]; top30: unknown[]; beyond30: unknown[] },
   prevTiers?: { top5: number; top10: number; top15: number; top30: number; beyond30: number },
 ): TierData[] {
-  const current = {
-    top1: 0, // top1 is a subset of top5 — we'll split
-    top2_3: 0,
-    top4_5: tiers.top5.length,
-    top6_10: tiers.top10.length,
-    top11_30: tiers.top15.length + tiers.top30.length,
-    beyond30: tiers.beyond30.length,
-  };
+  // beyond30 includes both pos>30 AND pos=0 (no data) — split them
+  const beyond30Items = tiers.beyond30 as { currentPosition: number }[];
+  const realBeyond30 = beyond30Items.filter((k) => k.currentPosition > 0).length;
+  const noData = beyond30Items.filter((k) => k.currentPosition === 0).length;
 
-  // Note: the API gives top5 (pos ≤5), top10 (pos 6-10), top15 (pos 11-15), top30 (pos 16-30), beyond30 (>30)
-  // We need: Top 1, Top 2-3, Top 4-5, Top 6-10, Top 11-30, Top 31+
-
-  return [
+  const result: TierData[] = [
     {
       label: 'Top 1-5',
       count: tiers.top5.length,
@@ -129,10 +122,23 @@ export function buildTierData(
     },
     {
       label: 'Top 31+',
-      count: tiers.beyond30.length,
-      delta: prevTiers ? tiers.beyond30.length - prevTiers.beyond30 : 0,
+      count: realBeyond30,
+      delta: 0,
       color: 'text-[#666680]',
       bgColor: 'bg-[#666680]',
     },
   ];
+
+  // Only show "Chưa có data" tier if there are keywords without position
+  if (noData > 0) {
+    result.push({
+      label: 'Chưa có data',
+      count: noData,
+      delta: 0,
+      color: 'text-[#555570]',
+      bgColor: 'bg-[#555570]/50',
+    });
+  }
+
+  return result;
 }

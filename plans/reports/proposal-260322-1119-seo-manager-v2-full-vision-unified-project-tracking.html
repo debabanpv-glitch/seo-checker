@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SEO Manager V2 — Tầm Nhìn Tổng Thể</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #1a1b2e; --card2: #161726; --border: #2a2b3d;
+    --accent: #6366f1; --accent-light: #818cf8;
+    --success: #22c55e; --warning: #f59e0b; --danger: #ef4444; --info: #3b82f6;
+    --text: #e4e4e7; --dim: #8888a0; --bright: #fff;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color:var(--text); line-height:1.65; padding:40px 20px; }
+  .c { max-width:1100px; margin:0 auto; }
+  h1 { font-size:26px; color:var(--bright); margin-bottom:6px; }
+  .sub { color:var(--dim); font-size:13px; margin-bottom:40px; }
+  h2 { font-size:18px; color:var(--accent-light); margin:36px 0 14px; display:flex; align-items:center; gap:8px; }
+  h3 { font-size:15px; color:var(--bright); margin:18px 0 8px; }
+  .sep { height:1px; background:var(--border); margin:36px 0; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:22px; margin-bottom:14px; }
+  .hl { background:rgba(99,102,241,0.08); border-left:3px solid var(--accent); padding:14px 18px; border-radius:0 8px 8px 0; margin:14px 0; font-size:14px; }
+  .badge { display:inline-block; padding:2px 10px; border-radius:16px; font-size:10px; font-weight:700; }
+  .b-have { background:rgba(34,197,94,0.15); color:var(--success); border:1px solid rgba(34,197,94,0.3); }
+  .b-new { background:rgba(99,102,241,0.15); color:var(--accent-light); border:1px solid rgba(99,102,241,0.3); }
+  .b-improve { background:rgba(245,158,11,0.15); color:var(--warning); border:1px solid rgba(245,158,11,0.3); }
+  .b-critical { background:rgba(239,68,68,0.15); color:var(--danger); border:1px solid rgba(239,68,68,0.3); }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th,td { padding:9px 12px; text-align:left; border-bottom:1px solid var(--border); }
+  th { color:var(--dim); font-size:11px; text-transform:uppercase; letter-spacing:0.5px; font-weight:600; }
+  ul { padding-left:18px; } li { margin-bottom:6px; font-size:13px; } li strong { color:var(--bright); }
+  code { background:rgba(99,102,241,0.15); color:var(--accent-light); padding:1px 5px; border-radius:3px; font-size:11px; }
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+  @media(max-width:768px) { .grid-2,.grid-3 { grid-template-columns:1fr; } }
+
+  /* Architecture diagram */
+  .arch { display:flex; flex-direction:column; gap:16px; margin:20px 0; }
+  .arch-row { display:flex; gap:12px; align-items:stretch; }
+  .arch-box { flex:1; border-radius:10px; padding:14px; text-align:center; }
+  .arch-box h4 { font-size:12px; font-weight:700; margin-bottom:4px; }
+  .arch-box p { font-size:10px; color:var(--dim); }
+  .arch-source { background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.3); }
+  .arch-source h4 { color:var(--accent-light); }
+  .arch-engine { background:rgba(34,197,94,0.08); border:2px solid rgba(34,197,94,0.4); }
+  .arch-engine h4 { color:var(--success); }
+  .arch-view { background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.3); }
+  .arch-view h4 { color:var(--warning); }
+  .arch-output { background:rgba(59,130,246,0.08); border:1px solid rgba(59,130,246,0.3); }
+  .arch-output h4 { color:var(--info); }
+  .arch-arrow { text-align:center; color:var(--dim); font-size:18px; padding:4px 0; }
+
+  /* Feature map */
+  .fmap { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:16px 0; }
+  .fmap-item { background:var(--card2); border:1px solid var(--border); border-radius:10px; padding:12px; text-align:center; }
+  .fmap-icon { font-size:24px; margin-bottom:6px; }
+  .fmap-name { font-size:12px; font-weight:600; color:var(--bright); }
+  .fmap-status { font-size:10px; margin-top:4px; }
+
+  /* Timeline */
+  .timeline { display:flex; gap:0; margin:20px 0; position:relative; }
+  .timeline::before { content:''; position:absolute; top:18px; left:0; right:0; height:2px; background:var(--border); }
+  .tl-item { flex:1; text-align:center; position:relative; }
+  .tl-dot { width:36px; height:36px; border-radius:50%; margin:0 auto 10px; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; color:white; position:relative; z-index:1; }
+  .tl-title { font-size:12px; font-weight:600; color:var(--bright); }
+  .tl-desc { font-size:10px; color:var(--dim); margin-top:3px; }
+
+  /* Mockup */
+  .mockup { background:#12131f; border:1px solid var(--border); border-radius:12px; overflow:hidden; margin:16px 0; }
+  .mock-bar { background:var(--card); border-bottom:1px solid var(--border); padding:8px 14px; display:flex; align-items:center; gap:6px; }
+  .mock-dot { width:8px; height:8px; border-radius:50%; }
+  .mock-body { padding:16px; }
+  .mock-tabs { display:flex; gap:3px; background:rgba(42,43,61,0.5); padding:3px; border-radius:8px; margin-bottom:16px; width:fit-content; }
+  .mock-tab { padding:5px 14px; border-radius:6px; font-size:11px; font-weight:600; color:var(--dim); }
+  .mock-tab.active { background:var(--accent); color:white; }
+  .mock-section { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:10px; }
+  .mock-section-title { font-size:11px; font-weight:700; color:var(--bright); margin-bottom:8px; }
+  .mock-kpis { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-bottom:12px; }
+  .mock-kpi { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px; text-align:center; }
+  .mock-kpi-label { font-size:9px; color:var(--dim); text-transform:uppercase; }
+  .mock-kpi-val { font-size:20px; font-weight:700; color:var(--bright); }
+  .mock-kpi-sub { font-size:10px; margin-top:2px; }
+  .mock-row { display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid rgba(42,43,61,0.5); font-size:11px; }
+  .mock-row:last-child { border:none; }
+  .tag { display:inline-block; padding:1px 7px; border-radius:10px; font-size:9px; font-weight:600; }
+  .tag-ai { background:rgba(99,102,241,0.2); color:var(--accent-light); }
+  .tag-manual { background:rgba(34,197,94,0.2); color:var(--success); }
+  .tag-done { background:rgba(34,197,94,0.15); color:var(--success); }
+  .tag-doing { background:rgba(245,158,11,0.15); color:var(--warning); }
+  .tag-growth { color:var(--success); font-weight:600; }
+  .tag-decline { color:var(--danger); font-weight:600; }
+
+  .compare-row { display:flex; gap:12px; margin:12px 0; }
+  .compare-box { flex:1; border-radius:10px; padding:16px; }
+  .compare-old { background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.2); }
+  .compare-new { background:rgba(34,197,94,0.06); border:1px solid rgba(34,197,94,0.2); }
+  .compare-box h4 { font-size:13px; font-weight:700; margin-bottom:8px; }
+  .compare-old h4 { color:var(--danger); }
+  .compare-new h4 { color:var(--success); }
+  .compare-box li { font-size:12px; }
+</style>
+</head>
+<body>
+<div class="c">
+
+<h1>🎯 SEO Manager V2 — Tầm Nhìn & Giải Pháp Tổng Thể</h1>
+<p class="sub">22/03/2026 · Từ tool rời rạc → Command Center quản lý SEO toàn diện</p>
+
+<!-- ══════════════════════════════════════════════════ -->
+<div class="sep"></div>
+<h2>📍 1. Bức Tranh Hiện Tại — Bạn Có Gì</h2>
+
+<h3>A. Dữ liệu đang nằm ở đâu</h3>
+<div class="grid-3">
+  <div class="card" style="border-color:rgba(99,102,241,0.3)">
+    <h3 style="color:var(--accent-light)">📋 Notion (AI làm)</h3>
+    <p style="font-size:12px;color:var(--dim);margin-bottom:8px">Claude Chat → ghi vào Notion</p>
+    <ul>
+      <li>Task Tracker (giao việc, deadline)</li>
+      <li>Content & Onpage (bài AI viết)</li>
+      <li>Keyword Research</li>
+      <li>Competitor Analysis</li>
+      <li>Backlink Tracker</li>
+      <li>Weekly Report</li>
+    </ul>
+  </div>
+  <div class="card" style="border-color:rgba(34,197,94,0.3)">
+    <h3 style="color:var(--success)">📊 Google Sheets (Người làm)</h3>
+    <p style="font-size:12px;color:var(--dim);margin-bottom:8px">Nhân sự ghi nhanh khi viết bài</p>
+    <ul>
+      <li>Content tự viết (tiến độ, status)</li>
+      <li>3 sheet monitor per domain</li>
+      <li>Keyword sheets (đã sync)</li>
+    </ul>
+  </div>
+  <div class="card" style="border-color:rgba(245,158,11,0.3)">
+    <h3 style="color:var(--warning)">🖥️ Tool Local (Auto)</h3>
+    <p style="font-size:12px;color:var(--dim);margin-bottom:8px">Chạy tự động / sync GSC</p>
+    <ul>
+      <li>GSC: clicks, impressions, CTR</li>
+      <li>Keyword rankings (sheets sync)</li>
+      <li>SEO Audit scores (6 categories)</li>
+      <li>Backlinks (Ahrefs import)</li>
+      <li>Topical Map & Internal Links</li>
+      <li>Health Check & Strategy</li>
+      <li>WP Content Stats</li>
+    </ul>
+  </div>
+</div>
+
+<h3>B. Tính năng đã có trong Tool</h3>
+<div class="fmap">
+  <div class="fmap-item"><div class="fmap-icon">📊</div><div class="fmap-name">Dashboard</div><div class="fmap-status"><span class="badge b-have">CÓ</span></div></div>
+  <div class="fmap-item"><div class="fmap-icon">🔍</div><div class="fmap-name">SEO Audit</div><div class="fmap-status"><span class="badge b-have">CÓ</span></div></div>
+  <div class="fmap-item"><div class="fmap-icon">📈</div><div class="fmap-name">Keyword Ranking</div><div class="fmap-status"><span class="badge b-have">CÓ</span></div></div>
+  <div class="fmap-item"><div class="fmap-icon">💡</div><div class="fmap-name">Keyword Insights</div><div class="fmap-status"><span class="badge b-have">CÓ</span></div></div>
+  <div class="fmap-item"><div class="fmap-icon">🌐</div><div class="fmap-name">Search Console</div><div class="fmap-status"><span class="badge b-have">CÓ</span></div></div>
+  <div class="fmap-item"><div class="fmap-icon">🔗</div><div class="fmap-name">Backlinks</div><div class="fmap-status"><span class="badge b-have">CÓ</span></div></div>
+  <div class="fmap-item"><div class="fmap-icon">🗺️</div><div class="fmap-name">Topical Map</div><div class="fmap-status"><span class="badge b-have">CÓ</span></div></div>
+  <div class="fmap-item"><div class="fmap-icon">🏥</div><div class="fmap-name">Health Check</div><div class="fmap-status"><span class="badge b-have">CÓ</span></div></div>
+  <div class="fmap-item"><div class="fmap-icon">🎯</div><div class="fmap-name">Strategy</div><div class="fmap-status"><span class="badge b-have">CÓ</span></div></div>
+  <div class="fmap-item"><div class="fmap-icon">📝</div><div class="fmap-name">Tasks/Content</div><div class="fmap-status"><span class="badge b-have">CÓ</span></div></div>
+  <div class="fmap-item"><div class="fmap-icon">📱</div><div class="fmap-name">Telegram Bot</div><div class="fmap-status"><span class="badge b-have">CÓ</span></div></div>
+  <div class="fmap-item"><div class="fmap-icon">📄</div><div class="fmap-name">Reports</div><div class="fmap-status"><span class="badge b-have">CÓ</span></div></div>
+</div>
+
+<div class="hl">
+  <strong>Nhận định:</strong> Tool đã mạnh về <strong>dữ liệu SEO</strong> (ranking, GSC, audit, backlinks, topical map). Thiếu: (1) <strong>kết nối Notion + Sheets</strong> để thấy việc AI + người, (2) <strong>trang tổng quan</strong> xem tất cả ở 1 nơi, (3) <strong>entity tracking</strong>, (4) <strong>báo cáo nhanh</strong> cho khách.
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<div class="sep"></div>
+<h2>🎯 2. Mục Tiêu Tool — SEO Command Center</h2>
+
+<div class="card">
+  <p style="font-size:14px;margin-bottom:16px">Mở tool lên → <strong>10 giây</strong> biết được:</p>
+  <div class="grid-3">
+    <div style="text-align:center">
+      <div style="font-size:28px">📈</div>
+      <div style="font-size:13px;font-weight:600;color:var(--bright);margin-top:4px">Tăng trưởng</div>
+      <div style="font-size:11px;color:var(--dim)">Top ↑ Traffic ↑ Impressions ↑</div>
+    </div>
+    <div style="text-align:center">
+      <div style="font-size:28px">🔧</div>
+      <div style="font-size:13px;font-weight:600;color:var(--bright);margin-top:4px">Thực thi</div>
+      <div style="font-size:11px;color:var(--dim)">AI đang làm gì? Người đang làm gì?</div>
+    </div>
+    <div style="text-align:center">
+      <div style="font-size:28px">📄</div>
+      <div style="font-size:13px;font-weight:600;color:var(--bright);margin-top:4px">Báo cáo</div>
+      <div style="font-size:11px;color:var(--dim)">1-click report cho khách</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h3>7 trụ cột SEO cần tracking</h3>
+  <table>
+    <tr><th>#</th><th>Trụ cột</th><th>Đo bằng gì</th><th>Nguồn data</th><th>Status</th></tr>
+    <tr><td>1</td><td><strong>Keyword & Top Growth</strong></td><td>KW trong Top 3/10/20, % thay đổi tuần</td><td>Keyword Sheets + GSC</td><td><span class="badge b-have">CÓ</span></td></tr>
+    <tr><td>2</td><td><strong>Traffic Growth</strong></td><td>Clicks/tuần, % so tuần trước</td><td>GSC snapshots</td><td><span class="badge b-have">CÓ</span></td></tr>
+    <tr><td>3</td><td><strong>Impressions Growth</strong></td><td>Impressions/tuần, % trend</td><td>GSC snapshots</td><td><span class="badge b-have">CÓ</span></td></tr>
+    <tr><td>4</td><td><strong>Backlinks</strong></td><td>Tổng, mới/tuần, sống/chết, DR/UR</td><td>Ahrefs CSV + checker + Notion</td><td><span class="badge b-improve">CẢI TIẾN</span></td></tr>
+    <tr><td>5</td><td><strong>Entity & Topical Authority</strong></td><td>Cluster coverage, completeness score</td><td>Topical Map</td><td><span class="badge b-improve">CẢI TIẾN</span></td></tr>
+    <tr><td>6</td><td><strong>Onpage & Technical</strong></td><td>Audit scores (6 categories), lỗi pending</td><td>SEO Audit + Notion tasks</td><td><span class="badge b-have">CÓ</span></td></tr>
+    <tr><td>7</td><td><strong>Internal Link Strength</strong></td><td>Pillar coverage, orphan pages, link depth</td><td>Topical Map + Audit</td><td><span class="badge b-improve">CẢI TIẾN</span></td></tr>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<div class="sep"></div>
+<h2>🏗️ 3. Kiến Trúc Giải Pháp</h2>
+
+<div class="arch">
+  <!-- Sources -->
+  <div style="text-align:center;font-size:11px;color:var(--dim);font-weight:600;text-transform:uppercase;letter-spacing:1px">Nguồn dữ liệu</div>
+  <div class="arch-row">
+    <div class="arch-box arch-source">
+      <h4>📋 Notion (AI)</h4>
+      <p>6 DB: Tasks, Content,<br>KW, Competitor,<br>Backlink, Weekly Report</p>
+    </div>
+    <div class="arch-box arch-source">
+      <h4>📊 Google Sheets (Người)</h4>
+      <p>3 content sheets<br>per domain<br>+ KW sheets (đã có)</p>
+    </div>
+    <div class="arch-box arch-source">
+      <h4>🌐 GSC + WordPress</h4>
+      <p>Clicks, impressions<br>Published posts<br>Cron 2x/ngày</p>
+    </div>
+    <div class="arch-box arch-source">
+      <h4>📦 Ahrefs CSV</h4>
+      <p>Backlink data<br>Manual import</p>
+    </div>
+  </div>
+
+  <div class="arch-arrow">▼ ▼ ▼ ▼</div>
+
+  <!-- Engine -->
+  <div class="arch-row">
+    <div class="arch-box arch-engine" style="flex:3">
+      <h4>⚙️ Sync Engine (SQLite)</h4>
+      <p>notion_sync · sheets_sync · gsc_sync · wp_sync · ahrefs_import → unified_activity_log</p>
+      <p style="margin-top:4px">Nút "Sync" trên UI / Cron tự động / MCP session</p>
+    </div>
+  </div>
+
+  <div class="arch-arrow">▼ ▼ ▼</div>
+
+  <!-- Views -->
+  <div style="text-align:center;font-size:11px;color:var(--dim);font-weight:600;text-transform:uppercase;letter-spacing:1px">Màn hình Dashboard</div>
+  <div class="arch-row">
+    <div class="arch-box arch-view">
+      <h4>📊 Tổng Quan</h4>
+      <p>7 KPIs + Activity<br>+ Project Progress</p>
+    </div>
+    <div class="arch-box arch-view">
+      <h4>📈 Tăng Trưởng</h4>
+      <p>Top, Traffic,<br>Impressions trends</p>
+    </div>
+    <div class="arch-box arch-view">
+      <h4>🔧 Thực Thi</h4>
+      <p>AI vs Người<br>Tasks + Content</p>
+    </div>
+    <div class="arch-box arch-view">
+      <h4>🏗️ Sức Mạnh SEO</h4>
+      <p>Backlink, Entity,<br>Onpage, Internal Link</p>
+    </div>
+  </div>
+
+  <div class="arch-arrow">▼</div>
+
+  <!-- Output -->
+  <div class="arch-row">
+    <div class="arch-box arch-output">
+      <h4>📄 Client Report</h4>
+      <p>HTML đẹp / Copy text</p>
+    </div>
+    <div class="arch-box arch-output">
+      <h4>📱 Telegram</h4>
+      <p>Bot menu + alerts</p>
+    </div>
+    <div class="arch-box arch-output">
+      <h4>📋 Weekly Summary</h4>
+      <p>Auto-gen thứ 6</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<div class="sep"></div>
+<h2>🖥️ 4. Dashboard V2 — 4 Tab Mới</h2>
+
+<!-- Tab mockup -->
+<div class="mockup">
+  <div class="mock-bar">
+    <div class="mock-dot" style="background:#ef4444"></div>
+    <div class="mock-dot" style="background:#f59e0b"></div>
+    <div class="mock-dot" style="background:#22c55e"></div>
+    <span style="font-size:11px;color:var(--dim);margin-left:8px">SEO Manager — Dashboard V2</span>
+  </div>
+  <div class="mock-body">
+
+    <div class="mock-tabs">
+      <div class="mock-tab active">📊 Tổng quan</div>
+      <div class="mock-tab">📈 Tăng trưởng</div>
+      <div class="mock-tab">🔧 Thực thi</div>
+      <div class="mock-tab">🏗️ SEO Strength</div>
+    </div>
+
+    <!-- ── Tab 1: Tổng quan ── -->
+    <div style="font-size:11px;color:var(--accent-light);font-weight:600;margin-bottom:8px">TAB 1: TỔNG QUAN — "Mở lên biết ngay"</div>
+
+    <!-- 5 KPIs -->
+    <div class="mock-kpis">
+      <div class="mock-kpi">
+        <div class="mock-kpi-label">Clicks/tuần</div>
+        <div class="mock-kpi-val">513</div>
+        <div class="mock-kpi-sub tag-growth">↑18% vs tuần trước</div>
+      </div>
+      <div class="mock-kpi">
+        <div class="mock-kpi-label">KW Top 10</div>
+        <div class="mock-kpi-val">38</div>
+        <div class="mock-kpi-sub tag-growth">+5 mới lên</div>
+      </div>
+      <div class="mock-kpi">
+        <div class="mock-kpi-label">Impressions</div>
+        <div class="mock-kpi-val">11.1K</div>
+        <div class="mock-kpi-sub tag-growth">↑12%</div>
+      </div>
+      <div class="mock-kpi">
+        <div class="mock-kpi-label">Content tháng này</div>
+        <div class="mock-kpi-val">7<span style="font-size:12px;color:var(--dim)">/15</span></div>
+        <div class="mock-kpi-sub" style="color:var(--warning)">AI: 4 · Người: 3</div>
+      </div>
+      <div class="mock-kpi">
+        <div class="mock-kpi-label">Tasks xong</div>
+        <div class="mock-kpi-val">23<span style="font-size:12px;color:var(--dim)">/41</span></div>
+        <div class="mock-kpi-sub" style="color:var(--accent-light)">56%</div>
+      </div>
+    </div>
+
+    <!-- 2 columns: Activity + Project -->
+    <div style="display:grid;grid-template-columns:1.3fr 0.7fr;gap:10px">
+      <div class="mock-section">
+        <div class="mock-section-title">⚡ Hoạt động gần đây</div>
+        <div class="mock-row"><span><span class="tag tag-ai">AI</span> Viết "Máy in Brother DCP-L2640DW" → Publish WP</span><span style="color:var(--dim)">2h trước</span></div>
+        <div class="mock-row"><span><span class="tag tag-manual">Người</span> Viết "Top 10 du lịch Bình Minh" → Draft</span><span style="color:var(--dim)">5h trước</span></div>
+        <div class="mock-row"><span><span class="tag tag-ai">AI</span> Fix schema markup mangthanhcong.vn (3 pages)</span><span style="color:var(--dim)">Hôm qua</span></div>
+        <div class="mock-row"><span><span class="tag tag-ai">AI</span> Audit internal links samcotech.com.vn</span><span style="color:var(--dim)">Hôm qua</span></div>
+        <div class="mock-row"><span><span class="tag tag-manual">Người</span> Build 5 backlinks DR40+ cho DLBM</span><span style="color:var(--dim)">21/03</span></div>
+      </div>
+      <div class="mock-section">
+        <div class="mock-section-title">🏢 3 Dự án</div>
+        <div style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;font-size:11px"><span>🔵 SAMCO</span><span class="tag-growth">↑15%</span></div>
+          <div style="height:4px;background:var(--border);border-radius:3px;margin-top:3px;overflow:hidden"><div style="width:65%;height:100%;background:var(--accent);border-radius:3px"></div></div>
+          <div style="font-size:9px;color:var(--dim);margin-top:2px">98 clicks · 12 KW top10</div>
+        </div>
+        <div style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;font-size:11px"><span>🟢 TCNET</span><span class="tag-growth">↑8%</span></div>
+          <div style="height:4px;background:var(--border);border-radius:3px;margin-top:3px;overflow:hidden"><div style="width:52%;height:100%;background:var(--success);border-radius:3px"></div></div>
+          <div style="font-size:9px;color:var(--dim);margin-top:2px">220 clicks · 14 KW top10</div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px"><span>🟠 DLBM</span><span class="tag-decline">↓3%</span></div>
+          <div style="height:4px;background:var(--border);border-radius:3px;margin-top:3px;overflow:hidden"><div style="width:74%;height:100%;background:var(--warning);border-radius:3px"></div></div>
+          <div style="font-size:9px;color:var(--dim);margin-top:2px">195 clicks · 12 KW top10</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tab details -->
+<div class="grid-2">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <h3>📈 Tab 2: Tăng Trưởng</h3>
+      <span class="badge b-new">MỚI</span>
+    </div>
+    <p style="font-size:12px;color:var(--dim);margin-bottom:10px">Focus: Kết quả SEO đang tốt lên hay xấu đi?</p>
+    <ul>
+      <li><strong>Trend charts</strong> — Clicks, Impressions, Avg Position theo tuần/tháng</li>
+      <li><strong>Top Movers</strong> — KW tăng mạnh nhất, giảm mạnh nhất</li>
+      <li><strong>Milestone markers</strong> — Đánh dấu sự kiện (publish bài X, build link Y) lên chart</li>
+      <li><strong>So sánh tháng</strong> — T3 vs T2, % growth per project</li>
+    </ul>
+    <p style="font-size:11px;color:var(--accent-light);margin-top:8px">Data: GSC snapshots + Keyword Insights (đã có)</p>
+  </div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <h3>🔧 Tab 3: Thực Thi</h3>
+      <span class="badge b-new">MỚI</span>
+    </div>
+    <p style="font-size:12px;color:var(--dim);margin-bottom:10px">Focus: Ai đang làm gì? Việc nào xong, việc nào chưa?</p>
+    <ul>
+      <li><strong>2 nguồn gộp</strong> — Notion tasks (AI) + Sheets content (Người)</li>
+      <li><strong>Kanban view</strong> — Backlog → Đang làm → Chờ review → Xong</li>
+      <li><strong>Content tracker</strong> — gộp AI viết + tự viết, tag nguồn</li>
+      <li><strong>Alerts</strong> — overdue tasks, content gap vs target tháng</li>
+    </ul>
+    <p style="font-size:11px;color:var(--accent-light);margin-top:8px">Data: Notion sync + Sheets sync + WP stats</p>
+  </div>
+  <div class="card" style="grid-column:span 2">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <h3>🏗️ Tab 4: Sức Mạnh SEO (SEO Strength)</h3>
+      <span class="badge b-new">MỚI — HIGHLIGHT</span>
+    </div>
+    <p style="font-size:12px;color:var(--dim);margin-bottom:10px">Focus: Nền tảng SEO đang mạnh hay yếu? Xây đến đâu rồi?</p>
+    <div class="grid-2" style="gap:20px">
+      <div>
+        <h3 style="font-size:13px">🔗 Backlink Profile</h3>
+        <ul>
+          <li>Tổng backlinks, sống/chết ratio</li>
+          <li>DR/UR distribution chart</li>
+          <li>Mới build tuần này (Notion + Ahrefs)</li>
+          <li>Đối thủ comparison (Notion Competitor DB)</li>
+        </ul>
+      </div>
+      <div>
+        <h3 style="font-size:13px">🧠 Entity & Topical Authority</h3>
+        <ul>
+          <li><strong>Cluster Coverage</strong> — bao nhiêu topic đã phủ</li>
+          <li><strong>Completeness Score</strong> — mỗi cluster đầy đủ chưa</li>
+          <li><strong>Content Gaps</strong> — topic nào chưa có bài</li>
+          <li>Entity map visualization (clusters → pages → KW)</li>
+        </ul>
+      </div>
+      <div>
+        <h3 style="font-size:13px">🔍 Onpage & Technical</h3>
+        <ul>
+          <li>6 category scores (content/technical/images/links/eeat/ai)</li>
+          <li>Pending fixes count (Notion tasks)</li>
+          <li>Score trend (lần audit trước vs giờ)</li>
+        </ul>
+      </div>
+      <div>
+        <h3 style="font-size:13px">🔗 Internal Link Strength</h3>
+        <ul>
+          <li><strong>Pillar ↔ Cluster coverage</strong> — % pages linked to pillar</li>
+          <li><strong>Orphan pages</strong> — trang không có internal link vào</li>
+          <li><strong>Cross-cluster links</strong> — liên kết giữa các topic</li>
+          <li><strong>Anchor text health</strong> — over-optimization check</li>
+        </ul>
+      </div>
+    </div>
+    <p style="font-size:11px;color:var(--accent-light);margin-top:12px">Data: Backlinks DB + Topical Map + SEO Audit + Notion (đã có phần lớn, cần gộp view)</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<div class="sep"></div>
+<h2>🔄 5. Sync — Kết Nối Notion & Sheets</h2>
+
+<div class="card">
+  <h3>Cách sync từng nguồn</h3>
+  <table>
+    <tr><th>Nguồn</th><th>Cách kết nối</th><th>Khi nào sync</th><th>Lưu ở đâu</th></tr>
+    <tr>
+      <td><strong>Notion</strong></td>
+      <td>
+        <strong>Option A:</strong> Notion MCP (đã có) → chạy trong Claude session<br>
+        <strong>Option B:</strong> Notion API key → cron tự động<br>
+        <em>Khuyên: dùng Option B nếu có API key, vì chạy tự động</em>
+      </td>
+      <td>Nút Sync trên UI + cron nếu có API key</td>
+      <td><code>notion_tasks</code>, <code>notion_content</code>, <code>notion_backlinks</code></td>
+    </tr>
+    <tr>
+      <td><strong>Google Sheets</strong></td>
+      <td>
+        Google Sheets API (đã có cho keyword sync)<br>
+        Thêm 3 content monitoring sheets
+      </td>
+      <td>Cron 2x/ngày (giống KW sync hiện tại)</td>
+      <td><code>sheet_content</code> (bảng mới)</td>
+    </tr>
+    <tr>
+      <td><strong>GSC + WP + Backlinks</strong></td>
+      <td>Giữ nguyên (đang hoạt động tốt)</td>
+      <td>Không đổi</td>
+      <td>Các bảng hiện tại</td>
+    </tr>
+  </table>
+</div>
+
+<div class="hl">
+  <strong>Quan trọng:</strong> Notion + Sheets vẫn là "source of truth". Tool local chỉ <strong>đọc & hiển thị</strong>. Bạn và team vẫn ghi vào Notion/Sheets như bình thường, tool tự kéo data về.
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<div class="sep"></div>
+<h2>📄 6. Báo Cáo Khách Hàng — 1 Click</h2>
+
+<div class="mockup">
+  <div class="mock-bar">
+    <div class="mock-dot" style="background:#ef4444"></div>
+    <div class="mock-dot" style="background:#f59e0b"></div>
+    <div class="mock-dot" style="background:#22c55e"></div>
+    <span style="font-size:11px;color:var(--dim);margin-left:8px">Client Report — SAMCO Tech · Tháng 3/2026</span>
+  </div>
+  <div class="mock-body" style="font-size:12px">
+    <div style="text-align:center;padding:16px 0;border-bottom:1px solid var(--border);margin-bottom:14px">
+      <div style="font-size:18px;font-weight:700;color:var(--bright)">🔵 SAMCO Tech — Báo Cáo SEO</div>
+      <div style="color:var(--dim);font-size:11px;margin-top:4px">Tháng 3/2026 · Tuần 3 (17-22/03)</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
+      <div style="text-align:center;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px">
+        <div style="font-size:18px;font-weight:700;color:var(--success)">+18%</div>
+        <div style="font-size:10px;color:var(--dim)">Traffic Growth</div>
+      </div>
+      <div style="text-align:center;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px">
+        <div style="font-size:18px;font-weight:700;color:var(--bright)">12</div>
+        <div style="font-size:10px;color:var(--dim)">KW Top 10</div>
+      </div>
+      <div style="text-align:center;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px">
+        <div style="font-size:18px;font-weight:700;color:var(--bright)">8</div>
+        <div style="font-size:10px;color:var(--dim)">Bài publish</div>
+      </div>
+      <div style="text-align:center;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px">
+        <div style="font-size:18px;font-weight:700;color:var(--bright)">15</div>
+        <div style="font-size:10px;color:var(--dim)">Backlinks mới</div>
+      </div>
+    </div>
+
+    <div class="mock-section">
+      <div class="mock-section-title">✅ Việc đã làm tuần này</div>
+      <div class="mock-row"><span>Publish 3 bài content cluster "Nhãn in Brother"</span><span class="tag tag-done">Xong</span></div>
+      <div class="mock-row"><span>Fix 12 lỗi onpage (meta, heading, schema)</span><span class="tag tag-done">Xong</span></div>
+      <div class="mock-row"><span>Build 5 backlinks DR30+ từ guest post</span><span class="tag tag-done">Xong</span></div>
+      <div class="mock-row"><span>Optimize internal links cho 8 pillar pages</span><span class="tag tag-done">Xong</span></div>
+    </div>
+
+    <div class="mock-section">
+      <div class="mock-section-title">📅 Kế hoạch tuần tới</div>
+      <div class="mock-row"><span>Viết 4 bài cluster "Máy in đa năng"</span><span class="tag tag-doing">Planned</span></div>
+      <div class="mock-row"><span>Audit Core Web Vitals</span><span class="tag tag-doing">Planned</span></div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button style="background:var(--accent);color:white;border:none;padding:6px 14px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">📋 Copy text</button>
+      <button style="background:transparent;color:var(--accent-light);border:1px solid var(--accent);padding:6px 14px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">📱 Gửi Telegram</button>
+      <button style="background:transparent;color:var(--dim);border:1px solid var(--border);padding:6px 14px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">🌐 Xuất HTML</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<div class="sep"></div>
+<h2>🚀 7. Lộ Trình Triển Khai</h2>
+
+<div class="timeline">
+  <div class="tl-item">
+    <div class="tl-dot" style="background:var(--danger)">1</div>
+    <div class="tl-title">Sync Engine</div>
+    <div class="tl-desc">Notion API + Sheets<br>Schema + Services<br>~2-3 ngày</div>
+  </div>
+  <div class="tl-item">
+    <div class="tl-dot" style="background:var(--accent)">2</div>
+    <div class="tl-title">Dashboard V2</div>
+    <div class="tl-desc">4 tabs mới<br>Unified KPIs<br>~3-4 ngày</div>
+  </div>
+  <div class="tl-item">
+    <div class="tl-dot" style="background:var(--warning)">3</div>
+    <div class="tl-title">SEO Strength</div>
+    <div class="tl-desc">Entity, Backlink profile<br>Internal link analysis<br>~2-3 ngày</div>
+  </div>
+  <div class="tl-item">
+    <div class="tl-dot" style="background:var(--success)">4</div>
+    <div class="tl-title">Client Report</div>
+    <div class="tl-desc">Auto-gen report<br>1-click export<br>~2 ngày</div>
+  </div>
+</div>
+
+<div class="card">
+  <table>
+    <tr><th>Phase</th><th>Công việc chính</th><th>Output</th></tr>
+    <tr>
+      <td><strong style="color:var(--danger)">Phase 1: Sync</strong></td>
+      <td>
+        • Tạo schema: <code>notion_tasks</code>, <code>notion_content</code>, <code>sheet_content</code>, <code>activity_log</code><br>
+        • Notion sync service (API hoặc MCP-based)<br>
+        • Sheets content sync service (mở rộng sync hiện tại)<br>
+        • Nút "Sync Now" trên Settings
+      </td>
+      <td>Data Notion + Sheets chảy vào SQLite</td>
+    </tr>
+    <tr>
+      <td><strong style="color:var(--accent-light)">Phase 2: Dashboard</strong></td>
+      <td>
+        • Tab Tổng Quan: 5 KPIs + Activity Feed + Project Progress<br>
+        • Tab Tăng Trưởng: charts trend, top movers, so sánh tháng<br>
+        • Tab Thực Thi: gộp Notion + Sheets, kanban, content tracker<br>
+        • Refactor page.tsx: 4 tabs thay 2 tabs hiện tại
+      </td>
+      <td>Dashboard 4 tabs nhìn được tổng thể</td>
+    </tr>
+    <tr>
+      <td><strong style="color:var(--warning)">Phase 3: SEO Strength</strong></td>
+      <td>
+        • Tab SEO Strength: backlink profile, entity/topical authority, onpage scores, internal link analysis<br>
+        • Gộp data từ: Backlinks DB + Topical Map + Audit + Notion<br>
+        • Entity coverage chart, orphan page detection
+      </td>
+      <td>Nhìn được "sức mạnh SEO" tổng thể</td>
+    </tr>
+    <tr>
+      <td><strong style="color:var(--success)">Phase 4: Report</strong></td>
+      <td>
+        • Client report generator (per project, per week/month)<br>
+        • Auto-gen từ all data sources<br>
+        • 1-click: copy text / Telegram / HTML export
+      </td>
+      <td>Báo cáo khách hàng 10 giây</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<div class="sep"></div>
+<h2>⚡ 8. Phương Án Triển Khai — Bắt Đầu Từ Đâu?</h2>
+
+<div class="grid-2">
+  <div class="card" style="border-color:var(--success)">
+    <h3 style="color:var(--success)">🅰️ Phương án A: Từ ngoài vào (Recommend)</h3>
+    <p style="font-size:12px;color:var(--dim);margin-bottom:10px">Làm Dashboard V2 trước, dùng data local đã có. Sync Notion/Sheets sau.</p>
+    <ul>
+      <li><strong>Bước 1:</strong> Dashboard V2 với 4 tabs — dùng data GSC + KW + Audit + Backlinks + Topical Map (đã có hết)</li>
+      <li><strong>Bước 2:</strong> Thêm Sync Engine (Notion + Sheets) → bổ sung data vào Dashboard</li>
+      <li><strong>Bước 3:</strong> Client Report generator</li>
+    </ul>
+    <div class="hl" style="margin-top:12px">
+      <strong>Ưu điểm:</strong> Có kết quả ngay, dùng được luôn. Sync Notion/Sheets chỉ là "thêm data" chứ không chặn việc dùng.<br>
+      <strong>Nhược:</strong> Tab Thực Thi sẽ chưa có data AI/Người cho đến khi sync xong.
+    </div>
+  </div>
+  <div class="card">
+    <h3>🅱️ Phương án B: Từ trong ra</h3>
+    <p style="font-size:12px;color:var(--dim);margin-bottom:10px">Làm Sync Engine trước, rồi mới build Dashboard.</p>
+    <ul>
+      <li><strong>Bước 1:</strong> Sync Notion + Sheets → SQLite</li>
+      <li><strong>Bước 2:</strong> Dashboard V2 (có đủ data từ đầu)</li>
+      <li><strong>Bước 3:</strong> Client Report</li>
+    </ul>
+    <div class="hl" style="margin-top:12px">
+      <strong>Ưu điểm:</strong> Dashboard ra đời với đủ data ngay.<br>
+      <strong>Nhược:</strong> Phải setup Notion API key, debug sync trước khi thấy kết quả. Chậm hơn có visual output.
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<div class="sep"></div>
+<h2>🗂️ 9. Notion DB Schema — Đã Xác Nhận</h2>
+
+<p style="font-size:13px;color:var(--dim);margin-bottom:16px">6 Notion DB đã kết nối và đọc được qua MCP. Schema đã verified:</p>
+
+<div class="card">
+  <h3>📋 Task Tracker <code style="font-size:10px;color:var(--dim)">collection://ec25aebb-422a-4fcf-a51f-a826778fd699</code></h3>
+  <table style="margin-top:10px">
+    <tr><th>Field</th><th>Loại</th><th>Giá trị</th></tr>
+    <tr><td><strong>Tên Task</strong></td><td>title</td><td>—</td></tr>
+    <tr><td><strong>Dự án</strong></td><td>select</td><td>SAMCO · TCNET · DLBM</td></tr>
+    <tr><td><strong>Danh mục</strong></td><td>select</td><td>KW Research · Competitor · Content · Onpage · Technical Audit · Backlink · Report</td></tr>
+    <tr><td><strong>Trạng thái</strong></td><td>select (5 levels)</td><td>Backlog → Đang làm → Chờ review → Hoàn thành / Bị chặn</td></tr>
+    <tr><td><strong>Ưu tiên</strong></td><td>select</td><td>Cao · TB · Thấp</td></tr>
+    <tr><td><strong>Deadline</strong></td><td>date</td><td>—</td></tr>
+    <tr><td><strong>Người thực hiện</strong></td><td>people</td><td>—</td></tr>
+    <tr><td><strong>Task ID</strong></td><td>auto</td><td>—</td></tr>
+    <tr><td><strong>Ghi chú</strong></td><td>rich_text</td><td>—</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h3>📝 Content &amp; Onpage <code style="font-size:10px;color:var(--dim)">collection://93bf330b-62f2-485b-af8c-714b92333c24</code></h3>
+  <table style="margin-top:10px">
+    <tr><th>Field</th><th>Loại</th><th>Giá trị</th></tr>
+    <tr><td><strong>Tiêu đề/URL</strong></td><td>title</td><td>—</td></tr>
+    <tr><td><strong>Dự án</strong></td><td>select</td><td>SAMCO · TCNET · DLBM</td></tr>
+    <tr><td><strong>Loại công việc</strong></td><td>select</td><td>Content mới · Cập nhật · Audit trang · Onpage tối ưu · Technical fix</td></tr>
+    <tr><td><strong>Trạng thái</strong></td><td>select (6 levels)</td><td>Backlog → Đang viết → Chờ review → Chờ đăng → Đã publish / Cần cập nhật</td></tr>
+    <tr><td><strong>Từ khoá mục tiêu</strong></td><td>rich_text</td><td>—</td></tr>
+    <tr><td><strong>URL trang</strong></td><td>url</td><td>—</td></tr>
+    <tr><td><strong>Word count</strong></td><td>number</td><td>—</td></tr>
+    <tr><td><strong>Điểm Onpage</strong></td><td>number</td><td>0–100</td></tr>
+    <tr><td><strong>Ngày publish</strong></td><td>date</td><td>—</td></tr>
+    <tr><td><strong>Người thực hiện</strong></td><td>people</td><td>—</td></tr>
+    <tr><td><strong>Người review</strong></td><td>people</td><td>—</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h3>🔑 Keyword Research <code style="font-size:10px;color:var(--dim)">collection://ebc680c8-0591-4d21-8c40-a2165269b62e</code></h3>
+  <table style="margin-top:10px">
+    <tr><th>Field</th><th>Loại</th><th>Giá trị</th></tr>
+    <tr><td><strong>Từ khoá</strong></td><td>title</td><td>—</td></tr>
+    <tr><td><strong>Dự án</strong></td><td>select</td><td>SAMCO · TCNET · DLBM</td></tr>
+    <tr><td><strong>Volume</strong></td><td>number</td><td>—</td></tr>
+    <tr><td><strong>KD%</strong></td><td>number</td><td>—</td></tr>
+    <tr><td><strong>CPC</strong></td><td>number</td><td>—</td></tr>
+    <tr><td><strong>Search Intent</strong></td><td>select</td><td>Info · Commercial · Transactional · Navigational</td></tr>
+    <tr><td><strong>Funnel</strong></td><td>select</td><td>Top · Middle · Bottom</td></tr>
+    <tr><td><strong>Nhóm chủ đề</strong></td><td>select</td><td>—</td></tr>
+    <tr><td><strong>Vị trí hiện tại</strong></td><td>number</td><td>—</td></tr>
+    <tr><td><strong>Vị trí mục tiêu</strong></td><td>number</td><td>—</td></tr>
+    <tr><td><strong>URL đích</strong></td><td>url</td><td>—</td></tr>
+    <tr><td><strong>Trạng thái</strong></td><td>select</td><td>Mới → Đã chọn → Đang viết → Đã có content → Đang theo dõi</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h3>⚔️ Competitor Analysis <code style="font-size:10px;color:var(--dim)">collection://05bc04f4-c5e2-465c-8ea8-e4864de90aef</code></h3>
+  <table style="margin-top:10px">
+    <tr><th>Field</th><th>Loại</th><th>Giá trị</th></tr>
+    <tr><td><strong>Tên đối thủ</strong></td><td>title</td><td>—</td></tr>
+    <tr><td><strong>Website</strong></td><td>url</td><td>—</td></tr>
+    <tr><td><strong>DA</strong></td><td>number</td><td>—</td></tr>
+    <tr><td><strong>DR</strong></td><td>number</td><td>—</td></tr>
+    <tr><td><strong>Organic Traffic/tháng</strong></td><td>number</td><td>—</td></tr>
+    <tr><td><strong>Số backlink</strong></td><td>number</td><td>—</td></tr>
+    <tr><td><strong>Số KW xếp hạng</strong></td><td>number</td><td>—</td></tr>
+    <tr><td><strong>Điểm mạnh</strong></td><td>rich_text</td><td>—</td></tr>
+    <tr><td><strong>Điểm yếu</strong></td><td>rich_text</td><td>—</td></tr>
+    <tr><td><strong>Cơ hội để vượt</strong></td><td>rich_text</td><td>—</td></tr>
+    <tr><td><strong>Trạng thái</strong></td><td>select</td><td>—</td></tr>
+    <tr><td><strong>Dự án</strong></td><td>select</td><td>SAMCO · TCNET · DLBM</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h3>🔗 Backlink Tracker <code style="font-size:10px;color:var(--dim)">collection://e0229e8b-972a-4799-b335-781cb5aa27d7</code></h3>
+  <table style="margin-top:10px">
+    <tr><th>Field</th><th>Loại</th><th>Giá trị</th></tr>
+    <tr><td><strong>URL nguồn</strong></td><td>title</td><td>—</td></tr>
+    <tr><td><strong>URL đích</strong></td><td>url</td><td>—</td></tr>
+    <tr><td><strong>Anchor text</strong></td><td>rich_text</td><td>—</td></tr>
+    <tr><td><strong>DR/DA nguồn</strong></td><td>number</td><td>—</td></tr>
+    <tr><td><strong>Dofollow/Nofollow</strong></td><td>select</td><td>Dofollow · Nofollow</td></tr>
+    <tr><td><strong>Loại</strong></td><td>select</td><td>Guest Post · Forum · Directory · Social · PR · Partner · Broken link · Khác</td></tr>
+    <tr><td><strong>Trạng thái</strong></td><td>select</td><td>Đang xây dựng · Live · Mất backlink · Cần kiểm tra</td></tr>
+    <tr><td><strong>Ngày xây dựng</strong></td><td>date</td><td>—</td></tr>
+    <tr><td><strong>Ngày kiểm tra</strong></td><td>date</td><td>—</td></tr>
+    <tr><td><strong>Người phụ trách</strong></td><td>people</td><td>—</td></tr>
+    <tr><td><strong>Dự án</strong></td><td>select</td><td>SAMCO · TCNET · DLBM</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h3>📊 Weekly Report <code style="font-size:10px;color:var(--dim)">ID: 4a0e5f390ded417bab89e9f71355fe61</code></h3>
+  <p style="font-size:12px;color:var(--dim);margin-top:6px">Schema chưa fetch — cần đọc DB để lấy cấu trúc đầy đủ.</p>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<div class="sep"></div>
+<h2>🔤 10. Từ Khóa 2 Bộ</h2>
+
+<div class="grid-2">
+  <div class="card" style="border-color:rgba(99,102,241,0.4)">
+    <h3 style="color:var(--accent-light)">📌 Bộ Cam Kết (KW Hợp đồng)</h3>
+    <p style="font-size:12px;color:var(--dim);margin-bottom:10px">Từ khóa cam kết với khách hàng trong hợp đồng.</p>
+    <ul>
+      <li>Có thể <strong>không có trong GSC</strong> (chưa có traffic hoặc vị trí quá thấp)</li>
+      <li>Mục đích: <strong>báo cáo top cho khách</strong> + tự theo dõi tiến độ</li>
+      <li>Đã có <code>is_tracked = true</code> flag trong DB keyword_rankings (~510 KW)</li>
+      <li>Dùng cho: trang báo cáo khách hàng, export, Telegram summary</li>
+    </ul>
+    <div class="hl" style="margin-top:10px">
+      <strong>Hiện tại:</strong> <code>is_tracked</code> flag đã có trong DB. Cần UI hiển thị rõ ràng bộ này riêng.
+    </div>
+  </div>
+  <div class="card" style="border-color:rgba(34,197,94,0.4)">
+    <h3 style="color:var(--success)">🌐 Bộ Tự Follow (KW Semantic)</h3>
+    <p style="font-size:12px;color:var(--dim);margin-bottom:10px">Từ khóa theo topic, bổ sung semantic SEO.</p>
+    <ul>
+      <li>Track theo <strong>topical map / cluster</strong> — mỗi cluster có bộ KW riêng</li>
+      <li>Mục đích: <strong>mở rộng topical authority</strong>, phủ semantic</li>
+      <li>Mở rộng liên tục khi nghiên cứu thêm KW mới</li>
+      <li>Không cần báo cáo khách — dùng nội bộ để ra quyết định content</li>
+    </ul>
+    <div class="hl" style="margin-top:10px">
+      <strong>Hiện tại:</strong> Nằm trong <code>topic_cluster_keywords</code>. Cần liên kết với <code>keyword_rankings</code>.
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Cần xây dựng</h3>
+  <table>
+    <tr><th>Tính năng</th><th>Mô tả</th><th>Priority</th></tr>
+    <tr>
+      <td>Dashboard dual-view</td>
+      <td>Hiển thị rõ ràng 2 bộ trên Dashboard — filter được theo bộ</td>
+      <td><span class="badge b-critical">CAO</span></td>
+    </tr>
+    <tr>
+      <td>Report riêng khách</td>
+      <td>Client report chỉ hiện <strong>bộ cam kết</strong> — không lộ KW nội bộ</td>
+      <td><span class="badge b-critical">CAO</span></td>
+    </tr>
+    <tr>
+      <td>Semantic KW tracking</td>
+      <td>Liên kết KW semantic với topical cluster, hiện coverage %</td>
+      <td><span class="badge b-improve">TRUNG BÌNH</span></td>
+    </tr>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<div class="sep"></div>
+<h2>📊 11. Google Analytics</h2>
+
+<div class="card">
+  <p style="font-size:13px;margin-bottom:14px">Hiện tại <strong>không có MCP/tool trực tiếp</strong> cho GA4. 2 lựa chọn:</p>
+  <div class="grid-2">
+    <div style="background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.3);border-radius:10px;padding:16px">
+      <h3 style="color:var(--accent-light);font-size:14px">Option A: GA4 Reporting API</h3>
+      <p style="font-size:12px;color:var(--dim);margin:8px 0">Cần service account JSON key từ Google Cloud.</p>
+      <ul>
+        <li>Build service riêng: <code>google-analytics.service.ts</code></li>
+        <li>Lấy được: sessions, bounce rate, conversions, page views</li>
+        <li>Cron tự động — không cần mở Claude session</li>
+        <li>Setup phức tạp hơn (IAM, API enable, key)</li>
+      </ul>
+    </div>
+    <div style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.3);border-radius:10px;padding:16px">
+      <h3 style="color:var(--success);font-size:14px">Option B: Dùng GSC (đã có)</h3>
+      <p style="font-size:12px;color:var(--dim);margin:8px 0">GSC đã đủ cho hầu hết traffic metrics.</p>
+      <ul>
+        <li>Clicks, impressions, CTR, avg position — đầy đủ</li>
+        <li>Không cần setup thêm gì</li>
+        <li>Thiếu: sessions từ direct/social, bounce rate, conversions</li>
+        <li>Phù hợp với giai đoạn hiện tại (SEO-focused)</li>
+      </ul>
+    </div>
+  </div>
+  <div class="hl" style="margin-top:14px">
+    <strong>Khuyến nghị:</strong> Start với <strong>GSC (Option B)</strong> — đã có data, không cần setup thêm. Thêm GA4 sau nếu cần conversion tracking hoặc multi-channel analysis.
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<div class="sep"></div>
+<h2>✅ 12. Kết Nối Notion — Đã Xác Nhận</h2>
+
+<div class="card">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+    <div style="width:48px;height:48px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.4);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px">✅</div>
+    <div>
+      <div style="font-size:15px;font-weight:700;color:var(--bright)">Notion MCP hoạt động tốt</div>
+      <div style="font-size:12px;color:var(--dim)">Search + fetch + read tất cả 6 DB đã verified trong Claude session</div>
+    </div>
+  </div>
+  <table>
+    <tr><th>Khả năng</th><th>Status</th><th>Ghi chú</th></tr>
+    <tr><td>Search pages/databases</td><td><span class="badge b-have">HOẠT ĐỘNG</span></td><td>Tìm kiếm toàn bộ Notion workspace</td></tr>
+    <tr><td>Fetch DB schema</td><td><span class="badge b-have">HOẠT ĐỘNG</span></td><td>Đọc được properties + types</td></tr>
+    <tr><td>Read records</td><td><span class="badge b-have">HOẠT ĐỘNG</span></td><td>Lấy data từ tất cả 6 DB</td></tr>
+    <tr><td>Auto-sync (cron)</td><td><span class="badge b-critical">GIỚI HẠN</span></td><td>Chỉ hoạt động khi Claude session đang mở</td></tr>
+  </table>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h3>Giải pháp 1: Manual Sync Button</h3>
+    <p style="font-size:12px;color:var(--dim);margin:8px 0">Phù hợp ngay bây giờ — không cần setup thêm.</p>
+    <ul>
+      <li>Nút <strong>"Sync from Notion"</strong> trên UI</li>
+      <li>Gọi API → Notion MCP đọc data → lưu SQLite</li>
+      <li>Dùng trong Claude session khi cần refresh data</li>
+    </ul>
+    <div class="hl" style="margin-top:8px"><strong>Trade-off:</strong> Phải mở Claude để sync, không real-time.</div>
+  </div>
+  <div class="card">
+    <h3>Giải pháp 2: Notion Internal Integration</h3>
+    <p style="font-size:12px;color:var(--dim);margin:8px 0">Phù hợp khi muốn tự động hóa hoàn toàn.</p>
+    <ul>
+      <li>Tạo Notion Internal Integration → lấy API key</li>
+      <li>Build <code>notion-sync.service.ts</code> dùng Notion REST API</li>
+      <li>Cron tự động (giống keyword sync hiện tại)</li>
+      <li>Không cần Claude session</li>
+    </ul>
+    <div class="hl" style="margin-top:8px"><strong>Trade-off:</strong> Cần tạo integration + cấp quyền từng DB.</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<div class="sep"></div>
+<h2>❓ 13. Cần Xác Nhận</h2>
+
+<div class="card">
+  <table>
+    <tr><th>#</th><th>Câu hỏi</th><th>Ảnh hưởng</th></tr>
+    <tr>
+      <td>1</td>
+      <td><strong>Google Sheets content</strong> — 3 sheet "Int | Domain | Content" có cấu trúc thế nào? (cột nào, data mẫu)</td>
+      <td>Thiết kế schema <code>sheet_content</code></td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td><strong>GA4</strong> — Có muốn kết nối GA4 không? Nếu có, cần service account key từ Google Cloud Console.</td>
+      <td>Quyết định có build GA4 service hay không</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td><strong>Chọn phương án triển khai</strong> — A (Dashboard trước, dùng data local) hay B (Sync trước, rồi mới build Dashboard)?</td>
+      <td>Thứ tự triển khai, timeline</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td><strong>Keyword 2 bộ</strong> — Bộ cam kết hiện lưu ở đâu? (Notion KW Research DB hay Google Sheets?) Cần map đúng nguồn.</td>
+      <td>Thiết kế sync + hiển thị dual-view Dashboard</td>
+    </tr>
+  </table>
+</div>
+
+<!-- Footer -->
+<div class="sep"></div>
+<p style="text-align:center;color:var(--dim);font-size:11px">
+  SEO Manager V2 · Full Vision Proposal · 23/03/2026
+</p>
+
+</div>
+</body>
+</html>

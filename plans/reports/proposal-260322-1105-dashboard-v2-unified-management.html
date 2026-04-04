@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Đề Xuất Dashboard V2 — Quản Lý Tổng Thể SEO</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1b2e;
+    --border: #2a2b3d;
+    --accent: #6366f1;
+    --accent-light: #818cf8;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --text: #e4e4e7;
+    --text-dim: #8888a0;
+    --text-bright: #ffffff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 40px 20px;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 {
+    font-size: 28px;
+    color: var(--text-bright);
+    margin-bottom: 8px;
+  }
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-bottom: 40px;
+  }
+  h2 {
+    font-size: 20px;
+    color: var(--accent-light);
+    margin: 40px 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  h3 {
+    font-size: 16px;
+    color: var(--text-bright);
+    margin: 20px 0 10px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge-phase { background: var(--accent)/15; color: var(--accent-light); border: 1px solid var(--accent); }
+  .badge-new { background: rgba(34,197,94,0.15); color: var(--success); border: 1px solid rgba(34,197,94,0.3); }
+  .badge-improve { background: rgba(245,158,11,0.15); color: var(--warning); border: 1px solid rgba(245,158,11,0.3); }
+  .badge-priority { background: rgba(239,68,68,0.15); color: var(--danger); border: 1px solid rgba(239,68,68,0.3); }
+
+  /* Flow diagram */
+  .flow-diagram {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 24px 0;
+  }
+  .flow-box {
+    background: var(--card);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    text-align: center;
+    min-width: 140px;
+  }
+  .flow-box.source { border-color: var(--accent); }
+  .flow-box.hub { border-color: var(--success); background: rgba(34,197,94,0.08); }
+  .flow-box.output { border-color: var(--warning); }
+  .flow-arrow {
+    font-size: 20px;
+    color: var(--text-dim);
+    padding: 0 8px;
+  }
+  .flow-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+  .flow-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-bright);
+  }
+
+  /* Grid */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 768px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  }
+
+  /* Table */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  th, td {
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    color: var(--text-dim);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  td { color: var(--text); }
+
+  /* List */
+  ul { padding-left: 20px; }
+  li {
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: var(--text);
+  }
+  li strong { color: var(--text-bright); }
+
+  /* Inline code */
+  code {
+    background: rgba(99,102,241,0.15);
+    color: var(--accent-light);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+
+  /* Highlight box */
+  .highlight {
+    background: rgba(99,102,241,0.08);
+    border-left: 3px solid var(--accent);
+    padding: 16px 20px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+  }
+  .highlight p {
+    font-size: 14px;
+    color: var(--text);
+  }
+
+  /* Mockup */
+  .mockup {
+    background: #12131f;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 16px 0;
+  }
+  .mockup-titlebar {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .mockup-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+  }
+  .mockup-body { padding: 20px; }
+  .mock-tab-bar {
+    display: flex;
+    gap: 4px;
+    background: rgba(42,43,61,0.5);
+    padding: 4px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    width: fit-content;
+  }
+  .mock-tab {
+    padding: 6px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-dim);
+  }
+  .mock-tab.active {
+    background: var(--accent);
+    color: white;
+  }
+  .mock-kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .mock-kpi {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .mock-kpi-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .mock-kpi-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-bright);
+    margin-top: 4px;
+  }
+  .mock-kpi-sub {
+    font-size: 11px;
+    margin-top: 2px;
+  }
+  .mock-section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .mock-section-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-bright);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .mock-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(42,43,61,0.5);
+    font-size: 12px;
+  }
+  .mock-row:last-child { border: none; }
+  .mock-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .tag-ai { background: rgba(99,102,241,0.2); color: var(--accent-light); }
+  .tag-manual { background: rgba(34,197,94,0.2); color: var(--success); }
+  .tag-done { background: rgba(34,197,94,0.15); color: var(--success); }
+  .tag-doing { background: rgba(245,158,11,0.15); color: var(--warning); }
+  .tag-todo { background: rgba(136,136,160,0.15); color: var(--text-dim); }
+
+  .sep { height: 1px; background: var(--border); margin: 40px 0; }
+
+  /* Phase timeline */
+  .phase-bar {
+    display: flex;
+    gap: 8px;
+    margin: 20px 0;
+  }
+  .phase-item {
+    flex: 1;
+    text-align: center;
+  }
+  .phase-dot {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    margin: 0 auto 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: white;
+  }
+  .phase-name {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .phase-name.active { color: var(--accent-light); font-weight: 600; }
+
+  .comparison-table td:first-child {
+    color: var(--text-dim);
+    font-weight: 500;
+  }
+  .emoji { font-size: 16px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- Header -->
+<h1>🎯 Đề Xuất: Dashboard V2 — Quản Lý Tổng Thể</h1>
+<p class="subtitle">SEO Manager Local · 22/03/2026 · Tích hợp Notion + Google Sheets + Local Data</p>
+
+<!-- ══════════════════════════════════════════════════ -->
+<div class="sep"></div>
+<h2><span class="emoji">📍</span> 1. Hiện Trạng & Vấn Đề</h2>
+
+<div class="grid-2">
+  <div class="card">
+    <h3>Nguồn dữ liệu hiện tại bị phân tán</h3>
+    <table>
+      <tr><th>Nguồn</th><th>Dữ liệu</th><th>Ai dùng</th></tr>
+      <tr><td><strong>Notion</strong> (6 DB)</td><td>Task, Weekly Report, KW Research, Competitor, Content & Onpage, Backlink</td><td>AI tự ghi</td></tr>
+      <tr><td><strong>Google Sheets</strong></td><td>Content tự viết, theo dõi tiến độ bài</td><td>Người viết</td></tr>
+      <tr><td><strong>Local Tool</strong></td><td>GSC, Audit, KW Ranking, Health Check, Strategy, Backlinks, WP Stats</td><td>SEO Manager</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h3>Vấn đề cần giải quyết</h3>
+    <ul>
+      <li>Muốn xem <strong>tổng thể</strong> việc AI + người làm → hiện phải mở 3 nơi</li>
+      <li><strong>Báo cáo khách hàng</strong> chậm: tổng hợp thủ công từ nhiều nguồn</li>
+      <li>Không biết <strong>việc nào xong, việc nào chưa</strong> ở mức tổng quan</li>
+      <li>Content 2 nguồn (AI viết / tự viết) chưa thống nhất tracking</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<div class="sep"></div>
+<h2><span class="emoji">🏗️</span> 2. Kiến Trúc Đề Xuất</h2>
+
+<div class="flow-diagram">
+  <div class="flow-box source">
+    <div class="flow-title">📋 Notion</div>
+    <div class="flow-label">6 DB · AI tasks</div>
+  </div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-box source">
+    <div class="flow-title">📊 Google Sheets</div>
+    <div class="flow-label">Content tự viết</div>
+  </div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-box hub">
+    <div class="flow-title">🖥️ SEO Manager Local</div>
+    <div class="flow-label">Hub tổng hợp · Sync API</div>
+  </div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-box output">
+    <div class="flow-title">📄 Báo cáo</div>
+    <div class="flow-label">Client report · Telegram</div>
+  </div>
+</div>
+
+<div class="highlight">
+  <p><strong>Nguyên tắc:</strong> Notion + Sheets = nguồn dữ liệu gốc. Tool local chỉ <strong>đọc & tổng hợp</strong>, không thay thế. Mỗi nguồn vẫn dùng như cũ, tool local cho bạn <strong>bức tranh toàn cảnh</strong>.</p>
+</div>
+
+<div class="card">
+  <h3>Cơ chế Sync</h3>
+  <table>
+    <tr><th>Nguồn</th><th>Cách sync</th><th>Tần suất</th><th>Ghi chú</th></tr>
+    <tr>
+      <td><strong>Notion</strong></td>
+      <td>Notion MCP (đã có) hoặc Notion API</td>
+      <td>Thủ công / nút "Sync" trên UI</td>
+      <td>Đọc 6 DB → lưu local SQLite</td>
+    </tr>
+    <tr>
+      <td><strong>Google Sheets</strong></td>
+      <td>Google Sheets API (đã có sync KW)</td>
+      <td>Thủ công / cron 2x/ngày</td>
+      <td>Đọc sheet content → lưu local</td>
+    </tr>
+    <tr>
+      <td><strong>GSC + WP</strong></td>
+      <td>Giữ nguyên (đã hoạt động)</td>
+      <td>Cron 9h + 18h</td>
+      <td>Không đổi</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<div class="sep"></div>
+<h2><span class="emoji">🖥️</span> 3. Dashboard V2 — Mockup</h2>
+
+<div class="mockup">
+  <div class="mockup-titlebar">
+    <div class="mockup-dot" style="background:#ef4444"></div>
+    <div class="mockup-dot" style="background:#f59e0b"></div>
+    <div class="mockup-dot" style="background:#22c55e"></div>
+    <span style="font-size:12px;color:var(--text-dim);margin-left:8px">SEO Manager Local — Dashboard</span>
+  </div>
+  <div class="mockup-body">
+
+    <!-- Tab bar -->
+    <div class="mock-tab-bar">
+      <div class="mock-tab active">📊 Tổng quan</div>
+      <div class="mock-tab">📝 Nội dung</div>
+      <div class="mock-tab">🔍 SEO</div>
+      <div class="mock-tab">📋 Công việc</div>
+    </div>
+
+    <!-- KPI row -->
+    <div class="mock-kpi-row">
+      <div class="mock-kpi">
+        <div class="mock-kpi-label">Task hoàn thành</div>
+        <div class="mock-kpi-value">47<span style="font-size:14px;color:var(--text-dim)">/62</span></div>
+        <div class="mock-kpi-sub" style="color:var(--success)">76% · ↑12 tuần này</div>
+      </div>
+      <div class="mock-kpi">
+        <div class="mock-kpi-label">Content đã publish</div>
+        <div class="mock-kpi-value">18</div>
+        <div class="mock-kpi-sub" style="color:var(--accent-light)">AI: 11 · Tự viết: 7</div>
+      </div>
+      <div class="mock-kpi">
+        <div class="mock-kpi-label">Từ khóa Top 10</div>
+        <div class="mock-kpi-value">38</div>
+        <div class="mock-kpi-sub" style="color:var(--success)">↑5 so với tuần trước</div>
+      </div>
+      <div class="mock-kpi">
+        <div class="mock-kpi-label">Backlinks mới</div>
+        <div class="mock-kpi-value">24</div>
+        <div class="mock-kpi-sub" style="color:var(--warning)">Live: 20 · Chết: 4</div>
+      </div>
+    </div>
+
+    <!-- Activity Feed + Progress -->
+    <div style="display:grid;grid-template-columns:1.2fr 0.8fr;gap:12px">
+      <div class="mock-section">
+        <div class="mock-section-title">📋 Hoạt động gần đây (Notion + Sheets + Local)</div>
+        <div class="mock-row">
+          <span><span class="mock-tag tag-ai">AI</span> Viết bài "Máy in Brother DCP-L2640DW"</span>
+          <span class="mock-tag tag-done">✅ Xong</span>
+        </div>
+        <div class="mock-row">
+          <span><span class="mock-tag tag-manual">Tự viết</span> "Top 10 địa điểm du lịch Bình Minh"</span>
+          <span class="mock-tag tag-doing">🔄 Đang viết</span>
+        </div>
+        <div class="mock-row">
+          <span><span class="mock-tag tag-ai">AI</span> Audit Onpage samcotech.com.vn</span>
+          <span class="mock-tag tag-done">✅ Xong</span>
+        </div>
+        <div class="mock-row">
+          <span><span class="mock-tag tag-ai">AI</span> Fix schema markup mangthanhcong.vn</span>
+          <span class="mock-tag tag-doing">🔄 Đang làm</span>
+        </div>
+        <div class="mock-row">
+          <span><span class="mock-tag tag-manual">Tự viết</span> "Giá máy in Samco 2026"</span>
+          <span class="mock-tag tag-todo">📥 Chờ</span>
+        </div>
+      </div>
+
+      <div class="mock-section">
+        <div class="mock-section-title">🏢 Tiến độ theo dự án</div>
+        <div style="margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+            <span style="color:var(--text-bright)">🔵 SAMCO Tech</span>
+            <span style="color:var(--success)">68%</span>
+          </div>
+          <div style="height:6px;background:var(--border);border-radius:4px;overflow:hidden">
+            <div style="width:68%;height:100%;background:var(--accent);border-radius:4px"></div>
+          </div>
+          <div style="font-size:10px;color:var(--text-dim);margin-top:3px">Tasks: 22/32 · Content: 8 bài · KW Top10: 12</div>
+        </div>
+        <div style="margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+            <span style="color:var(--text-bright)">🟢 Mạng Thành Công</span>
+            <span style="color:var(--warning)">52%</span>
+          </div>
+          <div style="height:6px;background:var(--border);border-radius:4px;overflow:hidden">
+            <div style="width:52%;height:100%;background:var(--success);border-radius:4px"></div>
+          </div>
+          <div style="font-size:10px;color:var(--text-dim);margin-top:3px">Tasks: 15/28 · Content: 6 bài · KW Top10: 14</div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+            <span style="color:var(--text-bright)">🟠 Du Lịch Bình Minh</span>
+            <span style="color:var(--success)">74%</span>
+          </div>
+          <div style="height:6px;background:var(--border);border-radius:4px;overflow:hidden">
+            <div style="width:74%;height:100%;background:var(--warning);border-radius:4px"></div>
+          </div>
+          <div style="font-size:10px;color:var(--text-dim);margin-top:3px">Tasks: 10/14 · Content: 4 bài · KW Top10: 12</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Weekly Report Quick -->
+    <div class="mock-section">
+      <div class="mock-section-title">📊 Báo cáo tuần (auto-gen từ tất cả nguồn)</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;text-align:center">
+        <div>
+          <div style="font-size:20px;font-weight:700;color:var(--text-bright)">12</div>
+          <div style="font-size:10px;color:var(--text-dim)">Tasks xong</div>
+        </div>
+        <div>
+          <div style="font-size:20px;font-weight:700;color:var(--success)">5</div>
+          <div style="font-size:10px;color:var(--text-dim)">KW lên Top10</div>
+        </div>
+        <div>
+          <div style="font-size:20px;font-weight:700;color:var(--accent-light)">4</div>
+          <div style="font-size:10px;color:var(--text-dim)">Bài publish</div>
+        </div>
+        <div>
+          <div style="font-size:20px;font-weight:700;color:var(--warning)">8</div>
+          <div style="font-size:10px;color:var(--text-dim)">Backlink mới</div>
+        </div>
+        <div>
+          <div style="font-size:20px;font-weight:700;color:var(--danger)">3</div>
+          <div style="font-size:10px;color:var(--text-dim)">Lỗi onpage fix</div>
+        </div>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px">
+        <button style="background:var(--accent);color:white;border:none;padding:6px 14px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">📋 Copy báo cáo</button>
+        <button style="background:transparent;color:var(--accent-light);border:1px solid var(--accent);padding:6px 14px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">📱 Gửi Telegram</button>
+        <button style="background:transparent;color:var(--text-dim);border:1px solid var(--border);padding:6px 14px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">📄 Xuất HTML</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<div class="sep"></div>
+<h2><span class="emoji">📋</span> 4. Phân Chia Tab Dashboard V2</h2>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header">
+      <h3>📊 Tab 1: Tổng quan</h3>
+      <span class="badge badge-new">MỚI</span>
+    </div>
+    <ul>
+      <li><strong>KPI Cards</strong> — tasks xong, content publish, KW top10, backlinks (gộp từ tất cả nguồn)</li>
+      <li><strong>Activity Feed</strong> — timeline hoạt động gần đây, tag nguồn (AI/Tự viết/Auto)</li>
+      <li><strong>Tiến độ dự án</strong> — 3 project bars, % completion, so sánh target</li>
+      <li><strong>Báo cáo tuần</strong> — auto-gen, 1-click copy/gửi Telegram/xuất HTML</li>
+    </ul>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <h3>📝 Tab 2: Nội dung</h3>
+      <span class="badge badge-improve">CẢI TIẾN</span>
+    </div>
+    <ul>
+      <li><strong>Gộp 2 nguồn</strong>: AI (Notion Content DB) + Tự viết (Google Sheets)</li>
+      <li><strong>Tag nguồn</strong>: mỗi bài hiển thị "AI" hoặc "Tự viết"</li>
+      <li>Giữ nguyên: calendar view, member stats, project filter</li>
+      <li>Thêm: content gap alert (so target tháng)</li>
+    </ul>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <h3>🔍 Tab 3: SEO</h3>
+      <span class="badge badge-improve">CẢI TIẾN</span>
+    </div>
+    <ul>
+      <li>Giữ nguyên: KPI, keyword distribution, traffic trend, project cards</li>
+      <li>Thêm: Notion Competitor Analysis data (nếu có)</li>
+      <li>Thêm: Notion Backlink Tracker tổng hợp</li>
+      <li>Strategy roadmap giữ nguyên</li>
+    </ul>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <h3>📋 Tab 4: Công việc</h3>
+      <span class="badge badge-new">MỚI</span>
+    </div>
+    <ul>
+      <li><strong>Notion Task Tracker</strong> sync → hiển thị tất cả tasks</li>
+      <li>Filter: Dự án, Danh mục, Trạng thái, Người thực hiện</li>
+      <li>Tag: AI tự làm / Người giao / Auto (cron)</li>
+      <li>Deadlines + overdue alerts</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<div class="sep"></div>
+<h2><span class="emoji">🚀</span> 5. Phương Án Triển Khai</h2>
+
+<h3>Lộ trình 3 Phase</h3>
+
+<div class="phase-bar">
+  <div class="phase-item">
+    <div class="phase-dot" style="background:var(--accent)">1</div>
+    <div class="phase-name active">Sync Engine<br><span style="font-size:10px">~2-3 ngày</span></div>
+  </div>
+  <div class="phase-item">
+    <div class="phase-dot" style="background:var(--border)">2</div>
+    <div class="phase-name">Dashboard V2<br><span style="font-size:10px">~3-4 ngày</span></div>
+  </div>
+  <div class="phase-item">
+    <div class="phase-dot" style="background:var(--border)">3</div>
+    <div class="phase-name">Client Report<br><span style="font-size:10px">~2 ngày</span></div>
+  </div>
+</div>
+
+<!-- Phase 1 -->
+<div class="card">
+  <div class="card-header">
+    <h3>Phase 1: Sync Engine — Kết nối nguồn dữ liệu</h3>
+    <span class="badge badge-priority">ƯU TIÊN CAO</span>
+  </div>
+  <table>
+    <tr><th>#</th><th>Việc</th><th>Chi tiết</th></tr>
+    <tr>
+      <td>1.1</td>
+      <td><strong>Schema mới</strong></td>
+      <td>
+        <code>notion_tasks</code> — sync từ Task Tracker DB<br>
+        <code>notion_content</code> — sync từ Content & Onpage DB<br>
+        <code>notion_backlinks</code> — sync từ Backlink Tracker DB<br>
+        <code>notion_weekly_reports</code> — sync từ Weekly Report DB<br>
+        <code>sheet_content</code> — sync từ Google Sheets (content tự viết)<br>
+        <code>sync_logs</code> — tracking sync history
+      </td>
+    </tr>
+    <tr>
+      <td>1.2</td>
+      <td><strong>Notion Sync Service</strong></td>
+      <td>
+        Dùng Notion MCP (đã có trong session) hoặc Notion API trực tiếp<br>
+        Đọc 6 DB → map sang schema local → upsert<br>
+        Lưu <code>notion_page_id</code> để dedup khi sync lại
+      </td>
+    </tr>
+    <tr>
+      <td>1.3</td>
+      <td><strong>Google Sheets Sync</strong></td>
+      <td>
+        Mở rộng sync hiện tại (đã có cho keywords)<br>
+        Thêm sheet content tracking → lưu vào <code>sheet_content</code><br>
+        Map "File monitor" links → per-project content sheets
+      </td>
+    </tr>
+    <tr>
+      <td>1.4</td>
+      <td><strong>Unified Activity Log</strong></td>
+      <td>
+        <code>activity_log</code> table: source (notion/sheet/local/wp/gsc), action, project_id, timestamp<br>
+        Ghi mỗi khi sync detect thay đổi
+      </td>
+    </tr>
+  </table>
+</div>
+
+<!-- Phase 2 -->
+<div class="card">
+  <div class="card-header">
+    <h3>Phase 2: Dashboard V2 UI</h3>
+    <span class="badge badge-new">CHỨC NĂNG MỚI</span>
+  </div>
+  <table>
+    <tr><th>#</th><th>Việc</th><th>Chi tiết</th></tr>
+    <tr>
+      <td>2.1</td>
+      <td><strong>Tab Tổng quan (mới)</strong></td>
+      <td>
+        Unified KPIs từ tất cả nguồn<br>
+        Activity Feed (merge notion_tasks + sheet_content + local events)<br>
+        Project progress bars (merge strategy + tasks + content)<br>
+        Weekly report auto-gen
+      </td>
+    </tr>
+    <tr>
+      <td>2.2</td>
+      <td><strong>Tab Nội dung (cải tiến)</strong></td>
+      <td>
+        Merge content từ Notion (AI viết) + Sheets (tự viết) + WP (published)<br>
+        Thêm source tag, filter by source<br>
+        Giữ nguyên UI hiện tại, bổ sung data
+      </td>
+    </tr>
+    <tr>
+      <td>2.3</td>
+      <td><strong>Tab SEO (giữ nguyên + bổ sung)</strong></td>
+      <td>Thêm Notion data nếu có (competitor, backlink từ Notion)</td>
+    </tr>
+    <tr>
+      <td>2.4</td>
+      <td><strong>Tab Công việc (mới)</strong></td>
+      <td>
+        Hiển thị Notion Task Tracker<br>
+        Kanban hoặc table view, filter by project/category/status<br>
+        Highlight overdue + blocked tasks
+      </td>
+    </tr>
+  </table>
+</div>
+
+<!-- Phase 3 -->
+<div class="card">
+  <div class="card-header">
+    <h3>Phase 3: Client Report Generator</h3>
+    <span class="badge badge-improve">GIÁ TRỊ CAO</span>
+  </div>
+  <table>
+    <tr><th>#</th><th>Việc</th><th>Chi tiết</th></tr>
+    <tr>
+      <td>3.1</td>
+      <td><strong>Auto Weekly Report</strong></td>
+      <td>
+        Tổng hợp tuần từ tất cả nguồn → format Weekly Report<br>
+        Matching cấu trúc Notion (tasks xong, KW lên top, content published, backlinks, lỗi fix)<br>
+        1-click: copy text / gửi Telegram / xuất HTML đẹp
+      </td>
+    </tr>
+    <tr>
+      <td>3.2</td>
+      <td><strong>Client Report Template</strong></td>
+      <td>
+        HTML report cho khách hàng (per-project)<br>
+        Gồm: highlights, metrics, content list, next steps<br>
+        Professional look, logo, brand colors per project
+      </td>
+    </tr>
+    <tr>
+      <td>3.3</td>
+      <td><strong>Telegram Enhanced</strong></td>
+      <td>
+        Bổ sung weekly summary vào bot menu<br>
+        Alert khi task overdue / content gap
+      </td>
+    </tr>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<div class="sep"></div>
+<h2><span class="emoji">⚖️</span> 6. So Sánh Trước / Sau</h2>
+
+<div class="card">
+  <table class="comparison-table">
+    <tr><th style="width:30%">Tiêu chí</th><th style="width:35%">Hiện tại</th><th style="width:35%">Sau Dashboard V2</th></tr>
+    <tr>
+      <td>Xem tổng quan</td>
+      <td>Mở 3 nơi (Notion + Sheets + Tool)</td>
+      <td style="color:var(--success)">1 trang Dashboard duy nhất</td>
+    </tr>
+    <tr>
+      <td>Biết AI đang làm gì</td>
+      <td>Phải vào Notion check</td>
+      <td style="color:var(--success)">Activity Feed real-time, tag AI/Manual</td>
+    </tr>
+    <tr>
+      <td>Báo cáo khách hàng</td>
+      <td>Copy thủ công từ nhiều nơi, ~30 phút</td>
+      <td style="color:var(--success)">1-click generate, ~10 giây</td>
+    </tr>
+    <tr>
+      <td>Tracking content</td>
+      <td>AI content → Notion, tự viết → Sheets (tách biệt)</td>
+      <td style="color:var(--success)">Gộp 1 view, filter theo nguồn</td>
+    </tr>
+    <tr>
+      <td>Tiến độ dự án</td>
+      <td>Health Check (SEO-only)</td>
+      <td style="color:var(--success)">Gộp SEO + Tasks + Content = % tổng thể</td>
+    </tr>
+    <tr>
+      <td>Weekly Report</td>
+      <td>Điền thủ công vào Notion thứ 6</td>
+      <td style="color:var(--success)">Auto-gen, chỉ cần review & gửi</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<div class="sep"></div>
+<h2><span class="emoji">❓</span> 7. Câu Hỏi Cần Xác Nhận</h2>
+
+<div class="card">
+  <table>
+    <tr><th>#</th><th>Câu hỏi</th><th>Ảnh hưởng</th></tr>
+    <tr>
+      <td>1</td>
+      <td><strong>Notion API access:</strong> Bạn có Notion Integration token (API key) chưa? Hay dùng Notion MCP trong Claude session?</td>
+      <td>Quyết định sync tự động (API) hay manual (MCP chỉ chạy khi Claude mở)</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td><strong>Google Sheets content:</strong> Sheet content tự viết nằm ở đâu? Có phải là 3 sheet "Int | Domain | Content" trong file monitor không?</td>
+      <td>Cần biết structure sheet để sync</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td><strong>Phase ưu tiên:</strong> Bắt đầu từ Phase nào? Hay làm tuần tự 1→2→3?</td>
+      <td>Lộ trình triển khai</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td><strong>Report format:</strong> Khách hàng muốn nhận report qua kênh nào? (HTML email / PDF / Telegram / Notion page?)</td>
+      <td>Thiết kế output Phase 3</td>
+    </tr>
+  </table>
+</div>
+
+<!-- Footer -->
+<div class="sep"></div>
+<p style="text-align:center;color:var(--text-dim);font-size:12px">
+  SEO Manager Local · Dashboard V2 Proposal · 22/03/2026
+</p>
+
+</div>
+</body>
+</html>

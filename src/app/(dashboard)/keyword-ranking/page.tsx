@@ -7,8 +7,9 @@
 // ---------------------------------------------------------------------------
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
-  BarChart3, List, RefreshCw, Loader2, CheckCircle, AlertCircle, Settings2,
+  BarChart3, List, RefreshCw, Loader2, CheckCircle, AlertCircle, Settings2, Star, Eye,
 } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
@@ -25,6 +26,8 @@ import { RankingDetailedTab } from './keyword-ranking-detailed-tab';
 type MainTab = 'summary' | 'detailed';
 
 export default function KeywordRankingPage() {
+  const searchParams = useSearchParams();
+  const kwType = searchParams.get('type'); // 'committed' | 'follow' | null (all)
   const [mainTab, setMainTab] = useState<MainTab>('summary');
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState('');
@@ -128,10 +131,39 @@ export default function KeywordRankingPage() {
   };
 
   // ── Computed ────────────────────────────────────────────────────────────
-  const allKeywords = insights
+  const rawKeywords = insights
     ? [...insights.tiers.top5, ...insights.tiers.top10, ...insights.tiers.top15, ...insights.tiers.top30, ...insights.tiers.beyond30]
     : [];
+  // Filter by type query param
+  const allKeywords = kwType === 'committed'
+    ? rawKeywords.filter(k => k.is_tracked)
+    : kwType === 'follow'
+    ? rawKeywords.filter(k => !k.is_tracked)
+    : rawKeywords;
   const hasData = insights !== null && allKeywords.length > 0;
+  const pageTitle = kwType === 'committed' ? 'Từ khóa Cam kết' : kwType === 'follow' ? 'Từ khóa Tự follow' : 'Thứ hạng từ khóa';
+  const PageIcon = kwType === 'committed' ? Star : kwType === 'follow' ? Eye : null;
+
+  // Build filtered insights when kwType is set
+  const filteredInsights = insights && kwType ? {
+    ...insights,
+    summary: {
+      ...insights.summary,
+      total: allKeywords.length,
+      trackedInTop10: allKeywords.filter(k => k.is_tracked && k.currentPosition > 0 && k.currentPosition <= 10).length,
+    },
+    tiers: {
+      top5: allKeywords.filter(k => k.currentPosition >= 1 && k.currentPosition <= 5),
+      top10: allKeywords.filter(k => k.currentPosition > 5 && k.currentPosition <= 10),
+      top15: allKeywords.filter(k => k.currentPosition > 10 && k.currentPosition <= 15),
+      top30: allKeywords.filter(k => k.currentPosition > 15 && k.currentPosition <= 30),
+      beyond30: allKeywords.filter(k => k.currentPosition > 30 || k.currentPosition === 0),
+    },
+    movers: {
+      surging: (insights.movers?.surging ?? []).filter(k => kwType === 'committed' ? k.is_tracked : !k.is_tracked),
+      dropping: (insights.movers?.dropping ?? []).filter(k => kwType === 'committed' ? k.is_tracked : !k.is_tracked),
+    },
+  } : insights;
 
   if (isLoading) return <PageLoading />;
 
@@ -140,7 +172,11 @@ export default function KeywordRankingPage() {
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Thứ hạng từ khóa</h1>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
+            {PageIcon && <PageIcon className="w-5 h-5 text-accent" />}
+            {pageTitle}
+            {kwType && <span className="text-xs font-normal text-[#8888a0] bg-secondary px-2 py-0.5 rounded-full">{allKeywords.length} KW</span>}
+          </h1>
 
           {/* Main tabs: Summary / Detailed */}
           <div className="flex bg-secondary/50 rounded-lg p-0.5 border border-border">
@@ -217,7 +253,7 @@ export default function KeywordRankingPage() {
             : "Chọn dự án và đồng bộ dữ liệu từ Google Sheet"
           } />
       ) : mainTab === 'summary' ? (
-        <RankingSummaryTab insights={insights!} growthSnapshots={growthSnapshots} />
+        <RankingSummaryTab insights={filteredInsights!} growthSnapshots={growthSnapshots} />
       ) : (
         <RankingDetailedTab
           keywords={allKeywords}

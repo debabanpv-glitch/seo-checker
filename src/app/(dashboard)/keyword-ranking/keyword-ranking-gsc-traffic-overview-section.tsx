@@ -70,8 +70,8 @@ export function GscTrafficSection({ snapshots }: { snapshots: GscSnapshot[] }) {
         />
         <TrafficCard
           label="Vi tri TB"
-          value={latest.position.toFixed(1)}
-          delta={positionDelta !== null ? +positionDelta.toFixed(1) : null}
+          value={String(Math.round(latest.position))}
+          delta={positionDelta !== null ? Math.round(positionDelta) : null}
           positiveIsGood={false}
           deltaLabel=""
           icon={<Crosshair className="w-4 h-4" />}

@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Content Plan — mangthanhcong.vn | Khắc phục Index</title>
+<style>
+  :root {
+    --bg: #0f172a; --surface: #1e293b; --surface2: #334155;
+    --text: #e2e8f0; --text-dim: #94a3b8; --accent: #38bdf8;
+    --green: #4ade80; --red: #f87171; --yellow: #fbbf24; --orange: #fb923c;
+    --purple: #a78bfa; --pink: #f472b6; --border: #475569;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; padding: 2rem; }
+  .container { max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 1.75rem; }
+  h2 { font-size: 1.2rem; margin: 2.5rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); color: var(--accent); }
+  h3 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
+  .subtitle { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 2rem; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 9999px; font-size: 0.72rem; font-weight: 600; white-space: nowrap; }
+  .badge-green { background: #064e3b; color: var(--green); }
+  .badge-red { background: #7f1d1d; color: var(--red); }
+  .badge-yellow { background: #713f12; color: var(--yellow); }
+  .badge-blue { background: #0c4a6e; color: var(--accent); }
+  .badge-purple { background: #3b0764; color: var(--purple); }
+  .badge-orange { background: #7c2d12; color: var(--orange); }
+  .badge-pink { background: #831843; color: var(--pink); }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.82rem; }
+  th { background: var(--surface2); text-align: left; padding: 8px 10px; font-weight: 600; color: var(--text-dim); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--surface2); vertical-align: top; }
+  tr:hover td { background: var(--surface); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* Content cards */
+  .content-card { background: var(--surface); border-radius: 12px; margin: 1rem 0; overflow: hidden; }
+  .content-header { padding: 1rem 1.25rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+  .content-num { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; flex-shrink: 0; }
+  .content-body { padding: 0 1.25rem 1.25rem; }
+  .content-body p { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.5rem; }
+
+  /* Cluster group */
+  .cluster { background: var(--surface); border-radius: 12px; margin: 1.25rem 0; border-left: 4px solid var(--accent); }
+  .cluster-header { padding: 1rem 1.25rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+  .cluster-title { font-weight: 700; font-size: 1rem; }
+  .cluster-body { padding: 0 1.25rem 1.25rem; }
+
+  /* Outline box */
+  .outline { background: #0d1117; border: 1px solid var(--surface2); border-radius: 8px; padding: 1rem; font-size: 0.8rem; margin: 0.5rem 0; line-height: 1.7; }
+  .outline .h1 { color: var(--accent); font-weight: 700; }
+  .outline .h2 { color: var(--green); font-weight: 600; padding-left: 1rem; }
+  .outline .h3 { color: var(--text-dim); padding-left: 2rem; }
+  .outline .note { color: var(--yellow); font-style: italic; padding-left: 2rem; font-size: 0.75rem; }
+
+  /* Calendar */
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin: 1rem 0; }
+  .cal-header { background: var(--surface2); padding: 6px 4px; text-align: center; font-size: 0.7rem; font-weight: 600; color: var(--text-dim); border-radius: 4px; }
+  .cal-day { background: var(--surface); padding: 6px 4px; text-align: center; border-radius: 4px; min-height: 60px; font-size: 0.7rem; }
+  .cal-day .day-num { font-weight: 600; margin-bottom: 4px; color: var(--text-dim); }
+  .cal-day .day-task { padding: 2px 4px; border-radius: 3px; margin: 2px 0; font-size: 0.6rem; font-weight: 600; text-align: left; }
+  .cal-empty { background: transparent; }
+
+  /* Link map */
+  .link-map { background: var(--surface); border-radius: 8px; padding: 1rem; margin: 0.75rem 0; }
+  .link-row { display: flex; align-items: center; gap: 0.5rem; padding: 4px 0; font-size: 0.8rem; flex-wrap: wrap; }
+  .link-arrow { color: var(--accent); font-weight: 700; }
+
+  .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--text-dim); font-size: 0.75rem; text-align: center; }
+
+  @media (max-width: 768px) {
+    body { padding: 1rem; }
+    .cal-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>Content Plan — mangthanhcong.vn</h1>
+<p class="subtitle">Kế hoạch nội dung 8 tuần hỗ trợ indexing &bull; 100+ danh mục &bull; 15/03/2026</p>
+
+<!-- ============ PART A: CATEGORY CONTENT ============ -->
+<h2>A. Viết nội dung cho Trang Danh mục (Priority #1)</h2>
+<p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:1rem">
+  Site có <strong>108 trang danh mục</strong> nhưng hầu hết là thin content. Chia thành 3 tier theo search demand + revenue potential.
+</p>
+
+<!-- TIER 1 -->
+<div class="cluster" style="border-left-color:var(--red)">
+  <div class="cluster-header">
+    <div>
+      <div class="cluster-title">Tier 1 — 8 danh mục chủ lực <span class="badge badge-red">Tuần 1-2</span></div>
+      <div style="font-size:0.8rem;color:var(--text-dim)">Có search demand, revenue cao, cần content 300-500 từ + FAQ + bảng SS</div>
+    </div>
+  </div>
+  <div class="cluster-body">
+    <table>
+      <thead><tr><th>#</th><th>Danh mục</th><th>URL</th><th>KW mục tiêu</th><th>Nội dung cần viết</th><th>Words</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td><strong>Cáp quang</strong></td>
+          <td><code>/danh-muc/cap-quang/</code></td>
+          <td>cáp quang, cáp quang 4 lõi, cáp quang 8fo</td>
+          <td>
+            Intro: phân loại cáp quang (SM/MM, indoor/outdoor, 4-12-24FO)<br>
+            Bảng so sánh singlemode vs multimode<br>
+            FAQ: 5 câu (cáp quang bao nhiêu sợi, giá, cách chọn)<br>
+            Links: → 3 blog cáp quang + SP bán chạy
+          </td>
+          <td class="num">400</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td><strong>Tủ rack / Tủ mạng</strong></td>
+          <td><code>/danh-muc/tu-mang/</code></td>
+          <td>tủ rack 3u, 4u, 10u, 12u, 42u, tủ rack treo tường</td>
+          <td>
+            Intro: vai trò tủ rack, phân loại (treo tường vs đứng, 4U-42U)<br>
+            Bảng kích thước: U - Cao - Rộng - Sâu - Ứng dụng<br>
+            FAQ: 4 câu (chọn mấy U, lắp đặt, tải trọng)<br>
+            Links: → blog hướng dẫn chọn (cần viết mới)
+          </td>
+          <td class="num">450</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td><strong>Tủ điện</strong></td>
+          <td><code>/danh-muc/tu-dien/</code></td>
+          <td>tủ điện có mái che, tủ điện ngoài trời</td>
+          <td>
+            Intro: phân loại tủ điện (mái che/không, trong/ngoài trời, 1-2 lớp cửa)<br>
+            Bảng: kích thước phổ biến + ứng dụng<br>
+            FAQ: 4 câu (chọn loại nào, IP rating, lắp đặt)
+          </td>
+          <td class="num">400</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td><strong>Chuyển đổi quang điện (Media Converter)</strong></td>
+          <td><code>/danh-muc/chuyen-doi-quang-dien/</code></td>
+          <td>media converter, converter quang điện, bộ chuyển đổi quang</td>
+          <td>
+            Intro: media converter là gì, khi nào cần dùng<br>
+            Bảng: 1 sợi vs 2 sợi, Fast Ethernet vs Gigabit<br>
+            FAQ: 4 câu (lắp đặt, khoảng cách, lỗi thường gặp)<br>
+            Links: → blog lỗi converter, blog lắp đặt
+          </td>
+          <td class="num">400</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td><strong>Hộp phối quang ODF</strong></td>
+          <td><code>/danh-muc/hop-phoi-quang-odf/</code></td>
+          <td>ODF, hộp phối quang, ODF rack 19</td>
+          <td>
+            Intro: ODF là gì, vai trò trong hệ thống<br>
+            Bảng: loại ODF (rack, treo tường, ngoài trời) + số FO<br>
+            FAQ: 3 câu<br>
+            Links: → blog đấu nối ODF
+          </td>
+          <td class="num">350</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td><strong>Module quang SFP</strong></td>
+          <td><code>/danh-muc/module-quang-sfp/</code></td>
+          <td>module SFP, SFP 1 sợi, SFP 2 sợi, XGSPON ONU</td>
+          <td>
+            Intro: SFP là gì, phân loại (SFP/SFP+/QSFP, 1G/10G)<br>
+            Bảng: loại SFP theo khoảng cách + tốc độ<br>
+            FAQ: 4 câu (tương thích, lắp đặt, 1 sợi vs 2 sợi)<br>
+            Links: → blog lỗi SFP, blog lắp SFP, blog SS 1 vs 2 sợi
+          </td>
+          <td class="num">450</td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td><strong>Dây nhảy quang (Patch cord)</strong></td>
+          <td><code>/danh-muc/day-nhay-quang-patch-cord/</code></td>
+          <td>dây nhảy quang, patch cord quang, dây nhảy SC LC</td>
+          <td>
+            Intro: patch cord quang là gì, các loại đầu nối<br>
+            Bảng: SC vs LC vs FC vs ST + single/duplex<br>
+            FAQ: 3 câu (chiều dài phổ biến, chọn loại nào)<br>
+            Links: → blog phân biệt đầu nối quang
+          </td>
+          <td class="num">350</td>
+        </tr>
+        <tr>
+          <td>8</td>
+          <td><strong>Switch PoE</strong></td>
+          <td><code>/danh-muc/thiet-bi-switch-poe/</code></td>
+          <td>switch PoE, 24 port PoE switch, PoE switch</td>
+          <td>
+            Intro: PoE là gì, khi nào cần switch PoE<br>
+            Bảng: 8/16/24 port, managed vs unmanaged, công suất<br>
+            FAQ: 4 câu (PoE vs PoE+, khoảng cách, watt/port)
+          </td>
+          <td class="num">400</td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="font-size:0.8rem;color:var(--text-dim);margin-top:0.5rem">
+      <strong>Tổng Tier 1:</strong> 8 danh mục × ~400 từ = ~3,200 từ. Deadline: cuối tuần 2.
+    </div>
+  </div>
+</div>
+
+<!-- TIER 2 -->
+<div class="cluster" style="border-left-color:var(--yellow)">
+  <div class="cluster-header">
+    <div>
+      <div class="cluster-title">Tier 2 — 12 danh mục phụ <span class="badge badge-yellow">Tuần 3-4</span></div>
+      <div style="font-size:0.8rem;color:var(--text-dim)">Danh mục con có traffic tiềm năng, cần 150-250 từ intro + 2-3 FAQ</div>
+    </div>
+  </div>
+  <div class="cluster-body">
+    <table>
+      <thead><tr><th>#</th><th>Danh mục</th><th>Words</th><th>Ghi chú</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Cáp quang singlemode <code>/day-cap-quang-singlemode/</code></td><td class="num">200</td><td>SS với multimode, ứng dụng</td></tr>
+        <tr><td>2</td><td>Cáp quang multimode <code>/cap-quang-multimode/</code></td><td class="num">200</td><td>OM2/OM3/OM4, khoảng cách</td></tr>
+        <tr><td>3</td><td>Bộ chia quang Splitter <code>/bo-chia-quang-splitter/</code></td><td class="num">200</td><td>PLC vs FBT, tỉ lệ chia</td></tr>
+        <tr><td>4</td><td>Dây nối quang Pigtail <code>/day-noi-quang-pigtail/</code></td><td class="num">150</td><td>Loại đầu, ứng dụng</td></tr>
+        <tr><td>5</td><td>Suy hao quang <code>/suy-hao-quang/</code></td><td class="num">200</td><td>Là gì, khi nào cần, dB phổ biến</td></tr>
+        <tr><td>6</td><td>Adapter quang <code>/adapter-quang/</code></td><td class="num">150</td><td>Các loại SC/LC/FC</td></tr>
+        <tr><td>7</td><td>Fast connector quang <code>/fast-connector-quang/</code></td><td class="num">150</td><td>Ưu nhược so với hàn</td></tr>
+        <tr><td>8</td><td>Mạng xông quang <code>/mang-xong-quang/</code></td><td class="num">200</td><td>Loại mini/nằm ngang/mũ chụp</td></tr>
+        <tr><td>9</td><td>Thiết bị cấp nguồn PoE <code>/thiet-bi-cap-nguon-poe/</code></td><td class="num">200</td><td>PoE injector vs switch PoE</td></tr>
+        <tr><td>10</td><td>Switch công nghiệp <code>/switch-cong-nghiep/</code></td><td class="num">200</td><td>Managed vs unmanaged, DIN rail</td></tr>
+        <tr><td>11</td><td>Dụng cụ thi công quang <code>/dung-cu-thi-cong-quang/</code></td><td class="num">150</td><td>Dao cắt, kim tuốt, máy hàn</td></tr>
+        <tr><td>12</td><td>Máy đo công suất quang <code>/may-do-cong-suat-quang/</code></td><td class="num">150</td><td>Cách sử dụng, thông số</td></tr>
+      </tbody>
+    </table>
+    <div style="font-size:0.8rem;color:var(--text-dim);margin-top:0.5rem">
+      <strong>Tổng Tier 2:</strong> 12 danh mục × ~180 từ = ~2,200 từ. Deadline: cuối tuần 4.
+    </div>
+  </div>
+</div>
+
+<!-- TIER 3 -->
+<div class="cluster" style="border-left-color:var(--text-dim)">
+  <div class="cluster-header">
+    <div>
+      <div class="cluster-title">Tier 3 — 88 danh mục còn lại <span class="badge" style="background:var(--surface2);color:var(--text-dim)">Tuần 5-8</span></div>
+      <div style="font-size:0.8rem;color:var(--text-dim)">Danh mục thương hiệu + con nhỏ, cần 50-100 từ mô tả ngắn. Có thể dùng AI hỗ trợ viết hàng loạt.</div>
+    </div>
+  </div>
+  <div class="cluster-body">
+    <p style="font-size:0.85rem;color:var(--text-dim)">
+      Bao gồm: Wintop, Bton, Planet, Draytek, Cudy, Aptek, Dintek, Noyafa, Wi-Tek, LS Solution, CommScope, Postef, TCNET, Focal, SACOM... và các sub-category nhỏ (ODF treo tường, dây nhảy OM3, patch cord CAT6...).
+    </p>
+    <p style="font-size:0.85rem;color:var(--text-dim)">
+      <strong>Template:</strong> "[Thương hiệu] là nhà sản xuất [loại sản phẩm] với [USP]. Mạng Thành Công phân phối chính hãng đầy đủ [danh sách dòng SP]. Liên hệ tư vấn: [SĐT]." (~80 từ)
+    </p>
+    <div style="font-size:0.8rem;color:var(--text-dim);margin-top:0.5rem">
+      <strong>Tổng Tier 3:</strong> 88 danh mục × ~80 từ = ~7,000 từ. Dùng AI batch generate + review thủ công.
+    </div>
+  </div>
+</div>
+
+<!-- ============ PART B: NEW BLOG POSTS ============ -->
+<h2>B. Bài blog mới cần viết (3 bài/tuần)</h2>
+<p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:1rem">
+  Mỗi bài blog phục vụ 2 mục đích: (1) target keyword mới, (2) tạo internal link đến danh mục để hỗ trợ index.
+</p>
+
+<!-- Week 1-2 blogs -->
+<div class="content-card" style="border-left:4px solid var(--red)">
+  <div class="content-header">
+    <span class="badge badge-red">Tuần 1-2</span>
+    <span style="font-weight:700">6 bài blog — Hỗ trợ Tier 1 danh mục</span>
+  </div>
+  <div class="content-body">
+    <table>
+      <thead><tr><th>#</th><th>Tiêu đề bài viết</th><th>KW chính</th><th>Link đến danh mục</th><th>Words</th><th>Outline</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td><strong>Hướng dẫn chọn tủ rack phù hợp cho văn phòng và datacenter</strong></td>
+          <td>chọn tủ rack, tủ rack mấy U</td>
+          <td><code>/danh-muc/tu-mang/</code></td>
+          <td class="num">1200</td>
+          <td>
+            <div class="outline">
+              <div class="h1">H1: Hướng dẫn chọn tủ rack phù hợp (2026)</div>
+              <div class="h2">H2: Tủ rack là gì? Cấu tạo & vai trò</div>
+              <div class="h2">H2: Phân loại tủ rack theo kích thước (4U → 42U)</div>
+              <div class="h3">- Bảng so sánh: U, kích thước, tải trọng, giá tham khảo</div>
+              <div class="h2">H2: Tủ treo tường vs Tủ đứng — Chọn loại nào?</div>
+              <div class="h3">- So sánh ưu nhược, ứng dụng cụ thể</div>
+              <div class="h2">H2: 5 tiêu chí chọn tủ rack</div>
+              <div class="h3">- Số U, độ sâu, quạt, mức giá, thương hiệu</div>
+              <div class="h2">H2: FAQ (3-5 câu)</div>
+              <div class="note">→ Internal links: /danh-muc/tu-mang/, /san-pham/tu-rack-3u..., /san-pham/tu-rack-10u...</div>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td><strong>So sánh cáp quang singlemode và multimode — Khi nào dùng loại nào?</strong></td>
+          <td>singlemode vs multimode, cáp quang SM MM</td>
+          <td><code>/danh-muc/cap-quang/</code> + <code>/day-cap-quang-singlemode/</code> + <code>/cap-quang-multimode/</code></td>
+          <td class="num">1000</td>
+          <td>
+            <div class="outline">
+              <div class="h1">H1: So sánh cáp quang Singlemode và Multimode</div>
+              <div class="h2">H2: Singlemode là gì?</div>
+              <div class="h2">H2: Multimode là gì? (OM2/OM3/OM4)</div>
+              <div class="h2">H2: Bảng so sánh chi tiết</div>
+              <div class="h3">- Đường kính lõi, khoảng cách, tốc độ, giá, ứng dụng</div>
+              <div class="h2">H2: Khi nào chọn SM? Khi nào chọn MM?</div>
+              <div class="h2">H2: FAQ</div>
+              <div class="note">→ Links: /danh-muc/cap-quang/, /day-cap-quang-singlemode/, /cap-quang-multimode/</div>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td><strong>Media converter là gì? Hướng dẫn chọn mua bộ chuyển đổi quang điện</strong></td>
+          <td>media converter là gì, bộ chuyển đổi quang điện</td>
+          <td><code>/danh-muc/chuyen-doi-quang-dien/</code></td>
+          <td class="num">1000</td>
+          <td>
+            <div class="outline">
+              <div class="h1">H1: Media Converter là gì? Hướng dẫn chọn mua A-Z</div>
+              <div class="h2">H2: Media converter là gì, hoạt động thế nào?</div>
+              <div class="h2">H2: Phân loại: 1 sợi vs 2 sợi, Fast Ethernet vs Gigabit</div>
+              <div class="h2">H2: Top 5 media converter bán chạy tại TCNET</div>
+              <div class="h2">H2: Hướng dẫn lắp đặt cơ bản</div>
+              <div class="h2">H2: Lỗi thường gặp & cách khắc phục</div>
+              <div class="note">→ Links: /danh-muc/chuyen-doi-quang-dien/, /blogs/loi-converter-quang/, /blogs/huong-dan-lap-dat-media-converter/</div>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td><strong>Switch PoE là gì? So sánh PoE, PoE+, PoE++ và cách chọn đúng</strong></td>
+          <td>switch PoE là gì, PoE vs PoE+, 24 port PoE</td>
+          <td><code>/danh-muc/thiet-bi-switch-poe/</code></td>
+          <td class="num">1000</td>
+          <td>
+            <div class="outline">
+              <div class="h1">H1: Switch PoE là gì? So sánh & Hướng dẫn chọn mua</div>
+              <div class="h2">H2: PoE là gì? Chuẩn IEEE 802.3af/at/bt</div>
+              <div class="h2">H2: Bảng SS PoE vs PoE+ vs PoE++</div>
+              <div class="h2">H2: 8 port vs 16 vs 24 port — chọn mấy cổng?</div>
+              <div class="h2">H2: Top switch PoE bán chạy + giá</div>
+              <div class="note">→ Links: /danh-muc/thiet-bi-switch-poe/, /danh-muc/thiet-bi-cap-nguon-poe/</div>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td><strong>ODF là gì? Phân loại và hướng dẫn chọn hộp phối quang</strong></td>
+          <td>ODF là gì, hộp phối quang ODF</td>
+          <td><code>/danh-muc/hop-phoi-quang-odf/</code></td>
+          <td class="num">800</td>
+          <td>
+            <div class="outline">
+              <div class="h1">H1: ODF là gì? Hướng dẫn chọn hộp phối quang</div>
+              <div class="h2">H2: ODF là gì, vai trò trong hệ thống mạng</div>
+              <div class="h2">H2: Phân loại: rack 19" vs treo tường vs ngoài trời</div>
+              <div class="h2">H2: Cách chọn ODF phù hợp (số FO, loại đầu)</div>
+              <div class="note">→ Links: /danh-muc/hop-phoi-quang-odf/, /blogs/huong-dan-dau-noi-odf/</div>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td><strong>Tủ điện ngoài trời: phân loại, kích thước và cách chọn mua</strong></td>
+          <td>tủ điện ngoài trời, tủ điện có mái che</td>
+          <td><code>/danh-muc/tu-dien/</code></td>
+          <td class="num">800</td>
+          <td>
+            <div class="outline">
+              <div class="h1">H1: Tủ điện ngoài trời — Phân loại & Hướng dẫn chọn</div>
+              <div class="h2">H2: Phân loại: mái che vs không, 1 vs 2 lớp cửa</div>
+              <div class="h2">H2: Bảng kích thước phổ biến + giá tham khảo</div>
+              <div class="h2">H2: Tiêu chuẩn IP rating cho tủ ngoài trời</div>
+              <div class="h2">H2: FAQ</div>
+              <div class="note">→ Links: /danh-muc/tu-dien/, SP tủ điện bán chạy</div>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Week 3-4 blogs -->
+<div class="content-card" style="border-left:4px solid var(--yellow)">
+  <div class="content-header">
+    <span class="badge badge-yellow">Tuần 3-4</span>
+    <span style="font-weight:700">6 bài blog — Hỗ trợ Tier 2 + long-tail</span>
+  </div>
+  <div class="content-body">
+    <table>
+      <thead><tr><th>#</th><th>Tiêu đề bài viết</th><th>KW chính</th><th>Link đến</th><th>Words</th></tr></thead>
+      <tbody>
+        <tr><td>7</td><td><strong>Bộ chia quang Splitter: PLC vs FBT — So sánh và cách chọn</strong></td><td>bộ chia quang, PLC splitter, FBT splitter</td><td>/danh-muc/bo-chia-quang-splitter/</td><td class="num">800</td></tr>
+        <tr><td>8</td><td><strong>Pigtail quang là gì? Phân biệt pigtail với patch cord</strong></td><td>pigtail quang, pigtail vs patch cord</td><td>/danh-muc/day-noi-quang-pigtail/</td><td class="num">600</td></tr>
+        <tr><td>9</td><td><strong>Fast connector quang vs Hàn nối quang: ưu nhược và khi nào dùng</strong></td><td>fast connector quang, hàn nối quang</td><td>/danh-muc/fast-connector-quang/</td><td class="num">800</td></tr>
+        <tr><td>10</td><td><strong>Switch công nghiệp: managed vs unmanaged — Hướng dẫn chọn</strong></td><td>switch công nghiệp, industrial switch</td><td>/danh-muc/switch-cong-nghiep/</td><td class="num">800</td></tr>
+        <tr><td>11</td><td><strong>Suy hao quang là gì? Nguyên nhân và cách khắc phục</strong></td><td>suy hao quang, suy hao cáp quang không đạt chuẩn</td><td>/danh-muc/suy-hao-quang/</td><td class="num">800</td></tr>
+        <tr><td>12</td><td><strong>Hướng dẫn sử dụng máy đo công suất quang cho người mới</strong></td><td>máy đo công suất quang, cách đo công suất quang</td><td>/danh-muc/may-do-cong-suat-quang/</td><td class="num">600</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Week 5-8 blogs -->
+<div class="content-card" style="border-left:4px solid var(--green)">
+  <div class="content-header">
+    <span class="badge badge-green">Tuần 5-8</span>
+    <span style="font-weight:700">12 bài blog — Mở rộng topical authority</span>
+  </div>
+  <div class="content-body">
+    <table>
+      <thead><tr><th>#</th><th>Tiêu đề bài viết</th><th>KW chính</th><th>Words</th></tr></thead>
+      <tbody>
+        <tr><td>13</td><td>Hệ thống cáp quang FTTH là gì? Cấu trúc & thiết bị cần thiết</td><td>FTTH là gì, hệ thống FTTH</td><td class="num">1200</td></tr>
+        <tr><td>14</td><td>Hướng dẫn thiết kế hệ thống mạng LAN cho văn phòng</td><td>thiết kế mạng LAN, hệ thống mạng văn phòng</td><td class="num">1500</td></tr>
+        <tr><td>15</td><td>So sánh cáp quang các hãng: Postef vs TCNET vs Focal vs CommScope</td><td>cáp quang hãng nào tốt</td><td class="num">1000</td></tr>
+        <tr><td>16</td><td>Hướng dẫn lắp đặt tủ rack từ A-Z (có hình)</td><td>lắp đặt tủ rack, lắp tủ mạng</td><td class="num">1000</td></tr>
+        <tr><td>17</td><td>Top 10 module SFP bán chạy nhất 2026 — Review & So sánh giá</td><td>module SFP giá rẻ, module SFP tốt nhất</td><td class="num">1000</td></tr>
+        <tr><td>18</td><td>Cáp mạng CAT5e vs CAT6 vs CAT6A — Bảng so sánh chi tiết</td><td>CAT5e vs CAT6, cáp mạng loại nào tốt</td><td class="num">800</td></tr>
+        <tr><td>19</td><td>Patch panel là gì? Cách đấu nối patch panel chuẩn</td><td>patch panel là gì, đấu nối patch panel</td><td class="num">800</td></tr>
+        <tr><td>20</td><td>Camera IP PoE: ưu điểm và cách lắp đặt không cần nguồn riêng</td><td>camera IP PoE, lắp camera PoE</td><td class="num">800</td></tr>
+        <tr><td>21</td><td>Router Draytek: review dòng 2912/2927 cho doanh nghiệp nhỏ</td><td>Draytek 2912, Draytek 2927, router doanh nghiệp</td><td class="num">800</td></tr>
+        <tr><td>22</td><td>Vật tư cơ khí viễn thông: đai inox, collier, kẹp cáp — tổng hợp</td><td>đai inox viễn thông, collier 200, kẹp cáp quang</td><td class="num">600</td></tr>
+        <tr><td>23</td><td>Ethernet over VDSL2: giải pháp mở rộng mạng qua cáp điện thoại</td><td>VDSL2 converter, Ethernet over VDSL2</td><td class="num">800</td></tr>
+        <tr><td>24</td><td>Hướng dẫn đo và kiểm tra chất lượng mối hàn cáp quang</td><td>kiểm tra mối hàn quang, đo suy hao mối hàn</td><td class="num">800</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ============ PART C: OPTIMIZE EXISTING ============ -->
+<h2>C. Optimize bài blog hiện có (Boundary keywords)</h2>
+
+<table>
+  <thead><tr><th>Blog</th><th class="num">Impr</th><th class="num">Pos</th><th>Vấn đề</th><th>Hành động</th></tr></thead>
+  <tbody>
+    <tr style="background:rgba(251,191,36,0.08)">
+      <td>/blogs/cap-quang-4fo-8fo-12fo/</td>
+      <td class="num">240</td><td class="num" style="color:var(--yellow)">13.3</td>
+      <td>Pos 13 = trang 2, impressions cao nhưng clicks thấp</td>
+      <td>
+        <strong>+500 từ:</strong> thêm bảng so sánh 4FO/8FO/12FO/24FO, hình minh họa<br>
+        <strong>Update title:</strong> "Cáp quang 4FO, 8FO, 12FO — So sánh & Cách chọn đúng"<br>
+        <strong>+3 internal links</strong> → /danh-muc/cap-quang/ + 2 SP cụ thể<br>
+        <strong>+FAQ Schema</strong> (3 câu)
+      </td>
+    </tr>
+    <tr style="background:rgba(251,191,36,0.08)">
+      <td>/blogs/kiem-tra-cap-quang-bi-dut/</td>
+      <td class="num">196</td><td class="num" style="color:var(--yellow)">12.3</td>
+      <td>Pos 12.3, nhiều impressions</td>
+      <td>
+        <strong>+400 từ:</strong> thêm danh sách dụng cụ, embed video YouTube<br>
+        <strong>Update title:</strong> "5 Cách kiểm tra cáp quang bị đứt — Hướng dẫn chi tiết"<br>
+        <strong>+3 internal links</strong> → /danh-muc/dung-cu-thi-cong-quang/ + /may-do-cong-suat-quang/<br>
+        <strong>+FAQ Schema</strong>
+      </td>
+    </tr>
+    <tr>
+      <td>/blogs/loi-converter-quang/ <span class="badge badge-green">Top 5</span></td>
+      <td class="num">398</td><td class="num" style="color:var(--green)">4.8</td>
+      <td>Đang tốt, chỉ cần internal links</td>
+      <td>
+        <strong>+2 links</strong> → /danh-muc/chuyen-doi-quang-dien/ + /blogs/huong-dan-lap-dat-media-converter/<br>
+        <strong>+FAQ Schema</strong> nếu chưa có
+      </td>
+    </tr>
+    <tr>
+      <td>/blogs/phan-biet-dau-noi-quang/</td>
+      <td class="num">290</td><td class="num" style="color:var(--green)">4.8</td>
+      <td>Top 5, giữ nguyên</td>
+      <td><strong>+2 links</strong> → /danh-muc/day-nhay-quang-patch-cord/ + /adapter-quang/</td>
+    </tr>
+    <tr>
+      <td>/blogs/cach-lap-module-sfp-vao-switch/</td>
+      <td class="num">77</td><td class="num">7.5</td>
+      <td>Pos tốt nhưng impressions thấp</td>
+      <td><strong>+2 links</strong> → /danh-muc/module-quang-sfp/ + /blogs/so-sanh-sfp-1-soi-vs-2-soi/</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ============ PART D: INTERNAL LINK MAP ============ -->
+<h2>D. Bản đồ Internal Links</h2>
+<p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:1rem">
+  Mỗi mũi tên = 1 internal link cần thêm. Tổng: ~40 links mới.
+</p>
+
+<div class="link-map">
+  <h3 style="color:var(--accent);margin-bottom:0.75rem">Cluster: Cáp quang</h3>
+  <div class="link-row"><code>/danh-muc/cap-quang/</code> <span class="link-arrow">→</span> <code>/blogs/cap-quang-4fo-8fo-12fo/</code></div>
+  <div class="link-row"><code>/danh-muc/cap-quang/</code> <span class="link-arrow">→</span> <code>/blogs/kiem-tra-cap-quang-bi-dut/</code></div>
+  <div class="link-row"><code>/danh-muc/cap-quang/</code> <span class="link-arrow">→</span> <code>/blogs/huong-dan-chon-cap-quang-theo-so-soi/</code></div>
+  <div class="link-row"><code>(Blog mới #2)</code> SS SM vs MM <span class="link-arrow">→</span> <code>/danh-muc/cap-quang/</code> + <code>/day-cap-quang-singlemode/</code> + <code>/cap-quang-multimode/</code></div>
+  <div class="link-row"><code>/blogs/cap-quang-4fo-8fo-12fo/</code> <span class="link-arrow">→</span> <code>/danh-muc/cap-quang/</code></div>
+  <div class="link-row"><code>/blogs/kiem-tra-cap-quang-bi-dut/</code> <span class="link-arrow">→</span> <code>/danh-muc/dung-cu-thi-cong-quang/</code></div>
+</div>
+
+<div class="link-map">
+  <h3 style="color:var(--orange);margin-bottom:0.75rem">Cluster: Media Converter</h3>
+  <div class="link-row"><code>/danh-muc/chuyen-doi-quang-dien/</code> <span class="link-arrow">→</span> <code>/blogs/loi-converter-quang/</code></div>
+  <div class="link-row"><code>/danh-muc/chuyen-doi-quang-dien/</code> <span class="link-arrow">→</span> <code>/blogs/huong-dan-lap-dat-media-converter/</code></div>
+  <div class="link-row"><code>/blogs/loi-converter-quang/</code> <span class="link-arrow">→</span> <code>/danh-muc/chuyen-doi-quang-dien/</code></div>
+  <div class="link-row"><code>(Blog mới #3)</code> MC là gì <span class="link-arrow">→</span> <code>/danh-muc/chuyen-doi-quang-dien/</code></div>
+</div>
+
+<div class="link-map">
+  <h3 style="color:var(--yellow);margin-bottom:0.75rem">Cluster: Module SFP</h3>
+  <div class="link-row"><code>/danh-muc/module-quang-sfp/</code> <span class="link-arrow">→</span> <code>/blogs/loi-module-sfp/</code></div>
+  <div class="link-row"><code>/danh-muc/module-quang-sfp/</code> <span class="link-arrow">→</span> <code>/blogs/cach-lap-module-sfp-vao-switch/</code></div>
+  <div class="link-row"><code>/danh-muc/module-quang-sfp/</code> <span class="link-arrow">→</span> <code>/blogs/so-sanh-sfp-1-soi-vs-2-soi/</code></div>
+  <div class="link-row"><code>/blogs/loi-module-sfp/</code> <span class="link-arrow">→</span> <code>/danh-muc/module-quang-sfp/</code></div>
+  <div class="link-row"><code>/blogs/cach-lap-module-sfp/</code> <span class="link-arrow">→</span> <code>/danh-muc/module-quang-sfp/</code></div>
+</div>
+
+<div class="link-map">
+  <h3 style="color:var(--green);margin-bottom:0.75rem">Cluster: Tủ rack & Tủ điện</h3>
+  <div class="link-row"><code>/danh-muc/tu-mang/</code> <span class="link-arrow">→</span> <code>(Blog mới #1)</code> Hướng dẫn chọn tủ rack</div>
+  <div class="link-row"><code>(Blog mới #1)</code> <span class="link-arrow">→</span> <code>/danh-muc/tu-mang/</code> + 3 SP tủ rack</div>
+  <div class="link-row"><code>/danh-muc/tu-dien/</code> <span class="link-arrow">→</span> <code>(Blog mới #6)</code> Tủ điện ngoài trời</div>
+  <div class="link-row"><code>(Blog mới #6)</code> <span class="link-arrow">→</span> <code>/danh-muc/tu-dien/</code> + 3 SP tủ điện</div>
+</div>
+
+<!-- ============ PART E: CONTENT CALENDAR ============ -->
+<h2>E. Lịch xuất bản</h2>
+
+<table>
+  <thead><tr><th>Tuần</th><th>T2</th><th>T4</th><th>T6</th><th>Song song</th></tr></thead>
+  <tbody>
+    <tr style="background:rgba(248,113,113,0.06)">
+      <td><strong>Tuần 1</strong><br><span style="color:var(--text-dim);font-size:0.75rem">17-21/03</span></td>
+      <td>Blog #1: Chọn tủ rack</td>
+      <td>Blog #2: SM vs MM</td>
+      <td>Blog #3: Media converter là gì</td>
+      <td style="color:var(--text-dim);font-size:0.8rem">Viết content 4 danh mục Tier 1 (cáp quang, tủ rack, tủ điện, media converter)</td>
+    </tr>
+    <tr style="background:rgba(248,113,113,0.06)">
+      <td><strong>Tuần 2</strong><br><span style="color:var(--text-dim);font-size:0.75rem">24-28/03</span></td>
+      <td>Blog #4: Switch PoE</td>
+      <td>Blog #5: ODF là gì</td>
+      <td>Blog #6: Tủ điện ngoài trời</td>
+      <td style="color:var(--text-dim);font-size:0.8rem">Viết content 4 danh mục Tier 1 còn lại (ODF, SFP, dây nhảy, switch PoE)</td>
+    </tr>
+    <tr style="background:rgba(251,191,36,0.06)">
+      <td><strong>Tuần 3</strong><br><span style="color:var(--text-dim);font-size:0.75rem">31/03-04/04</span></td>
+      <td>Blog #7: PLC vs FBT</td>
+      <td>Blog #8: Pigtail</td>
+      <td>Blog #9: Fast connector</td>
+      <td style="color:var(--text-dim);font-size:0.8rem">Viết content 6 danh mục Tier 2 + optimize 2 bài boundary</td>
+    </tr>
+    <tr style="background:rgba(251,191,36,0.06)">
+      <td><strong>Tuần 4</strong><br><span style="color:var(--text-dim);font-size:0.75rem">07-11/04</span></td>
+      <td>Blog #10: Switch CN</td>
+      <td>Blog #11: Suy hao quang</td>
+      <td>Blog #12: Máy đo CS</td>
+      <td style="color:var(--text-dim);font-size:0.8rem">Viết content 6 danh mục Tier 2 còn lại + thêm internal links vào blog cũ</td>
+    </tr>
+    <tr>
+      <td><strong>Tuần 5-8</strong><br><span style="color:var(--text-dim);font-size:0.75rem">14/04→</span></td>
+      <td colspan="3">Blog #13-24: 3 bài/tuần theo lịch</td>
+      <td style="color:var(--text-dim);font-size:0.8rem">Batch viết Tier 3 (88 danh mục) + audit SP + monitor index</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ============ SUMMARY ============ -->
+<h2>Tổng kết khối lượng</h2>
+<table>
+  <thead><tr><th>Hạng mục</th><th class="num">Số lượng</th><th class="num">Tổng từ</th><th>Deadline</th></tr></thead>
+  <tbody>
+    <tr><td>Danh mục Tier 1 (300-500 từ)</td><td class="num">8</td><td class="num">~3,200</td><td>Tuần 1-2</td></tr>
+    <tr><td>Danh mục Tier 2 (150-250 từ)</td><td class="num">12</td><td class="num">~2,200</td><td>Tuần 3-4</td></tr>
+    <tr><td>Danh mục Tier 3 (50-100 từ)</td><td class="num">88</td><td class="num">~7,000</td><td>Tuần 5-8</td></tr>
+    <tr><td>Blog mới</td><td class="num">24</td><td class="num">~21,600</td><td>8 tuần (3/tuần)</td></tr>
+    <tr><td>Optimize blog cũ</td><td class="num">5</td><td class="num">~1,500</td><td>Tuần 3-4</td></tr>
+    <tr><td>Internal links mới</td><td class="num">~40</td><td class="num">—</td><td>Rolling</td></tr>
+    <tr style="background:var(--surface2)"><td><strong>TỔNG</strong></td><td class="num"><strong>137 items</strong></td><td class="num"><strong>~35,500 từ</strong></td><td><strong>8 tuần</strong></td></tr>
+  </tbody>
+</table>
+
+<div class="footer">
+  Content Plan — mangthanhcong.vn &bull; SEO Manager &bull; 15/03/2026<br>
+  Nguồn: GSC API, Sitemap Analysis (108 danh mục), Top 100 Queries
+</div>
+
+</div>
+</body>
+</html>

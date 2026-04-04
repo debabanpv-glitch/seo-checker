@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SEO Audit — mangthanhcong.vn | 14/03/2026</title>
+<style>
+  :root {
+    --bg: #0f172a; --surface: #1e293b; --surface2: #334155;
+    --text: #e2e8f0; --text-dim: #94a3b8; --accent: #38bdf8;
+    --green: #4ade80; --red: #f87171; --yellow: #fbbf24; --orange: #fb923c;
+    --border: #475569;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; padding: 2rem; }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 1.75rem; margin-bottom: 0.25rem; }
+  h2 { font-size: 1.25rem; margin: 2rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); color: var(--accent); }
+  h3 { font-size: 1rem; margin: 1.25rem 0 0.5rem; color: var(--text); }
+  .subtitle { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 2rem; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+  .badge-green { background: #064e3b; color: var(--green); }
+  .badge-red { background: #7f1d1d; color: var(--red); }
+  .badge-yellow { background: #713f12; color: var(--yellow); }
+  .badge-blue { background: #0c4a6e; color: var(--accent); }
+
+  /* KPI Cards */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+  .kpi { background: var(--surface); border-radius: 12px; padding: 1.25rem; text-align: center; }
+  .kpi-value { font-size: 1.75rem; font-weight: 700; }
+  .kpi-label { font-size: 0.8rem; color: var(--text-dim); margin-top: 0.25rem; }
+  .kpi-change { font-size: 0.75rem; margin-top: 0.25rem; }
+  .up { color: var(--green); } .down { color: var(--red); }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.85rem; }
+  th { background: var(--surface2); text-align: left; padding: 8px 12px; font-weight: 600; color: var(--text-dim); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--surface2); }
+  tr:hover td { background: var(--surface); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* Chart */
+  .chart-container { background: var(--surface); border-radius: 12px; padding: 1.25rem; margin: 1rem 0; }
+  .chart-bar-row { display: flex; align-items: center; margin: 4px 0; font-size: 0.8rem; }
+  .chart-bar-label { width: 60px; text-align: right; padding-right: 10px; color: var(--text-dim); flex-shrink: 0; }
+  .chart-bar-track { flex: 1; height: 22px; background: var(--surface2); border-radius: 4px; overflow: hidden; position: relative; }
+  .chart-bar-fill { height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; font-size: 0.7rem; font-weight: 600; min-width: fit-content; }
+  .chart-bar-value { width: 50px; text-align: right; padding-left: 8px; font-weight: 600; flex-shrink: 0; }
+
+  /* Sitemap */
+  .sitemap-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+  .sitemap-item { background: var(--surface); border-radius: 8px; padding: 0.6rem 1rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; }
+  .sitemap-name { color: var(--text-dim); }
+  .sitemap-status { font-weight: 600; }
+  .submitted { color: var(--green); } .missing { color: var(--red); }
+
+  /* Index check */
+  .index-grid { display: grid; grid-template-columns: 1fr; gap: 0.5rem; }
+  .index-item { background: var(--surface); border-radius: 8px; padding: 0.75rem 1rem; display: flex; justify-content: space-between; align-items: center; }
+  .index-url { font-size: 0.8rem; color: var(--text-dim); word-break: break-all; }
+  .index-status { flex-shrink: 0; margin-left: 1rem; }
+
+  /* Issue cards */
+  .issue-card { background: var(--surface); border-radius: 12px; padding: 1rem 1.25rem; margin: 0.75rem 0; border-left: 4px solid var(--red); }
+  .issue-card.warn { border-left-color: var(--yellow); }
+  .issue-card.info { border-left-color: var(--accent); }
+  .issue-title { font-weight: 600; margin-bottom: 0.25rem; }
+  .issue-desc { font-size: 0.85rem; color: var(--text-dim); }
+
+  /* Action items */
+  .action-list { list-style: none; }
+  .action-list li { background: var(--surface); border-radius: 8px; padding: 0.75rem 1rem; margin: 0.5rem 0; display: flex; gap: 0.75rem; align-items: flex-start; }
+  .action-priority { flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; margin-top: 2px; }
+  .p-high { background: #7f1d1d; color: var(--red); }
+  .p-med { background: #713f12; color: var(--yellow); }
+  .p-low { background: #0c4a6e; color: var(--accent); }
+  .action-text { font-size: 0.85rem; }
+  .action-text strong { color: var(--text); }
+
+  .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--text-dim); font-size: 0.75rem; text-align: center; }
+
+  @media (max-width: 768px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .sitemap-grid { grid-template-columns: 1fr; }
+    body { padding: 1rem; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>SEO Audit Report — mangthanhcong.vn</h1>
+<p class="subtitle">Dự án: TCNET (Mạng Thành Công) &bull; Ngày: 14/03/2026 &bull; Nguồn: Google Search Console 28 ngày</p>
+
+<!-- KPIs -->
+<h2>Tổng quan hiệu suất GSC</h2>
+<div class="kpi-grid">
+  <div class="kpi">
+    <div class="kpi-value" style="color:var(--accent)">758</div>
+    <div class="kpi-label">Total Clicks (28d)</div>
+    <div class="kpi-change up">&#9650; ~10x so với đầu T2</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-value">15,331</div>
+    <div class="kpi-label">Total Impressions</div>
+    <div class="kpi-change up">&#9650; tăng mạnh</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-value" style="color:var(--green)">4.94%</div>
+    <div class="kpi-label">CTR trung bình</div>
+    <div class="kpi-change" style="color:var(--text-dim)">Khá tốt cho B2B</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-value" style="color:var(--yellow)">15.4</div>
+    <div class="kpi-label">Vị trí trung bình</div>
+    <div class="kpi-change down">Còn cao, cần cải thiện</div>
+  </div>
+</div>
+
+<!-- Traffic Trend Chart -->
+<h2>Xu hướng traffic 28 ngày</h2>
+<div class="chart-container">
+  <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;font-size:0.75rem;color:var(--text-dim)">
+    <span>&#9632; Clicks/ngày</span>
+    <span style="margin-left:auto">Max: 62 clicks (04 & 11/03)</span>
+  </div>
+  <!-- Bars - scaled to max 62 -->
+  <div class="chart-bar-row"><div class="chart-bar-label">13/02</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:11.3%;background:var(--surface2)"></div></div><div class="chart-bar-value">7</div></div>
+  <div class="chart-bar-row"><div class="chart-bar-label">14/02</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:8.1%;background:var(--surface2)"></div></div><div class="chart-bar-value">5</div></div>
+  <div class="chart-bar-row"><div class="chart-bar-label">15/02</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:6.5%;background:var(--surface2)"></div></div><div class="chart-bar-value">4</div></div>
+  <div class="chart-bar-row"><div class="chart-bar-label">16/02</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:8.1%;background:var(--surface2)"></div></div><div class="chart-bar-value">5</div></div>
+  <div class="chart-bar-row"><div class="chart-bar-label">17/02</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:3.2%;background:var(--surface2)"></div></div><div class="chart-bar-value">2</div></div>
+  <div class="chart-bar-row"><div class="chart-bar-label">18/02</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:3.2%;background:var(--surface2)"></div></div><div class="chart-bar-value">2</div></div>
+  <div class="chart-bar-row"><div class="chart-bar-label">19/02</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:4.8%;background:var(--surface2)"></div></div><div class="chart-bar-value">3</div></div>
+  <div class="chart-bar-row"><div class="chart-bar-label">20/02</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:9.7%;background:var(--surface2)"></div></div><div class="chart-bar-value">6</div></div>
+  <div class="chart-bar-row"><div class="chart-bar-label">21/02</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:4.8%;background:var(--surface2)"></div></div><div class="chart-bar-value">3</div></div>
+  <div class="chart-bar-row"><div class="chart-bar-label">22/02</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:29%;background:linear-gradient(90deg,#1d4ed8,var(--accent))"></div></div><div class="chart-bar-value" style="color:var(--accent)">18</div></div>
+  <div class="chart-bar-row"><div class="chart-bar-label">23/02</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:56.5%;background:linear-gradient(90deg,#1d4ed8,var(--accent))"></div></div><div class="chart-bar-value" style="color:var(--accent)">35</div></div>
+  <div class="chart-bar-row"><div class="chart-bar-label">24/02</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:77.4%;background:linear-gradient(90deg,#1d4ed8,var(--accent))"></div></div><div class="chart-bar-value" style="color:var(--accent)">48</div></div>
+  <div class="chart-bar-row"><div class="chart-bar-label">25/02</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:54.8%;background:linear-gradient(90deg,#1d4ed8,var(--accent))"></div></div><div class="chart-bar-value" style="color:var(--accent)">34</div></div>
+  <div class="chart-bar-row"><div class="chart-bar-label">26/02</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:64.5%;background:linear-gradient(90deg,#1d4ed8,var(--accent))"></div></div><div class="chart-bar-value" style="color:var(--accent)">40</div></div>
+  <div class="chart-bar-row"><div class="chart-bar-label">27/02</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:56.5%;background:linear-gradient(90deg,#1d4ed8,var(--accent))"></div></div><div class="chart-bar-value" style="color:var(--accent)">35</div></div>
+  <div class="chart-bar-row"><div class="chart-bar-label">28/02</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:12.9%;background:var(--surface2)"></div></div><div class="chart-bar-value">8</div></div>
+  <div class="chart-bar-row"><div class="chart-bar-label">01/03</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:72.6%;background:linear-gradient(90deg,#1d4ed8,var(--accent))"></div></div><div class="chart-bar-value" style="color:var(--accent)">45</div></div>
+  <div class="chart-bar-row"><div class="chart-bar-label">02/03</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:77.4%;background:linear-gradient(90deg,#1d4ed8,var(--accent))"></div></div><div class="chart-bar-value" style="color:var(--accent)">48</div></div>
+  <div class="chart-bar-row"><div class="chart-bar-label">03/03</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:95.2%;background:linear-gradient(90deg,#1d4ed8,var(--green))"></div></div><div class="chart-bar-value" style="color:var(--green)">59</div></div>
+  <div class="chart-bar-row"><div class="chart-bar-label">04/03</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:96.8%;background:linear-gradient(90deg,#1d4ed8,var(--green))"></div></div><div class="chart-bar-value" style="color:var(--green)">60</div></div>
+  <div class="chart-bar-row"><div class="chart-bar-label">05/03</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:100%;background:linear-gradient(90deg,#1d4ed8,var(--green))"></div></div><div class="chart-bar-value" style="color:var(--green)">62</div></div>
+  <div class="chart-bar-row"><div class="chart-bar-label">06/03</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:53.2%;background:linear-gradient(90deg,#1d4ed8,var(--accent))"></div></div><div class="chart-bar-value" style="color:var(--accent)">33</div></div>
+  <div class="chart-bar-row"><div class="chart-bar-label">07/03</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:16.1%;background:var(--surface2)"></div></div><div class="chart-bar-value">10</div></div>
+  <div class="chart-bar-row"><div class="chart-bar-label">08/03</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:59.7%;background:linear-gradient(90deg,#1d4ed8,var(--accent))"></div></div><div class="chart-bar-value" style="color:var(--accent)">37</div></div>
+  <div class="chart-bar-row"><div class="chart-bar-label">09/03</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:77.4%;background:linear-gradient(90deg,#1d4ed8,var(--accent))"></div></div><div class="chart-bar-value" style="color:var(--accent)">48</div></div>
+  <div class="chart-bar-row"><div class="chart-bar-label">10/03</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:62.9%;background:linear-gradient(90deg,#1d4ed8,var(--accent))"></div></div><div class="chart-bar-value" style="color:var(--accent)">39</div></div>
+  <div class="chart-bar-row"><div class="chart-bar-label">11/03</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:100%;background:linear-gradient(90deg,#1d4ed8,var(--green))"></div></div><div class="chart-bar-value" style="color:var(--green)">62</div></div>
+</div>
+
+<!-- Top Pages -->
+<h2>Top trang có traffic</h2>
+<table>
+  <thead><tr><th>Trang</th><th class="num">Clicks</th><th class="num">Impressions</th><th class="num">CTR</th><th class="num">Position</th></tr></thead>
+  <tbody>
+    <tr><td>/ <span class="badge badge-blue">Trang chủ</span></td><td class="num">72</td><td class="num">675</td><td class="num" style="color:var(--green)">10.67%</td><td class="num">5.9</td></tr>
+    <tr><td>/blogs/loi-converter-quang/ <span class="badge badge-green">Rich Result</span></td><td class="num">22</td><td class="num">398</td><td class="num">5.53%</td><td class="num">4.8</td></tr>
+    <tr><td>/en/trang-chu/</td><td class="num">16</td><td class="num">46</td><td class="num" style="color:var(--green)">34.78%</td><td class="num">10.7</td></tr>
+    <tr><td>/blogs/phan-biet-cac-loai-dau-noi-quang/</td><td class="num">10</td><td class="num">290</td><td class="num">3.45%</td><td class="num">4.8</td></tr>
+    <tr><td>/blogs/loi-thuong-gap-khi-su-dung-module-sfp/</td><td class="num">9</td><td class="num">138</td><td class="num">6.52%</td><td class="num">7.3</td></tr>
+    <tr><td>/san-pham/dai-inox201-20mm/ <span class="badge badge-green">Sản phẩm</span></td><td class="num">9</td><td class="num">107</td><td class="num">8.41%</td><td class="num">5.6</td></tr>
+    <tr><td>/blogs/cach-lap-module-sfp-vao-switch/</td><td class="num">8</td><td class="num">77</td><td class="num" style="color:var(--green)">10.39%</td><td class="num">7.5</td></tr>
+    <tr><td>/blogs/cap-quang-4fo-8fo-12fo/ <span class="badge badge-yellow">Boundary</span></td><td class="num">8</td><td class="num">240</td><td class="num" style="color:var(--red)">3.33%</td><td class="num" style="color:var(--yellow)">13.3</td></tr>
+    <tr><td>/blogs/huong-dan-chon-cap-quang-theo-so-soi/</td><td class="num">8</td><td class="num">93</td><td class="num">8.60%</td><td class="num">5.1</td></tr>
+    <tr><td>/san-pham/tu-dien-mai-che-8640/</td><td class="num">8</td><td class="num">32</td><td class="num" style="color:var(--green)">25.00%</td><td class="num" style="color:var(--green)">2.5</td></tr>
+    <tr><td>/blogs/kiem-tra-cap-quang-bi-dut/ <span class="badge badge-yellow">Boundary</span></td><td class="num">7</td><td class="num">196</td><td class="num" style="color:var(--red)">3.57%</td><td class="num" style="color:var(--yellow)">12.3</td></tr>
+    <tr><td>/san-pham/wintop-yt-8110gsb/</td><td class="num">7</td><td class="num">70</td><td class="num" style="color:var(--green)">10.00%</td><td class="num">5.8</td></tr>
+    <tr><td>/san-pham/module-quang-xgspon-onu-stick-10g/</td><td class="num">7</td><td class="num">118</td><td class="num">5.93%</td><td class="num">5.7</td></tr>
+  </tbody>
+</table>
+
+<!-- Top Queries -->
+<h2>Top queries</h2>
+<table>
+  <thead><tr><th>Query</th><th class="num">Clicks</th><th class="num">Impressions</th><th class="num">CTR</th><th class="num">Position</th><th>Trend</th></tr></thead>
+  <tbody>
+    <tr><td><strong>tcnet</strong></td><td class="num">23</td><td class="num">45</td><td class="num">51.11%</td><td class="num">11.6</td><td class="up">&#9650; +183% clicks, pos 17→9</td></tr>
+    <tr><td><strong>mạng thành công</strong></td><td class="num">17</td><td class="num">29</td><td class="num" style="color:var(--green)">58.62%</td><td class="num" style="color:var(--green)">1.0</td><td class="up">&#9650; +140%</td></tr>
+    <tr><td>công ty mạng thành công</td><td class="num">4</td><td class="num">12</td><td class="num">33.33%</td><td class="num" style="color:var(--green)">1.1</td><td style="color:var(--text-dim)">—</td></tr>
+    <tr><td>yt-8110gsb-11-20a-as</td><td class="num">3</td><td class="num">16</td><td class="num">18.75%</td><td class="num" style="color:var(--green)">2.7</td><td class="up">&#9650; mới xuất hiện</td></tr>
+    <tr><td>ytps-g35-20ld</td><td class="num">2</td><td class="num">14</td><td class="num">14.29%</td><td class="num" style="color:var(--green)">3.9</td><td style="color:var(--text-dim)">—</td></tr>
+    <tr><td>cáp quang 4 lõi</td><td class="num">1</td><td class="num">6</td><td class="num">16.67%</td><td class="num">7.2</td><td class="up">&#9650; mới</td></tr>
+    <tr><td>cáp quang 8fo là gì</td><td class="num">1</td><td class="num">12</td><td class="num">8.33%</td><td class="num" style="color:var(--red)">30.0</td><td style="color:var(--text-dim)">cần optimize</td></tr>
+    <tr><td>tủ rack 3u</td><td class="num">1</td><td class="num">14</td><td class="num">7.14%</td><td class="num">5.6</td><td style="color:var(--text-dim)">—</td></tr>
+  </tbody>
+</table>
+
+<!-- INDEXING ANALYSIS -->
+<h2>&#128269; Phân tích vấn đề Index</h2>
+
+<h3>Kiểm tra index mẫu</h3>
+<div class="index-grid">
+  <div class="index-item">
+    <div><div style="font-weight:600">/san-pham/module-quang-xgspon-onu-stick-10g/</div><div class="index-url">Crawled: 08/03 &bull; Rich: Product + Review snippets</div></div>
+    <div class="index-status"><span class="badge badge-green">INDEXED</span></div>
+  </div>
+  <div class="index-item">
+    <div><div style="font-weight:600">/san-pham/tu-dien-mai-che-8640/</div><div class="index-url">Crawled: 04/03</div></div>
+    <div class="index-status"><span class="badge badge-green">INDEXED</span></div>
+  </div>
+  <div class="index-item">
+    <div><div style="font-weight:600">/san-pham/bo-chuyen-doi-quang-dien-wintop/</div><div class="index-url">Crawled: 13/03 &bull; Rich: Product + Review snippets</div></div>
+    <div class="index-status"><span class="badge badge-green">INDEXED</span></div>
+  </div>
+  <div class="index-item">
+    <div><div style="font-weight:600">/blogs/loi-converter-quang/</div><div class="index-url">Crawled: 10/03 &bull; Rich: Review snippets</div></div>
+    <div class="index-status"><span class="badge badge-green">INDEXED</span></div>
+  </div>
+  <div class="index-item" style="border-left:3px solid var(--yellow)">
+    <div><div style="font-weight:600">/danh-muc/cap-quang/</div><div class="index-url">Crawled: 18/01 &bull; Crawled nhưng không index</div></div>
+    <div class="index-status"><span class="badge badge-yellow">NOT INDEXED</span></div>
+  </div>
+  <div class="index-item" style="border-left:3px solid var(--red)">
+    <div><div style="font-weight:600">/danh-muc/tu-rack/</div><div class="index-url">Chưa bao giờ được crawl</div></div>
+    <div class="index-status"><span class="badge badge-red">UNKNOWN</span></div>
+  </div>
+  <div class="index-item" style="border-left:3px solid var(--red)">
+    <div><div style="font-weight:600">/danh-muc/media-converter/</div><div class="index-url">Chưa bao giờ được crawl</div></div>
+    <div class="index-status"><span class="badge badge-red">UNKNOWN</span></div>
+  </div>
+</div>
+
+<!-- Root Cause -->
+<h2>&#9888;&#65039; Nguyên nhân gốc rễ: Index thấp</h2>
+
+<div class="issue-card">
+  <div class="issue-title">1. Sitemap chưa submit đầy đủ lên GSC</div>
+  <div class="issue-desc">
+    Sitemap index chứa <strong>5,732 URLs</strong> trong <strong>35 sitemaps</strong>, nhưng GSC chỉ thấy <strong>14 sitemaps</strong> được submit.<br>
+    <strong>21 sitemaps còn thiếu</strong> — bao gồm category, product_cat, product_tag, post, page sitemaps.
+  </div>
+</div>
+
+<div class="issue-card">
+  <div class="issue-title">2. Trang danh mục = Thin Content → Google từ chối index</div>
+  <div class="issue-desc">
+    Trang danh mục (<code>/danh-muc/</code>) chỉ chứa danh sách link sản phẩm, không có nội dung text giá trị.<br>
+    Google crawl → quyết định "không đáng index" → trạng thái <strong>"Crawled - currently not indexed"</strong>.<br>
+    Hoặc Google chưa phát hiện URL → <strong>"URL is unknown to Google"</strong>.
+  </div>
+</div>
+
+<div class="issue-card warn">
+  <div class="issue-title">3. Crawl Budget bị lãng phí</div>
+  <div class="issue-desc">
+    5,732 URLs nhưng chỉ ~200 trang có impressions. Quá nhiều trang sản phẩm tương tự (27 product sitemaps × 200 = ~5,400 SP).<br>
+    Google phân bổ crawl budget hạn chế cho site nhỏ → danh mục bị deprioritize → phải crawl thủ công.
+  </div>
+</div>
+
+<div class="issue-card info">
+  <div class="issue-title">4. Thiếu internal links giữa danh mục ↔ blog</div>
+  <div class="issue-desc">
+    Blog "lỗi converter quang" có referring URL duy nhất là trang chủ. Không có cross-linking giữa blog ↔ danh mục ↔ sản phẩm liên quan.
+  </div>
+</div>
+
+<!-- Sitemap Status -->
+<h2>Tình trạng Sitemap</h2>
+<div style="display:flex;gap:1rem;margin-bottom:1rem;font-size:0.85rem;">
+  <div><span class="badge badge-green">Đã submit</span> 14 sitemaps</div>
+  <div><span class="badge badge-red">Chưa submit</span> 21 sitemaps</div>
+  <div>Tổng: 5,732 URLs</div>
+</div>
+<div class="sitemap-grid">
+  <div class="sitemap-item"><span class="sitemap-name">post-sitemap.xml</span><span class="sitemap-status missing">Chưa submit</span></div>
+  <div class="sitemap-item"><span class="sitemap-name">page-sitemap.xml</span><span class="sitemap-status missing">Chưa submit</span></div>
+  <div class="sitemap-item"><span class="sitemap-name">product-sitemap1→12.xml</span><span class="sitemap-status submitted">&#10003; Đã submit</span></div>
+  <div class="sitemap-item"><span class="sitemap-name">product-sitemap13→27.xml</span><span class="sitemap-status missing">Chưa submit (15 files)</span></div>
+  <div class="sitemap-item"><span class="sitemap-name">category-sitemap.xml</span><span class="sitemap-status missing">Chưa submit</span></div>
+  <div class="sitemap-item"><span class="sitemap-name">product_cat-sitemap1.xml</span><span class="sitemap-status missing">Chưa submit</span></div>
+  <div class="sitemap-item"><span class="sitemap-name">product_cat-sitemap2.xml</span><span class="sitemap-status missing">Chưa submit</span></div>
+  <div class="sitemap-item"><span class="sitemap-name">product_tag-sitemap.xml</span><span class="sitemap-status missing">Chưa submit</span></div>
+  <div class="sitemap-item"><span class="sitemap-name">pa_thuong-hieu-sitemap.xml</span><span class="sitemap-status missing">Chưa submit</span></div>
+  <div class="sitemap-item"><span class="sitemap-name">local-sitemap.xml</span><span class="sitemap-status missing">Chưa submit</span></div>
+</div>
+
+<!-- Target vs Actual -->
+<h2>Mục tiêu vs Thực tế</h2>
+<table>
+  <thead><tr><th>KPI</th><th>Mục tiêu (08/2026)</th><th>Hiện tại</th><th>Trạng thái</th></tr></thead>
+  <tbody>
+    <tr><td>Clicks/tuần</td><td class="num">100</td><td class="num" style="color:var(--green)">~270</td><td><span class="badge badge-green">VƯỢT 2.7x</span></td></tr>
+    <tr><td>Vị trí trung bình</td><td class="num">&lt; 10</td><td class="num" style="color:var(--yellow)">15.4</td><td><span class="badge badge-yellow">Chưa đạt</span></td></tr>
+    <tr><td>Trang được index</td><td class="num">Toàn bộ 5,732</td><td class="num" style="color:var(--red)">~200 có impression</td><td><span class="badge badge-red">3.5% coverage</span></td></tr>
+  </tbody>
+</table>
+
+<!-- Action Plan -->
+<h2>&#128640; Kế hoạch hành động</h2>
+
+<ul class="action-list">
+  <li>
+    <div class="action-priority p-high">1</div>
+    <div class="action-text"><strong>Submit toàn bộ 21 sitemaps còn thiếu lên GSC</strong><br>Đặc biệt: post-sitemap, page-sitemap, category-sitemap, product_cat-sitemap 1&2, product-sitemap 13→27</div>
+  </li>
+  <li>
+    <div class="action-priority p-high">2</div>
+    <div class="action-text"><strong>Thêm nội dung cho trang danh mục</strong><br>Mỗi danh mục cần 200-500 từ mô tả, FAQ, hướng dẫn chọn mua. Giúp Google phân biệt với thin content.</div>
+  </li>
+  <li>
+    <div class="action-priority p-high">3</div>
+    <div class="action-text"><strong>Xây dựng internal links: blog ↔ danh mục ↔ sản phẩm</strong><br>Mỗi blog cần link đến danh mục liên quan. Mỗi danh mục link đến blog hướng dẫn.</div>
+  </li>
+  <li>
+    <div class="action-priority p-med">4</div>
+    <div class="action-text"><strong>Optimize bài blog "boundary" (pos 10-15)</strong><br>• /blogs/cap-quang-4fo-8fo-12fo/ — pos 13.3, 240 impr → thêm nội dung, internal links<br>• /blogs/kiem-tra-cap-quang-bi-dut/ — pos 12.3, 196 impr → update title, meta desc</div>
+  </li>
+  <li>
+    <div class="action-priority p-med">5</div>
+    <div class="action-text"><strong>Audit 5,400+ trang sản phẩm</strong><br>Canonical/noindex cho sản phẩm trùng lặp hoặc hết hàng. Giảm bloat sitemap, cải thiện crawl budget.</div>
+  </li>
+  <li>
+    <div class="action-priority p-med">6</div>
+    <div class="action-text"><strong>Thêm Breadcrumb structured data cho danh mục</strong><br>Giúp Google hiểu cấu trúc site hierarchy, tăng khả năng index danh mục.</div>
+  </li>
+  <li>
+    <div class="action-priority p-low">7</div>
+    <div class="action-text"><strong>Duy trì tần suất xuất bản content</strong><br>TCNET 15+ ngày không có bài mới (lần check trước). Cần ít nhất 3 bài/tuần để duy trì freshness signal.</div>
+  </li>
+</ul>
+
+<div class="footer">
+  Report generated by SEO Manager &bull; Data source: Google Search Console API &bull; 14/03/2026
+</div>
+
+</div>
+</body>
+</html>

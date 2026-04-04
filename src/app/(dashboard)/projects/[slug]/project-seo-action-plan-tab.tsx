@@ -70,6 +70,8 @@ const PHASE_COLORS = [
   { color: '#8b5cf6', bg: 'bg-purple-500/10 border-purple-500/20' },
 ];
 
+const NEXT_STATUS: Record<string, string> = { todo: 'doing', doing: 'done', done: 'todo', blocked: 'todo' };
+
 export default function ProjectSeoActionPlanTab({ data }: { data: DashboardData }) {
   const projectId = data.project.id;
   const [phases, setPhases] = useState<StrategyPhase[]>([]);
@@ -88,6 +90,27 @@ export default function ProjectSeoActionPlanTab({ data }: { data: DashboardData 
       .catch(() => {})
       .finally(() => setIsLoading(false));
   }, [projectId]);
+
+  // Toggle action status: todo → doing → done → todo
+  const toggleStatus = async (actionId: string) => {
+    const action = actions.find(a => a.id === actionId);
+    if (!action) return;
+    const newStatus = NEXT_STATUS[action.status] || 'todo';
+    const body: Record<string, unknown> = { status: newStatus };
+    if (newStatus === 'done') body.completed_date = new Date().toISOString().split('T')[0];
+    // Optimistic update
+    setActions(prev => prev.map(a => a.id === actionId ? { ...a, status: newStatus } : a));
+    try {
+      await fetch(`/api/v1/strategy/actions/${actionId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    } catch {
+      // Revert on error
+      setActions(prev => prev.map(a => a.id === actionId ? { ...a, status: action.status } : a));
+    }
+  };
 
   if (isLoading) {
     return (
@@ -204,7 +227,7 @@ export default function ProjectSeoActionPlanTab({ data }: { data: DashboardData 
                   const statusCfg = STATUS_CONFIG[action.status] || STATUS_CONFIG.todo;
                   return (
                     <div key={action.id} className="flex items-start gap-2">
-                      <span className={`mt-0.5 shrink-0 ${statusCfg.color}`}>{statusCfg.icon}</span>
+                      <button onClick={() => toggleStatus(action.id)} className={`mt-0.5 shrink-0 cursor-pointer hover:scale-125 transition-transform ${statusCfg.color}`} title={`Click: ${statusCfg.label} → ${STATUS_CONFIG[NEXT_STATUS[action.status]]?.label}`}>{statusCfg.icon}</button>
                       <div className="flex-1 min-w-0">
                         <p className={cn(
                           'text-xs font-medium',
@@ -249,8 +272,8 @@ export default function ProjectSeoActionPlanTab({ data }: { data: DashboardData 
             (actionsByPhase.get(phase.id) || []).map((action) => {
               const statusCfg = STATUS_CONFIG[action.status] || STATUS_CONFIG.todo;
               return (
-                <div key={action.id} className="flex items-start gap-3 px-5 py-3 hover:bg-secondary/30 transition-colors">
-                  <span className={`mt-0.5 shrink-0 ${statusCfg.color}`}>{statusCfg.icon}</span>
+                <div key={action.id} className="flex items-start gap-3 px-5 py-3 hover:bg-[var(--hover-bg)] transition-colors">
+                  <button onClick={() => toggleStatus(action.id)} className={`mt-0.5 shrink-0 cursor-pointer hover:scale-125 transition-transform ${statusCfg.color}`} title={`Click: ${statusCfg.label} → ${STATUS_CONFIG[NEXT_STATUS[action.status]]?.label}`}>{statusCfg.icon}</button>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className={cn(

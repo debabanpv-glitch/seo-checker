@@ -19,6 +19,7 @@ import {
   RefreshCw,
   Copy,
   Check,
+  Send,
 } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
@@ -57,6 +58,27 @@ export default function HealthCheckDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [copied, setCopied] = useState(false);
+  const [sendingTelegram, setSendingTelegram] = useState(false);
+  const [telegramSent, setTelegramSent] = useState(false);
+
+  const sendTelegram = async () => {
+    setSendingTelegram(true);
+    setTelegramSent(false);
+    try {
+      const res = await fetch('/api/v1/health-check/send-telegram', { method: 'POST' });
+      if (res.ok) {
+        setTelegramSent(true);
+        setTimeout(() => setTelegramSent(false), 3000);
+      } else {
+        const err = await res.json();
+        alert(err.error ?? 'Gửi Telegram thất bại');
+      }
+    } catch (err) {
+      alert('Lỗi kết nối khi gửi Telegram');
+    } finally {
+      setSendingTelegram(false);
+    }
+  };
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -228,13 +250,19 @@ export default function HealthCheckDashboard() {
             {meta.healthyCount > 0 && <span className="text-emerald-400 font-medium"> · {meta.healthyCount} khỏe mạnh</span>}
           </p>
         </div>
-        <button onClick={exportToClipboard} className={cn('flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-sm transition-colors', copied ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400' : 'bg-card border-border text-[#8888a0] hover:text-[var(--text-primary)]')}>
-          {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-          {copied ? 'Đã copy!' : 'Xuất báo cáo'}
-        </button>
-        <button onClick={fetchData} className="flex items-center gap-1.5 px-3 py-1.5 bg-card border border-border rounded-lg text-[#8888a0] hover:text-[var(--text-primary)] text-sm transition-colors">
-          <RefreshCw className="w-3.5 h-3.5" /> Làm mới
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={sendTelegram} disabled={sendingTelegram} className={cn('flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-sm transition-colors', telegramSent ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400' : 'bg-card border-border text-[#8888a0] hover:text-[var(--text-primary)]', sendingTelegram && 'opacity-50 cursor-not-allowed')}>
+            {telegramSent ? <Check className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
+            {sendingTelegram ? 'Đang gửi...' : telegramSent ? 'Đã gửi!' : 'Gửi Telegram'}
+          </button>
+          <button onClick={exportToClipboard} className={cn('flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-sm transition-colors', copied ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400' : 'bg-card border-border text-[#8888a0] hover:text-[var(--text-primary)]')}>
+            {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+            {copied ? 'Đã copy!' : 'Xuất báo cáo'}
+          </button>
+          <button onClick={fetchData} className="flex items-center gap-1.5 px-3 py-1.5 bg-card border border-border rounded-lg text-[#8888a0] hover:text-[var(--text-primary)] text-sm transition-colors">
+            <RefreshCw className="w-3.5 h-3.5" /> Làm mới
+          </button>
+        </div>
       </div>
 
       {/* Project Cards */}

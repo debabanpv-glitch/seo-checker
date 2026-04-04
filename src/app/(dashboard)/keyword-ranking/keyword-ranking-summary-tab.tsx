@@ -34,7 +34,7 @@ export function RankingSummaryTab({ insights, growthSnapshots }: SummaryTabProps
   const serpChanges = useMemo(() => {
     const allKw = [
       ...tiers.top5, ...tiers.top10, ...tiers.top15, ...tiers.top30, ...tiers.beyond30,
-    ];
+    ].filter((k) => k.currentPosition > 0); // Exclude no-data keywords from SERP changes
 
     const jumped = allKw.filter((k) => k.change !== null && k.change > 0);
     const dropped = allKw.filter((k) => k.change !== null && k.change < 0);
@@ -69,22 +69,25 @@ export function RankingSummaryTab({ insights, growthSnapshots }: SummaryTabProps
         return movers.surging.slice(0, 20);
       case 'dropped':
         return movers.dropping.slice(0, 20);
-      default: // top — sort by position ascending
-        return [...allKw].sort((a, b) => a.currentPosition - b.currentPosition).slice(0, 20);
+      default: // top — only keywords with actual position, sorted ascending
+        return [...allKw].filter((k) => k.currentPosition > 0)
+          .sort((a, b) => a.currentPosition - b.currentPosition).slice(0, 20);
     }
   }, [tiers, movers, overviewTab]);
 
-  const totalKw = summary.total;
+  const noDataCount = tiers.beyond30.filter((k) => k.currentPosition === 0).length;
+  const hasDataCount = summary.total - noDataCount;
   const top10Count = tiers.top5.length + tiers.top10.length;
-  const top10Pct = totalKw > 0 ? ((top10Count / totalKw) * 100).toFixed(0) : '0';
+  const top10Pct = hasDataCount > 0 ? ((top10Count / hasDataCount) * 100).toFixed(0) : '0';
 
   return (
     <div className="space-y-4">
       {/* Row 1 — Metric Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <MetricCard
           label="Tổng từ khóa"
-          value={totalKw}
+          value={summary.total}
+          subtitle={noDataCount > 0 ? `${hasDataCount} có data · ${noDataCount} chưa có` : undefined}
           icon={Crosshair}
           color="text-[var(--text-primary)]"
           iconBg="bg-secondary"
@@ -92,11 +95,18 @@ export function RankingSummaryTab({ insights, growthSnapshots }: SummaryTabProps
         <MetricCard
           label="Top 10"
           value={`${top10Count}`}
-          subtitle={`${top10Pct}% tổng`}
+          subtitle={`${top10Pct}% có data`}
           icon={TrendingUp}
           color="text-accent"
           iconBg="bg-accent/10"
           delta={summary.newToTop10 > 0 ? { value: summary.newToTop10, label: 'mới vào' } : undefined}
+        />
+        <MetricCard
+          label="Top 11–30"
+          value={tiers.top15.length + tiers.top30.length}
+          icon={ArrowUp}
+          color="text-amber-400"
+          iconBg="bg-amber-400/10"
         />
         <MetricCard
           label="Clicks"
@@ -116,7 +126,7 @@ export function RankingSummaryTab({ insights, growthSnapshots }: SummaryTabProps
 
       {/* Row 2 — Distribution + Timeline side by side on desktop */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <DistributionChart tiers={tierData} total={totalKw} />
+        <DistributionChart tiers={tierData} total={summary.total} />
         <PositionTimelineChart snapshots={growthSnapshots} />
       </div>
 

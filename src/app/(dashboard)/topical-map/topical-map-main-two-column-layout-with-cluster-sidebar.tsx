@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Network } from 'lucide-react';
-import EmptyState from '@/components/EmptyState';
-import { TopicalMapClusterList } from './topical-map-cluster-list-with-project-filter-and-create-form';
+import { ArrowLeft } from 'lucide-react';
+import { TopicalMapOverviewGrid } from './topical-map-overview-grid-with-stats-and-cluster-cards';
 import { TopicalMapClusterDetail } from './topical-map-cluster-detail-with-tabs-keywords-pages-overlap';
 
 interface Project {
@@ -48,7 +47,6 @@ export default function TopicalMapMain() {
       const res = await fetch(`/api/v1/topic-clusters?projectId=${selectedProjectId}`);
       const json = await res.json();
       setClusters(json.clusters || []);
-      setSelectedClusterId(null);
     } catch (e) {
       console.error('Failed to fetch clusters:', e);
     } finally {
@@ -58,58 +56,69 @@ export default function TopicalMapMain() {
 
   useEffect(() => { fetchClusters(); }, [fetchClusters]);
 
-  const handleClusterCreated = useCallback(() => {
+  const handleRefresh = useCallback(() => {
     fetchClusters();
   }, [fetchClusters]);
 
-  const handleClusterDetailRefresh = useCallback(() => {
-    fetchClusters();
-  }, [fetchClusters]);
+  const selectedCluster = clusters.find((c) => c.id === selectedClusterId);
 
   return (
     <div className="space-y-4">
       {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Topical Map</h1>
-        <p className="text-sm text-[var(--text-muted)] mt-0.5">
-          Quản lý cụm chủ đề, từ khóa và liên kết nội bộ
-        </p>
-      </div>
-
-      {/* Two-column layout */}
-      <div className="flex gap-6 h-[calc(100vh-180px)] min-h-0">
-        {/* Left sidebar: cluster list */}
-        <div className="w-72 shrink-0 flex flex-col min-h-0">
-          <TopicalMapClusterList
-            projects={projects}
-            selectedProjectId={selectedProjectId}
-            onProjectChange={(id) => { setSelectedProjectId(id); setSelectedClusterId(null); }}
-            clusters={clusters}
-            selectedId={selectedClusterId}
-            isLoading={isLoadingClusters}
-            onSelect={setSelectedClusterId}
-            onRefresh={handleClusterCreated}
-          />
-        </div>
-
-        {/* Right content: cluster detail */}
-        <div className="flex-1 min-w-0 overflow-y-auto">
-          {selectedClusterId ? (
-            <TopicalMapClusterDetail
-              clusterId={selectedClusterId}
-              onRefresh={handleClusterDetailRefresh}
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <EmptyState
-                icon={Network}
-                title="Chọn một cluster để xem chi tiết"
-                description="Hoặc tạo cluster mới từ danh sách bên trái"
-              />
-            </div>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          {selectedClusterId && (
+            <button
+              onClick={() => setSelectedClusterId(null)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border)] rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Tổng quan
+            </button>
           )}
+          <div>
+            <h1 className="text-2xl font-bold text-[var(--text-primary)]">
+              {selectedClusterId && selectedCluster
+                ? selectedCluster.name
+                : 'Topical Map'}
+            </h1>
+            {!selectedClusterId && (
+              <p className="text-sm text-[var(--text-muted)] mt-0.5">
+                Quản lý cụm chủ đề, từ khóa và liên kết nội bộ
+              </p>
+            )}
+          </div>
         </div>
+
+        {/* Project filter — only in overview mode */}
+        {projects.length > 1 && !selectedClusterId && (
+          <select
+            value={selectedProjectId}
+            onChange={(e) => { setSelectedProjectId(e.target.value); setSelectedClusterId(null); }}
+            className="px-3 py-1.5 bg-[var(--bg-card)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] text-sm"
+          >
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        )}
       </div>
+
+      {/* Content: overview grid or cluster detail */}
+      {selectedClusterId ? (
+        <TopicalMapClusterDetail
+          clusterId={selectedClusterId}
+          onRefresh={handleRefresh}
+        />
+      ) : (
+        <TopicalMapOverviewGrid
+          clusters={clusters}
+          isLoading={isLoadingClusters}
+          selectedProjectId={selectedProjectId}
+          onSelectCluster={setSelectedClusterId}
+          onRefresh={handleRefresh}
+        />
+      )}
     </div>
   );
 }
