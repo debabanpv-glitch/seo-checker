@@ -370,186 +370,132 @@ export function TopicalMapInternalLinks({ clusterId, pages, pillarUrl, onRefresh
             Chưa có bài viết nào. Nhấn &quot;Thêm bài viết&quot; để bắt đầu.
           </div>
         ) : (
-          <div className="divide-y divide-[var(--border)]">
-            {/* ── Tầng 1: Pillar (Danh mục) ── */}
+          <div className="p-4">
             {(() => {
               const pillarPages = pages.filter(p => p.role === 'pillar');
               const supportingPages = pages.filter(p => p.role === 'supporting');
               const relatedPages = pages.filter(p => p.role === 'related');
 
+              // Shared page row renderer
+              const PageItem = ({ page, indent = 0 }: { page: PageRow; indent?: number }) => (
+                <div className="flex items-center gap-2 group" style={{ paddingLeft: `${indent * 24}px` }}>
+                  {/* Connector line */}
+                  {indent > 0 && <span className="text-[var(--border)] text-xs select-none">└─</span>}
+                  {/* Link status dots */}
+                  <span title={page.links_to_pillar ? '→ Pillar ✓' : '→ Pillar ✗'}>
+                    {page.links_to_pillar ? <Check className="w-3 h-3 text-emerald-400" /> : <X className="w-3 h-3 text-red-400/50" />}
+                  </span>
+                  <span title={page.pillar_links_to_page ? 'Pillar → ✓' : 'Pillar → ✗'}>
+                    {page.pillar_links_to_page ? <Check className="w-3 h-3 text-emerald-400" /> : <X className="w-3 h-3 text-red-400/50" />}
+                  </span>
+                  {/* URL */}
+                  <a href={page.url} target="_blank" rel="noopener noreferrer"
+                    className="text-blue-500 hover:underline text-xs truncate flex-1 min-w-0">
+                    {page.title || page.url.replace(/^https?:\/\/[^/]+/, '')}
+                  </a>
+                  {/* Anchor badge */}
+                  {page.anchor_to_pillar && (
+                    <span className="text-[9px] text-[var(--text-muted)] bg-[var(--bg-accent)] px-1.5 py-0.5 rounded truncate max-w-[100px] shrink-0" title={`Anchor: ${page.anchor_to_pillar}`}>
+                      {page.anchor_to_pillar}
+                    </span>
+                  )}
+                  {/* Actions (show on hover) */}
+                  <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 shrink-0 transition-opacity">
+                    <button onClick={() => startEdit(page)} className="p-0.5 text-[var(--text-muted)] hover:text-blue-400 rounded"><Edit2 className="w-3 h-3" /></button>
+                    <button onClick={() => handleDelete(page.id)} disabled={deletingId === page.id} className="p-0.5 text-[var(--text-muted)] hover:text-red-400 rounded">
+                      {deletingId === page.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                    </button>
+                  </div>
+                </div>
+              );
+
               return (
-                <>
-                  {/* PILLAR */}
-                  <div className="p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-lg">🏠</span>
-                      <span className="text-sm font-semibold text-[var(--text-primary)]">Tầng 1 — Pillar (Danh mục)</span>
-                      <span className="text-xs text-[var(--text-muted)]">{pillarPages.length} trang</span>
-                    </div>
-                    {pillarPages.length === 0 ? (
-                      <div className="text-xs text-[var(--text-muted)] italic pl-8">Chưa có Pillar — cần set trang danh mục làm Pillar</div>
-                    ) : (
-                      <div className="space-y-2 pl-8">
-                        {pillarPages.map(page => (
-                          <div key={page.id} className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-3 flex items-start justify-between gap-3">
-                            <div className="flex-1 min-w-0">
-                              <a href={page.url} target="_blank" rel="noopener noreferrer"
-                                className="text-blue-500 hover:underline text-sm font-medium truncate block">
-                                {page.title || page.url.replace(/^https?:\/\/[^/]+/, '') || '/'}
-                              </a>
-                              <p className="text-[10px] text-[var(--text-muted)] truncate mt-0.5">{page.url}</p>
-                            </div>
-                            <div className="flex items-center gap-1 shrink-0">
-                              <button onClick={() => startEdit(page)} className="p-1 text-[var(--text-muted)] hover:text-blue-400 rounded"><Edit2 className="w-3.5 h-3.5" /></button>
-                              <button onClick={() => handleDelete(page.id)} disabled={deletingId === page.id} className="p-1 text-[var(--text-muted)] hover:text-red-400 rounded">
-                                {deletingId === page.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                              </button>
-                            </div>
-                          </div>
-                        ))}
+                <div className="space-y-1">
+                  {/* ── PILLAR — top of pyramid ── */}
+                  {pillarPages.map(page => (
+                    <div key={page.id} className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-2.5 mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">🏠</span>
+                        <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-semibold border', ROLE_COLORS.pillar)}>Pillar</span>
+                        <a href={page.url} target="_blank" rel="noopener noreferrer"
+                          className="text-blue-500 hover:underline text-sm font-medium truncate flex-1 min-w-0">
+                          {page.title || page.url.replace(/^https?:\/\/[^/]+/, '')}
+                        </a>
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          <button onClick={() => startEdit(page)} className="p-0.5 text-[var(--text-muted)] hover:text-blue-400 rounded"><Edit2 className="w-3 h-3" /></button>
+                        </div>
                       </div>
-                    )}
-                  </div>
+                      <p className="text-[10px] text-[var(--text-muted)] truncate mt-1 pl-7">{page.url}</p>
+                    </div>
+                  ))}
 
-                  {/* SUPPORTING */}
-                  <div className="p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-lg">📦</span>
-                      <span className="text-sm font-semibold text-[var(--text-primary)]">Tầng 2 — Supporting (Sản phẩm/Bài chính)</span>
-                      <span className="text-xs text-[var(--text-muted)]">{supportingPages.length} trang</span>
-                      {supportingPages.length > 0 && (
-                        <span className="text-xs text-emerald-500 ml-auto">
-                          {supportingPages.filter(p => p.links_to_pillar).length}/{supportingPages.length} link → Pillar
-                        </span>
-                      )}
+                  {pillarPages.length === 0 && (
+                    <div className="bg-red-500/5 border border-red-500/20 rounded-lg p-2.5 mb-2 text-xs text-red-400">
+                      ⚠️ Chưa có Pillar — cần set trang danh mục làm Pillar
                     </div>
-                    {supportingPages.length === 0 ? (
-                      <div className="text-xs text-[var(--text-muted)] italic pl-8">Chưa có trang Supporting</div>
-                    ) : (
-                      <div className="pl-8">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="text-[10px] uppercase text-[var(--text-muted)]">
-                              <th className="text-left py-1 font-medium">URL / Tiêu đề</th>
-                              <th className="text-center py-1 font-medium w-16">→ Pillar</th>
-                              <th className="text-center py-1 font-medium w-16">Pillar →</th>
-                              <th className="text-left py-1 font-medium w-36">Anchor</th>
-                              <th className="text-right py-1 font-medium w-12"></th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {supportingPages.map(page => (
-                              <tr key={page.id} className="border-t border-[var(--border)]/50 hover:bg-[var(--bg-accent)] transition-colors">
-                                <td className="py-2 pr-2 max-w-[200px]">
-                                  <a href={page.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline text-xs truncate block">
-                                    {page.title || page.url.replace(/^https?:\/\/[^/]+/, '')}
-                                  </a>
-                                </td>
-                                <td className="py-2 text-center"><LinkStatus ok={page.links_to_pillar} /></td>
-                                <td className="py-2 text-center"><LinkStatus ok={page.pillar_links_to_page} /></td>
-                                <td className="py-2 max-w-[140px]">
-                                  <AnchorCell pageId={page.id} value={page.anchor_to_pillar || ''} field="anchor_to_pillar" onSaved={onRefresh} />
-                                </td>
-                                <td className="py-2 text-right">
-                                  <div className="flex items-center justify-end gap-0.5">
-                                    <button onClick={() => startEdit(page)} className="p-0.5 text-[var(--text-muted)] hover:text-blue-400 rounded"><Edit2 className="w-3 h-3" /></button>
-                                    <button onClick={() => handleDelete(page.id)} disabled={deletingId === page.id} className="p-0.5 text-[var(--text-muted)] hover:text-red-400 rounded">
-                                      {deletingId === page.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
+                  )}
 
-                  {/* RELATED */}
-                  <div className="p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-lg">📝</span>
-                      <span className="text-sm font-semibold text-[var(--text-primary)]">Tầng 3 — Related (Blog/Hướng dẫn)</span>
-                      <span className="text-xs text-[var(--text-muted)]">{relatedPages.length} trang</span>
-                      {relatedPages.length > 0 && (
-                        <span className="text-xs text-emerald-500 ml-auto">
-                          {relatedPages.filter(p => p.links_to_pillar).length}/{relatedPages.length} link → Pillar
+                  {/* ── SUPPORTING — level 2, connected to pillar ── */}
+                  {supportingPages.length > 0 && (
+                    <div className="ml-4 border-l-2 border-blue-500/20 pl-2 space-y-1.5 py-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs">📦</span>
+                        <span className="text-[10px] font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
+                          Supporting ({supportingPages.length})
                         </span>
-                      )}
-                    </div>
-                    {relatedPages.length === 0 ? (
-                      <div className="text-xs text-[var(--text-muted)] italic pl-8">Chưa có trang Related (blog, hướng dẫn)</div>
-                    ) : (
-                      <div className="pl-8">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="text-[10px] uppercase text-[var(--text-muted)]">
-                              <th className="text-left py-1 font-medium">URL / Tiêu đề</th>
-                              <th className="text-center py-1 font-medium w-16">→ Pillar</th>
-                              <th className="text-center py-1 font-medium w-16">Pillar →</th>
-                              <th className="text-left py-1 font-medium w-36">Anchor</th>
-                              <th className="text-right py-1 font-medium w-12"></th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {relatedPages.map(page => (
-                              <tr key={page.id} className="border-t border-[var(--border)]/50 hover:bg-[var(--bg-accent)] transition-colors">
-                                <td className="py-2 pr-2 max-w-[200px]">
-                                  <a href={page.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline text-xs truncate block">
-                                    {page.title || page.url.replace(/^https?:\/\/[^/]+/, '')}
-                                  </a>
-                                </td>
-                                <td className="py-2 text-center"><LinkStatus ok={page.links_to_pillar} /></td>
-                                <td className="py-2 text-center"><LinkStatus ok={page.pillar_links_to_page} /></td>
-                                <td className="py-2 max-w-[140px]">
-                                  <AnchorCell pageId={page.id} value={page.anchor_to_pillar || ''} field="anchor_to_pillar" onSaved={onRefresh} />
-                                </td>
-                                <td className="py-2 text-right">
-                                  <div className="flex items-center justify-end gap-0.5">
-                                    <button onClick={() => startEdit(page)} className="p-0.5 text-[var(--text-muted)] hover:text-blue-400 rounded"><Edit2 className="w-3 h-3" /></button>
-                                    <button onClick={() => handleDelete(page.id)} disabled={deletingId === page.id} className="p-0.5 text-[var(--text-muted)] hover:text-red-400 rounded">
-                                      {deletingId === page.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                        <span className="text-[10px] text-emerald-500">
+                          {supportingPages.filter(p => p.links_to_pillar).length}/{supportingPages.length} ↔ Pillar
+                        </span>
                       </div>
-                    )}
-                  </div>
+                      {supportingPages.map(page => (
+                        <PageItem key={page.id} page={page} indent={1} />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* ── RELATED — level 3, connected to pillar ── */}
+                  {relatedPages.length > 0 && (
+                    <div className="ml-4 border-l-2 border-amber-500/20 pl-2 space-y-1.5 py-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs">📝</span>
+                        <span className="text-[10px] font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
+                          Related ({relatedPages.length})
+                        </span>
+                        <span className="text-[10px] text-emerald-500">
+                          {relatedPages.filter(p => p.links_to_pillar).length}/{relatedPages.length} ↔ Pillar
+                        </span>
+                      </div>
+                      {relatedPages.map(page => (
+                        <PageItem key={page.id} page={page} indent={1} />
+                      ))}
+                    </div>
+                  )}
 
                   {/* Edit form overlay */}
                   {editingId && (
-                    <div className="p-4 bg-[var(--bg-accent)] border-t border-[var(--border)]">
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-[var(--text-primary)]">Chỉnh sửa trang</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          <input type="url" value={editForm.url} onChange={(e) => setEditForm((p) => ({ ...p, url: e.target.value }))}
-                            className="px-2 py-1 text-xs bg-[var(--bg-surface)] border border-[var(--border)] rounded text-[var(--text-primary)]" placeholder="URL" />
-                          <input type="text" value={editForm.title} onChange={(e) => setEditForm((p) => ({ ...p, title: e.target.value }))}
-                            className="px-2 py-1 text-xs bg-[var(--bg-surface)] border border-[var(--border)] rounded text-[var(--text-primary)]" placeholder="Tiêu đề" />
-                        </div>
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <select value={editForm.role} onChange={(e) => setEditForm((p) => ({ ...p, role: e.target.value as PageRow['role'] }))}
-                            className="px-2 py-1 text-xs bg-[var(--bg-surface)] border border-[var(--border)] rounded text-[var(--text-primary)]">
-                            <option value="pillar">Pillar</option>
-                            <option value="supporting">Supporting</option>
-                            <option value="related">Related</option>
-                          </select>
-                          <input type="text" placeholder="Ghi chú" value={editForm.notes} onChange={(e) => setEditForm((p) => ({ ...p, notes: e.target.value }))}
-                            className="flex-1 min-w-[100px] px-2 py-1 text-xs bg-[var(--bg-surface)] border border-[var(--border)] rounded text-[var(--text-primary)]" />
-                          <button onClick={handleSaveEdit} disabled={isSaving} className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
-                            {isSaving ? 'Đang lưu...' : 'Lưu'}
-                          </button>
-                          <button onClick={() => setEditingId(null)} className="px-3 py-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]">Hủy</button>
-                        </div>
+                    <div className="mt-3 p-3 bg-[var(--bg-accent)] border border-[var(--border)] rounded-lg space-y-2">
+                      <p className="text-xs font-medium text-[var(--text-primary)]">Chỉnh sửa</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input type="url" value={editForm.url} onChange={(e) => setEditForm((p) => ({ ...p, url: e.target.value }))}
+                          className="px-2 py-1 text-xs bg-[var(--bg-surface)] border border-[var(--border)] rounded text-[var(--text-primary)]" placeholder="URL" />
+                        <input type="text" value={editForm.title} onChange={(e) => setEditForm((p) => ({ ...p, title: e.target.value }))}
+                          className="px-2 py-1 text-xs bg-[var(--bg-surface)] border border-[var(--border)] rounded text-[var(--text-primary)]" placeholder="Tiêu đề" />
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <select value={editForm.role} onChange={(e) => setEditForm((p) => ({ ...p, role: e.target.value as PageRow['role'] }))}
+                          className="px-2 py-1 text-xs bg-[var(--bg-surface)] border border-[var(--border)] rounded text-[var(--text-primary)]">
+                          <option value="pillar">Pillar</option>
+                          <option value="supporting">Supporting</option>
+                          <option value="related">Related</option>
+                        </select>
+                        <button onClick={handleSaveEdit} disabled={isSaving} className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
+                          {isSaving ? 'Lưu...' : 'Lưu'}
+                        </button>
+                        <button onClick={() => setEditingId(null)} className="px-2 py-1 text-xs text-[var(--text-muted)]">Hủy</button>
                       </div>
                     </div>
                   )}
-                </>
+                </div>
               );
             })()}
           </div>
