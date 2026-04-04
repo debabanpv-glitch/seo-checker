@@ -681,3 +681,100 @@ export function getKeywordsForCluster(clusterId: string): {
   }).sort((a, b) => (a.current_position ?? 999) - (b.current_position ?? 999));
   return { keywords };
 }
+
+// ── 20. getClusterOverviewWithTraffic ────────────────────────────────────────
+/** Returns enriched cluster list with GSC traffic data for overview dashboard */
+export function getClusterOverviewWithTraffic(projectId: string) {
+  const { clusters: clusterList } = listClusters(projectId);
+
+  // Get latest GSC snapshot for this project
+  const latestGsc = db.select()
+    .from(gscSnapshots)
+    .where(eq(gscSnapshots.project_id, projectId))
+    .all()
+    .sort((a, b) => b.date.localeCompare(a.date))[0];
+
+  // Parse GSC top_queries into a map: query → {clicks, impressions, position}
+  const gscMap = new Map<string, { clicks: number; impressions: number; position: number }>();
+  if (latestGsc?.top_queries) {
+    try {
+      const queries = JSON.parse(latestGsc.top_queries) as Array<{ query: string; clicks: number; impressions: number; position: number }>;
+      for (const q of queries) gscMap.set(q.query.toLowerCase(), q);
+    } catch { /* ignore parse errors */ }
+  }
+
+  // For each cluster, get keywords + match with GSC + count pages
+  return clusterList.map(cluster => {
+    // Get unique keywords (latest date per keyword)
+    const allKwRows = db.select().from(keywordRankings).where(eq(keywordRankings.cluster_id, cluster.id)).all();
+    const kwMap = new Map<string, typeof allKwRows[0]>();
+    for (const row of allKwRows) {
+      const ex = kwMap.get(row.keyword);
+      if (!ex || row.date > ex.date) kwMap.set(row.keyword, row);
+    }
+    const keywords = Array.from(kwMap.values());
+
+    // GSC traffic for this cluster's keywords
+    let totalClicks = 0, totalImpressions = 0;
+    let top3 = 0, top10 = 0, top30 = 0, noRank = 0;
+    for (const kw of keywords) {
+      const gsc = gscMap.get(kw.keyword.toLowerCase());
+      if (gsc) {
+        totalClicks += gsc.clicks;
+        totalImpressions += gsc.impressions;
+      }
+      const pos = kw.position ?? 0;
+      if (pos === 0) noRank++;
+      else if (pos <= 3) top3++;
+      else if (pos <= 10) top10++;
+      else if (pos <= 30) top30++;
+    }
+
+    // Pages count
+    const pages = db.select().from(topicClusterPages).where(eq(topicClusterPages.cluster_id, cluster.id)).all();
+
+    // Health score: simple heuristic
+    const kwCount = keywords.length;
+    const pageCount = pages.length;
+    const hasContent = pageCount > 0;
+    const hasPillar = !!cluster.pillar_url;
+    const rankingPct = kwCount > 0 ? Math.round(((top3 + top10) / kwCount) * 100) : 0;
+
+    let health: 'strong' | 'growing' | 'weak' | 'empty' = 'empty';
+    if (kwCount === 0 && pageCount === 0) health = 'empty';
+    else if (rankingPct >= 40 && hasContent) health = 'strong';
+    else if (rankingPct >= 15 || totalClicks > 5 || pageCount > 3) health = 'growing';
+    else health = 'weak';
+
+    // Read content_status from cluster row
+    const rawCluster = db.select().from(topicClusters).where(eq(topicClusters.id, cluster.id)).get();
+    const contentStatus = (rawCluster as any)?.content_status ?? 'not_planned';
+    const targetPages = (rawCluster as any)?.target_pages ?? 0;
+    const executionNotes = (rawCluster as any)?.execution_notes ?? '';
+
+    return {
+      id: cluster.id,
+      name: cluster.name,
+      pillar_url: cluster.pillar_url,
+      description: cluster.description,
+      keywordCount: kwCount,
+      pageCount,
+      clicks: totalClicks,
+      impressions: totalImpressions,
+      top3, top10, top30, noRank,
+      rankingPct,
+      health,
+      hasPillar,
+      contentStatus: contentStatus as 'not_planned' | 'planned' | 'in_progress' | 'completed',
+      targetPages,
+      executionNotes,
+    };
+  }).sort((a, b) => {
+    // Sort: in_progress first, then planned, then not_planned; within each group by clicks desc
+    const statusOrder = { in_progress: 0, planned: 1, not_planned: 2, completed: 3 };
+    const sa = statusOrder[a.contentStatus] ?? 9;
+    const sb = statusOrder[b.contentStatus] ?? 9;
+    if (sa !== sb) return sa - sb;
+    return b.keywordCount - a.keywordCount;
+  });
+}

@@ -10,6 +10,7 @@ import {
   deleteCluster,
   updateClusterTargets,
   getClusterCompleteness,
+  getClusterOverviewWithTraffic,
 } from '@/lib/services/topic-clusters-crud.service';
 
 export const dynamic = 'force-dynamic';
@@ -19,6 +20,11 @@ export function GET(req: NextRequest) {
     const sp = new URL(req.url).searchParams;
     const id = sp.get('id');
     const projectId = sp.get('projectId') ?? undefined;
+
+    // GET ?projectId=xxx&overview=true → enriched overview with GSC traffic
+    if (projectId && sp.get('overview') === 'true') {
+      return NextResponse.json({ clusters: getClusterOverviewWithTraffic(projectId) });
+    }
 
     // GET ?id=xxx&stats=true → cluster stats (includes completeness)
     if (id && sp.get('stats') === 'true') {
