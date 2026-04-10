@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thumbnail — Lịch bảo dưỡng máy in nhãn Brother</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; gap: 40px; padding: 40px; font-family: 'Be Vietnam Pro', sans-serif; }
+
+  h2 { color: #fff; font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 600; opacity: 0.5; margin-bottom: -20px; }
+
+  /* ── THUMBNAIL FRAME ── */
+  .thumb-frame {
+    width: 1200px;
+    height: 630px;
+    border-radius: 0;
+    overflow: hidden;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  /* ══════════ OPTION A: White + Brother Blue + Schedule Grid ══════════ */
+  .opt-a {
+    background: linear-gradient(160deg, #FFFFFF 0%, #E8F4FD 60%, #D6EEFB 100%);
+  }
+  .opt-a .top-bar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 6px;
+    background: linear-gradient(90deg, #004B87, #0072CE, #06B6D4);
+  }
+  .opt-a .badge {
+    display: inline-block;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    background: #004B87;
+    color: white;
+    padding: 5px 16px;
+    border-radius: 100px;
+    margin-bottom: 14px;
+  }
+  .opt-a .content {
+    position: absolute;
+    top: 50%; left: 48px;
+    transform: translateY(-50%);
+    width: 520px;
+  }
+  .opt-a .content h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 42px;
+    font-weight: 800;
+    color: #0F172A;
+    line-height: 1.18;
+    letter-spacing: -0.02em;
+  }
+  .opt-a .content h1 .highlight {
+    color: #004B87;
+  }
+  .opt-a .content h1 .accent {
+    background: linear-gradient(135deg, #004B87, #0072CE);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-size: 46px;
+  }
+  .opt-a .content .subtitle {
+    margin-top: 14px;
+    font-size: 17px;
+    font-weight: 500;
+    color: #64748B;
+    line-height: 1.5;
+  }
+  .opt-a .watermark {
+    position: absolute;
+    bottom: 32px; left: 48px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .opt-a .watermark img {
+    height: 28px;
+  }
+  .opt-a .watermark span {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: #94A3B8;
+  }
+
+  /* Right side: Schedule visual */
+  .opt-a .schedule-visual {
+    position: absolute;
+    right: 48px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .schedule-card {
+    width: 440px;
+    padding: 20px 24px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    backdrop-filter: blur(8px);
+  }
+  .schedule-card .icon {
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+  .schedule-card .info .label {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .schedule-card .info .desc {
+    font-size: 13px;
+    margin-top: 2px;
+  }
+
+  .sc-week {
+    background: rgba(0, 75, 135, 0.06);
+    border: 1.5px solid rgba(0, 75, 135, 0.12);
+  }
+  .sc-week .icon { background: linear-gradient(135deg, #004B87, #0072CE); color: white; }
+  .sc-week .info .label { color: #004B87; }
+  .sc-week .info .desc { color: #64748B; }
+
+  .sc-month {
+    background: rgba(245, 158, 11, 0.06);
+    border: 1.5px solid rgba(245, 158, 11, 0.12);
+  }
+  .sc-month .icon { background: linear-gradient(135deg, #F59E0B, #FF6B2C); color: white; }
+  .sc-month .info .label { color: #B45309; }
+  .sc-month .info .desc { color: #78716C; }
+
+  .sc-quarter {
+    background: rgba(124, 58, 237, 0.06);
+    border: 1.5px solid rgba(124, 58, 237, 0.12);
+  }
+  .sc-quarter .icon { background: linear-gradient(135deg, #7C3AED, #EC4899); color: white; }
+  .sc-quarter .info .label { color: #6D28D9; }
+  .sc-quarter .info .desc { color: #78716C; }
+
+  /* Deco */
+  .opt-a .deco-1 {
+    position: absolute;
+    right: -60px; bottom: -60px;
+    width: 200px; height: 200px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,114,206,0.08), transparent 70%);
+  }
+
+  /* ══════════ OPTION B: Gradient Bold + Icons ══════════ */
+  .opt-b {
+    background: linear-gradient(150deg, #004B87 0%, #0072CE 40%, #06B6D4 100%);
+    position: relative;
+  }
+  .opt-b::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 15% 85%, rgba(255,255,255,0.08), transparent 40%),
+      radial-gradient(circle at 85% 15%, rgba(255,255,255,0.06), transparent 35%);
+  }
+  .opt-b .badge {
+    position: absolute;
+    top: 32px; left: 48px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: white;
+    padding: 6px 18px;
+    border-radius: 100px;
+    z-index: 2;
+  }
+  .opt-b .content {
+    position: absolute;
+    top: 90px; left: 48px;
+    width: 600px;
+    z-index: 2;
+  }
+  .opt-b .content h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 46px;
+    font-weight: 800;
+    color: white;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  .opt-b .content .subtitle {
+    margin-top: 16px;
+    font-size: 18px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.75);
+    line-height: 1.5;
+  }
+  .opt-b .watermark {
+    position: absolute;
+    bottom: 32px; left: 48px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.35);
+    z-index: 2;
+  }
+
+  /* Right side: 3 floating cards */
+  .opt-b .float-cards {
+    position: absolute;
+    right: 40px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 2;
+  }
+  .float-card {
+    width: 400px;
+    padding: 18px 22px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    color: white;
+  }
+  .float-card .fc-icon {
+    width: 44px; height: 44px;
+    border-radius: 11px;
+    background: rgba(255,255,255,0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .float-card .fc-label {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .float-card .fc-desc {
+    font-size: 12px;
+    color: rgba(255,255,255,0.6);
+    margin-top: 2px;
+  }
+
+  /* ══════════ OPTION C: Split White/Color ══════════ */
+  .opt-c {
+    background: white;
+    display: flex;
+  }
+  .opt-c .left {
+    flex: 1;
+    padding: 48px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .opt-c .left .badge {
+    display: inline-block;
+    width: fit-content;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    background: #FEF2F2;
+    color: #B71C1C;
+    border: 1px solid #FECACA;
+    padding: 5px 14px;
+    border-radius: 100px;
+    margin-bottom: 20px;
+  }
+  .opt-c .left h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 40px;
+    font-weight: 800;
+    color: #0F172A;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+  .opt-c .left h1 span {
+    background: linear-gradient(135deg, #004B87, #0072CE);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .opt-c .left .subtitle {
+    margin-top: 14px;
+    font-size: 16px;
+    color: #64748B;
+    line-height: 1.5;
+  }
+  .opt-c .left .watermark {
+    margin-top: 24px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: #CBD5E1;
+  }
+  .opt-c .right {
+    width: 440px;
+    background: linear-gradient(160deg, #004B87, #0072CE);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 40px;
+    position: relative;
+    overflow: hidden;
+  }
+  .opt-c .right::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 0%, rgba(255,255,255,0.1), transparent 60%);
+  }
+  .opt-c .right .time-block {
+    width: 100%;
+    padding: 16px 20px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 14px;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    z-index: 1;
+  }
+  .opt-c .right .time-block .tb-icon {
+    font-size: 24px;
+  }
+  .opt-c .right .time-block .tb-label {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+  }
+  .opt-c .right .time-block .tb-desc {
+    font-size: 12px;
+    color: rgba(255,255,255,0.6);
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════ OPTION A: White + Schedule Cards ════════ -->
+<h2>Option A — White + Schedule Cards (1200×630)</h2>
+<div class="thumb-frame opt-a">
+  <div class="top-bar"></div>
+  <div class="content">
+    <div class="badge">Hướng dẫn bảo dưỡng</div>
+    <h1>Lịch bảo dưỡng<br>máy in nhãn <span class="highlight">Brother</span><br><span class="accent">Tuần · Tháng · Quý</span></h1>
+    <div class="subtitle">Checklist chi tiết cho doanh nghiệp</div>
+  </div>
+  <div class="watermark">
+    <!-- eslint-disable-next-line @next/next/no-img-element -->
+    <img src="https://samcotech.com.vn/wp-content/uploads/2025/10/Samco-ngang-chuan-scaled.png" alt="Samco">
+    <span>samcotech.com.vn</span>
+  </div>
+  <div class="schedule-visual">
+    <div class="schedule-card sc-week">
+      <div class="icon">📅</div>
+      <div class="info">
+        <div class="label">Hàng tuần</div>
+        <div class="desc">Vệ sinh đầu in, kiểm tra nhãn</div>
+      </div>
+    </div>
+    <div class="schedule-card sc-month">
+      <div class="icon">🔧</div>
+      <div class="info">
+        <div class="label">Hàng tháng</div>
+        <div class="desc">Kiểm tra cutter, băng dẫn, cảm biến</div>
+      </div>
+    </div>
+    <div class="schedule-card sc-quarter">
+      <div class="icon">⚙️</div>
+      <div class="info">
+        <div class="label">Hàng quý</div>
+        <div class="desc">Cập nhật firmware, kiểm tra toàn diện</div>
+      </div>
+    </div>
+  </div>
+  <div class="deco-1"></div>
+</div>
+
+<!-- ════════ OPTION B: Gradient Bold + Glass Cards ════════ -->
+<h2>Option B — Brother Blue Gradient + Glass Cards (1200×630)</h2>
+<div class="thumb-frame opt-b">
+  <div class="badge">Brother</div>
+  <div class="content">
+    <h1>Lịch bảo dưỡng<br>máy in nhãn<br>Brother</h1>
+    <div class="subtitle">Tuần · Tháng · Quý — cho doanh nghiệp</div>
+  </div>
+  <div class="watermark">samcotech.com.vn</div>
+  <div class="float-cards">
+    <div class="float-card">
+      <div class="fc-icon">📅</div>
+      <div>
+        <div class="fc-label">Hàng tuần</div>
+        <div class="fc-desc">Vệ sinh đầu in & kiểm tra nhãn</div>
+      </div>
+    </div>
+    <div class="float-card">
+      <div class="fc-icon">🔧</div>
+      <div>
+        <div class="fc-label">Hàng tháng</div>
+        <div class="fc-desc">Cutter, băng dẫn, cảm biến</div>
+      </div>
+    </div>
+    <div class="float-card">
+      <div class="fc-icon">⚙️</div>
+      <div>
+        <div class="fc-label">Hàng quý</div>
+        <div class="fc-desc">Firmware & kiểm tra toàn diện</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ OPTION C: Split Layout ════════ -->
+<h2>Option C — Split White/Blue (1200×630)</h2>
+<div class="thumb-frame opt-c">
+  <div class="left">
+    <div class="badge">Samco Tech</div>
+    <h1>Lịch bảo dưỡng<br>máy in nhãn<br><span>Brother</span></h1>
+    <div class="subtitle">Theo tuần, tháng, quý — giúp máy bền lâu, in ổn định</div>
+    <div class="watermark">samcotech.com.vn</div>
+  </div>
+  <div class="right">
+    <div class="time-block">
+      <div class="tb-icon">📅</div>
+      <div>
+        <div class="tb-label">Tuần</div>
+        <div class="tb-desc">Vệ sinh đầu in</div>
+      </div>
+    </div>
+    <div class="time-block">
+      <div class="tb-icon">🔧</div>
+      <div>
+        <div class="tb-label">Tháng</div>
+        <div class="tb-desc">Kiểm tra cutter & cảm biến</div>
+      </div>
+    </div>
+    <div class="time-block">
+      <div class="tb-icon">⚙️</div>
+      <div>
+        <div class="tb-label">Quý</div>
+        <div class="tb-desc">Update firmware & kiểm tra toàn diện</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

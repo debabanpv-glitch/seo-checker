@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Thumbnail V2 — Lịch bảo dưỡng máy in nhãn Brother</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #111; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; gap: 48px; padding: 48px; font-family: 'Be Vietnam Pro', sans-serif; }
+  h2 { color: #888; font-family: 'Space Grotesk'; font-size: 14px; font-weight: 500; margin-bottom: -28px; }
+  .frame { width: 1200px; height: 630px; overflow: hidden; position: relative; flex-shrink: 0; }
+
+  /* ═══════ OPTION D: Bento Grid ═══════ */
+  .opt-d {
+    background: #F8FAFC;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 12px;
+    padding: 16px;
+  }
+  .opt-d .cell {
+    border-radius: 16px;
+    padding: 28px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    position: relative;
+    overflow: hidden;
+  }
+  /* Main cell — spans 2 cols, 2 rows */
+  .opt-d .cell-main {
+    grid-column: 1 / 3;
+    grid-row: 1 / 3;
+    background: linear-gradient(150deg, #004B87, #0072CE);
+    padding: 40px;
+    justify-content: center;
+  }
+  .opt-d .cell-main::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 85% 20%, rgba(255,255,255,0.12), transparent 50%);
+  }
+  .opt-d .cell-main .badge {
+    display: inline-block;
+    width: fit-content;
+    font-family: 'Space Grotesk';
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    background: rgba(255,255,255,0.15);
+    color: white;
+    padding: 5px 14px;
+    border-radius: 100px;
+    margin-bottom: 18px;
+    z-index: 1;
+  }
+  .opt-d .cell-main h1 {
+    font-family: 'Space Grotesk';
+    font-size: 48px;
+    font-weight: 800;
+    color: white;
+    line-height: 1.12;
+    letter-spacing: -0.03em;
+    z-index: 1;
+  }
+  .opt-d .cell-main h1 em {
+    font-style: normal;
+    color: #7DD3FC;
+  }
+  .opt-d .cell-main .sub {
+    margin-top: 14px;
+    font-size: 16px;
+    color: rgba(255,255,255,0.6);
+    z-index: 1;
+  }
+  .opt-d .cell-main .watermark {
+    position: absolute;
+    bottom: 20px;
+    left: 40px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 1;
+  }
+  .opt-d .cell-main .watermark img { height: 22px; filter: brightness(0) invert(1); opacity: 0.4; }
+  .opt-d .cell-main .watermark span { font-family: 'Space Grotesk'; font-size: 12px; color: rgba(255,255,255,0.3); }
+
+  /* Small cells — right column */
+  .opt-d .cell-week {
+    background: white;
+    border: 1.5px solid #E2E8F0;
+  }
+  .opt-d .cell-quarter {
+    background: white;
+    border: 1.5px solid #E2E8F0;
+  }
+  .opt-d .cell .cell-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    margin-bottom: 12px;
+  }
+  .opt-d .cell .cell-label {
+    font-family: 'Space Grotesk';
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .opt-d .cell .cell-desc {
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  .opt-d .cell-week .cell-icon { background: linear-gradient(135deg, #004B87, #0072CE); color: white; }
+  .opt-d .cell-week .cell-label { color: #004B87; }
+  .opt-d .cell-week .cell-desc { color: #64748B; }
+  .opt-d .cell-quarter .cell-icon { background: linear-gradient(135deg, #F59E0B, #FF6B2C); color: white; }
+  .opt-d .cell-quarter .cell-label { color: #B45309; }
+  .opt-d .cell-quarter .cell-desc { color: #78716C; }
+
+  /* ═══════ OPTION E: Bold Typography — minimal, editorial ═══════ */
+  .opt-e {
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    position: relative;
+  }
+  .opt-e .bg-number {
+    position: absolute;
+    font-family: 'Space Grotesk';
+    font-size: 340px;
+    font-weight: 900;
+    color: rgba(0,75,135,0.04);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    line-height: 1;
+    letter-spacing: -0.05em;
+    white-space: nowrap;
+  }
+  .opt-e .inner {
+    z-index: 1;
+    max-width: 900px;
+  }
+  .opt-e .pills {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .opt-e .pill {
+    font-family: 'Space Grotesk';
+    font-size: 13px;
+    font-weight: 700;
+    padding: 7px 20px;
+    border-radius: 100px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .opt-e .pill-blue { background: #EFF6FF; color: #004B87; border: 1.5px solid #BFDBFE; }
+  .opt-e .pill-orange { background: #FFF7ED; color: #C2410C; border: 1.5px solid #FED7AA; }
+  .opt-e .pill-purple { background: #F5F3FF; color: #6D28D9; border: 1.5px solid #DDD6FE; }
+
+  .opt-e h1 {
+    font-family: 'Space Grotesk';
+    font-size: 56px;
+    font-weight: 900;
+    color: #0F172A;
+    line-height: 1.08;
+    letter-spacing: -0.04em;
+  }
+  .opt-e h1 span {
+    background: linear-gradient(135deg, #004B87, #0072CE);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .opt-e .sub {
+    margin-top: 16px;
+    font-size: 18px;
+    color: #94A3B8;
+    font-weight: 500;
+  }
+  .opt-e .brand-bar {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #B71C1C, #004B87, #0072CE, #06B6D4);
+  }
+  .opt-e .wm {
+    position: absolute;
+    bottom: 20px;
+    right: 32px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .opt-e .wm img { height: 24px; opacity: 0.2; }
+  .opt-e .wm span { font-family: 'Space Grotesk'; font-size: 13px; color: #CBD5E1; font-weight: 600; }
+
+  /* ═══════ OPTION F: Rich Timeline ═══════ */
+  .opt-f {
+    background: linear-gradient(150deg, #EFF6FF 0%, #DBEAFE 30%, #E0F2FE 60%, #F0FDFA 100%);
+    padding: 44px 48px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    overflow: hidden;
+  }
+  /* Decorative blobs */
+  .opt-f::before {
+    content: '';
+    position: absolute;
+    width: 300px; height: 300px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,114,206,0.12), transparent 70%);
+    top: -80px; right: -60px;
+  }
+  .opt-f::after {
+    content: '';
+    position: absolute;
+    width: 250px; height: 250px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(245,158,11,0.1), transparent 70%);
+    bottom: -60px; left: 100px;
+  }
+  .opt-f .accent-bar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 5px;
+    background: linear-gradient(90deg, #004B87, #0072CE, #06B6D4, #F59E0B, #7C3AED);
+  }
+  .opt-f .top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    z-index: 1;
+  }
+  .opt-f .top .badge {
+    font-family: 'Space Grotesk';
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    background: #004B87;
+    color: white;
+    padding: 7px 18px;
+    border-radius: 100px;
+    box-shadow: 0 2px 8px rgba(0,75,135,0.25);
+  }
+  .opt-f .top .wm {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .opt-f .top .wm img { height: 26px; opacity: 0.35; }
+  .opt-f .top .wm span { font-family: 'Space Grotesk'; font-size: 13px; color: #64748B; font-weight: 600; }
+
+  .opt-f .title-area { z-index: 1; margin-top: -6px; }
+  .opt-f h1 {
+    font-family: 'Space Grotesk';
+    font-size: 50px;
+    font-weight: 900;
+    color: #0F172A;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+  }
+  .opt-f h1 em {
+    font-style: normal;
+    background: linear-gradient(135deg, #004B87, #0072CE);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .opt-f .title-sub {
+    font-size: 17px;
+    color: #475569;
+    margin-top: 8px;
+    font-weight: 500;
+  }
+
+  /* Timeline */
+  .opt-f .timeline {
+    display: flex;
+    gap: 0;
+    align-items: stretch;
+    position: relative;
+    z-index: 1;
+  }
+  .opt-f .timeline::before {
+    content: '';
+    position: absolute;
+    top: 36px;
+    left: 80px;
+    right: 80px;
+    height: 4px;
+    background: linear-gradient(90deg, #004B87, #0072CE 33%, #F59E0B 66%, #7C3AED);
+    border-radius: 2px;
+    box-shadow: 0 1px 6px rgba(0,75,135,0.15);
+  }
+  .opt-f .tl-item {
+    flex: 1;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+  }
+  .opt-f .tl-dot {
+    width: 72px;
+    height: 72px;
+    border-radius: 18px;
+    margin: 0 auto 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    border: 3px solid white;
+  }
+  .opt-f .tl-item:nth-child(1) .tl-dot { background: linear-gradient(135deg, #004B87, #0072CE); color: white; box-shadow: 0 6px 20px rgba(0,75,135,0.3); }
+  .opt-f .tl-item:nth-child(2) .tl-dot { background: linear-gradient(135deg, #F59E0B, #FF6B2C); color: white; box-shadow: 0 6px 20px rgba(245,158,11,0.3); }
+  .opt-f .tl-item:nth-child(3) .tl-dot { background: linear-gradient(135deg, #7C3AED, #A855F7); color: white; box-shadow: 0 6px 20px rgba(124,58,237,0.3); }
+  .opt-f .tl-label {
+    font-family: 'Space Grotesk';
+    font-size: 21px;
+    font-weight: 800;
+    margin-bottom: 4px;
+  }
+  .opt-f .tl-item:nth-child(1) .tl-label { color: #004B87; }
+  .opt-f .tl-item:nth-child(2) .tl-label { color: #C2410C; }
+  .opt-f .tl-item:nth-child(3) .tl-label { color: #6D28D9; }
+  .opt-f .tl-desc {
+    font-size: 13px;
+    color: #64748B;
+    line-height: 1.4;
+    max-width: 280px;
+    margin: 0 auto;
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════ OPTION D: Bento Grid ═══════ -->
+<h2>Option D — Bento Grid (1200×630)</h2>
+<div class="frame opt-d">
+  <div class="cell cell-main">
+    <div class="badge">Hướng dẫn bảo dưỡng</div>
+    <h1>Lịch bảo dưỡng<br>máy in nhãn<br><em>Brother</em></h1>
+    <div class="sub">Checklist tuần · tháng · quý cho doanh nghiệp</div>
+    <div class="watermark">
+      <img src="https://samcotech.com.vn/wp-content/uploads/2025/10/Samco-ngang-chuan-scaled.png" alt="Samco">
+      <span>samcotech.com.vn</span>
+    </div>
+  </div>
+  <div class="cell cell-week">
+    <div class="cell-icon">📅</div>
+    <div class="cell-label">Hàng tuần</div>
+    <div class="cell-desc">Vệ sinh đầu in<br>Kiểm tra nhãn</div>
+  </div>
+  <div class="cell cell-quarter">
+    <div class="cell-icon">🔧</div>
+    <div class="cell-label">Hàng tháng & quý</div>
+    <div class="cell-desc">Cutter · Cảm biến<br>Firmware update</div>
+  </div>
+</div>
+
+<!-- ═══════ OPTION E: Bold Editorial ═══════ -->
+<h2>Option E — Bold Editorial Typography (1200×630)</h2>
+<div class="frame opt-e">
+  <div class="bg-number">BẢO DƯỠNG</div>
+  <div class="inner">
+    <div class="pills">
+      <div class="pill pill-blue">📅 Tuần</div>
+      <div class="pill pill-orange">🔧 Tháng</div>
+      <div class="pill pill-purple">⚙️ Quý</div>
+    </div>
+    <h1>Lịch Bảo Dưỡng<br>Máy In Nhãn <span>Brother</span></h1>
+    <div class="sub">Checklist chi tiết cho doanh nghiệp — samcotech.com.vn</div>
+  </div>
+  <div class="brand-bar"></div>
+  <div class="wm">
+    <img src="https://samcotech.com.vn/wp-content/uploads/2025/10/Samco-ngang-chuan-scaled.png" alt="Samco">
+    <span>samcotech.com.vn</span>
+  </div>
+</div>
+
+<!-- ═══════ OPTION F: Timeline ═══════ -->
+<h2>Option F — Rich Timeline (1200×630)</h2>
+<div class="frame opt-f">
+  <div class="accent-bar"></div>
+  <div class="top">
+    <div class="badge">Brother × Samco Tech</div>
+    <div class="wm">
+      <img src="https://samcotech.com.vn/wp-content/uploads/2025/10/Samco-ngang-chuan-scaled.png" alt="Samco">
+      <span>samcotech.com.vn</span>
+    </div>
+  </div>
+  <div class="title-area">
+    <h1>Lịch Bảo Dưỡng Máy In Nhãn <em>Brother</em></h1>
+    <div class="title-sub">Checklist chi tiết cho doanh nghiệp</div>
+  </div>
+  <div class="timeline">
+    <div class="tl-item">
+      <div class="tl-dot">📅</div>
+      <div class="tl-label">Hàng tuần</div>
+      <div class="tl-desc">Vệ sinh đầu in, kiểm tra nhãn & ribbon</div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot">🔧</div>
+      <div class="tl-label">Hàng tháng</div>
+      <div class="tl-desc">Kiểm tra cutter, băng dẫn, cảm biến</div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot">⚙️</div>
+      <div class="tl-label">Hàng quý</div>
+      <div class="tl-desc">Update firmware, kiểm tra toàn diện</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
