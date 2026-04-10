@@ -9,7 +9,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
-  BarChart3, List, RefreshCw, Loader2, CheckCircle, AlertCircle, Settings2, Star, Eye,
+  BarChart3, List, RefreshCw, Loader2, CheckCircle, AlertCircle, Settings2, Star, Eye, FileText,
 } from 'lucide-react';
 import { PageLoading } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
@@ -22,8 +22,9 @@ import { type SheetConfig } from './keyword-ranking-types-and-helpers';
 import { SheetConfigModal } from './keyword-ranking-sheet-config-modal';
 import { RankingSummaryTab } from './keyword-ranking-summary-tab';
 import { RankingDetailedTab } from './keyword-ranking-detailed-tab';
+import { RankingTopPagesTab } from './keyword-ranking-top-pages-tab';
 
-type MainTab = 'summary' | 'detailed';
+type MainTab = 'summary' | 'detailed' | 'top-pages';
 
 export default function KeywordRankingPage() {
   const searchParams = useSearchParams();
@@ -183,6 +184,7 @@ export default function KeywordRankingPage() {
             {([
               { key: 'summary' as MainTab, label: 'Tổng quan', icon: BarChart3 },
               { key: 'detailed' as MainTab, label: 'Chi tiết', icon: List },
+              { key: 'top-pages' as MainTab, label: 'Top Pages', icon: FileText },
             ]).map((tab) => (
               <button key={tab.key} onClick={() => setMainTab(tab.key)}
                 className={cn(
@@ -254,6 +256,8 @@ export default function KeywordRankingPage() {
           } />
       ) : mainTab === 'summary' ? (
         <RankingSummaryTab insights={filteredInsights!} growthSnapshots={growthSnapshots} />
+      ) : mainTab === 'top-pages' ? (
+        <RankingTopPagesTab keywords={allKeywords} />
       ) : (
         <RankingDetailedTab
           keywords={allKeywords}

@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Samco Tech — Brand Guidelines & Thumbnail Design System</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+  :root {
+    /* ── PRIMARY PALETTE (from logo) ── */
+    --samco-red-brand: #B71C1C;
+    --samco-red-bright: #D32F2F;
+    --samco-red-dark: #8B0000;
+
+    /* ── SECONDARY: Vibrant diversity for thumbnails ── */
+    --samco-orange: #FF6B2C;
+    --samco-green: #00B87A;
+    --samco-purple: #7C3AED;
+    --samco-cyan: #06B6D4;
+    --samco-red: #EF4444;
+    --samco-yellow: #F59E0B;
+    --samco-pink: #EC4899;
+    --samco-lime: #84CC16;
+
+    /* ── NEUTRAL ── */
+    --dark: #0F172A;
+    --dark-2: #1E293B;
+    --gray: #64748B;
+    --light: #F1F5F9;
+    --white: #FFFFFF;
+
+    /* ── GRADIENT PRESETS ── */
+    --grad-brand: linear-gradient(135deg, #B71C1C, #D32F2F);
+    --grad-energy: linear-gradient(135deg, #FF6B2C, #F59E0B);
+    --grad-nature: linear-gradient(135deg, #00B87A, #84CC16);
+    --grad-creative: linear-gradient(135deg, #7C3AED, #EC4899);
+    --grad-fire: linear-gradient(135deg, #EF4444, #FF6B2C);
+    --grad-ocean: linear-gradient(135deg, #B71C1C, #00B87A);
+    --grad-sunset: linear-gradient(135deg, #F59E0B, #EC4899);
+    --grad-frost: linear-gradient(135deg, #06B6D4, #7C3AED);
+
+    /* ── TYPOGRAPHY ── */
+    --font-heading: 'Space Grotesk', 'Be Vietnam Pro', system-ui, sans-serif;
+    --font-body: 'Be Vietnam Pro', system-ui, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--white);
+    color: var(--dark);
+    line-height: 1.6;
+  }
+
+  /* ── LAYOUT ── */
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 32px; }
+  .section { padding: 64px 0; border-bottom: 1px solid #E2E8F0; }
+  .section:last-child { border-bottom: none; }
+
+  h1 { font-family: var(--font-heading); font-size: 42px; font-weight: 800; letter-spacing: -0.02em; }
+  h2 { font-family: var(--font-heading); font-size: 28px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 24px; }
+  h3 { font-family: var(--font-heading); font-size: 18px; font-weight: 600; margin-bottom: 12px; }
+  p { color: var(--gray); font-size: 15px; margin-bottom: 16px; }
+
+  .badge {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    background: linear-gradient(135deg, #B71C1C, #D32F2F);
+    color: white;
+    padding: 80px 0;
+    text-align: center;
+  }
+  .hero h1 { color: white; font-size: 48px; margin-bottom: 12px; }
+  .hero p { color: rgba(255,255,255,0.85); font-size: 18px; max-width: 600px; margin: 0 auto; }
+  .hero .logo-text {
+    font-family: var(--font-heading);
+    font-size: 64px;
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    margin-bottom: 8px;
+  }
+  .hero .logo-text span { color: #FFCDD2; }
+
+  /* ── COLOR GRID ── */
+  .color-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .color-card {
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #E2E8F0;
+  }
+  .color-swatch {
+    height: 80px;
+    display: flex;
+    align-items: flex-end;
+    padding: 8px 12px;
+  }
+  .color-swatch span {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    background: rgba(255,255,255,0.9);
+    border-radius: 4px;
+    color: var(--dark);
+  }
+  .color-info {
+    padding: 10px 12px;
+    background: white;
+  }
+  .color-info .name { font-weight: 700; font-size: 13px; }
+  .color-info .hex { font-size: 12px; color: var(--gray); font-family: monospace; }
+  .color-info .use { font-size: 11px; color: var(--gray); margin-top: 2px; }
+
+  .color-card.primary .color-swatch { height: 100px; }
+
+  /* ── GRADIENT GRID ── */
+  .gradient-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .gradient-card {
+    height: 80px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 700;
+    font-size: 13px;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+  .gradient-card:hover { transform: scale(1.03); }
+
+  /* ── TYPOGRAPHY SECTION ── */
+  .font-showcase {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    margin-bottom: 32px;
+  }
+  .font-card {
+    padding: 28px;
+    background: var(--light);
+    border-radius: 16px;
+  }
+  .font-card .font-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--samco-red-brand);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+  }
+  .font-card .font-sample-lg {
+    font-size: 36px;
+    font-weight: 800;
+    line-height: 1.2;
+    margin-bottom: 8px;
+    color: var(--dark);
+  }
+  .font-card .font-sample-md {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--dark-2);
+    margin-bottom: 8px;
+  }
+  .font-card .font-sample-sm {
+    font-size: 14px;
+    color: var(--gray);
+  }
+
+  .type-scale {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .type-row {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #E2E8F0;
+  }
+  .type-label {
+    width: 80px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--gray);
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  /* ── THUMBNAIL TEMPLATES ── */
+  .thumb-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  .thumb-card {
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #E2E8F0;
+    transition: box-shadow 0.2s;
+  }
+  .thumb-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
+  .thumb-preview {
+    aspect-ratio: 16/9;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .thumb-preview .thumb-tag {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 10px;
+    background: rgba(0,0,0,0.5);
+    color: white;
+    border-radius: 100px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .thumb-preview h4 {
+    font-family: var(--font-heading);
+    font-size: 20px;
+    font-weight: 800;
+    color: white;
+    line-height: 1.2;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    z-index: 1;
+  }
+  .thumb-preview .thumb-sub {
+    font-size: 12px;
+    color: rgba(255,255,255,0.85);
+    margin-top: 6px;
+    font-weight: 500;
+    z-index: 1;
+  }
+  .thumb-meta {
+    padding: 12px 16px;
+    background: white;
+  }
+  .thumb-meta .style-name { font-weight: 700; font-size: 13px; }
+  .thumb-meta .style-use { font-size: 11px; color: var(--gray); margin-top: 2px; }
+
+  /* ── DO/DONT ── */
+  .dodont-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .dodont-card {
+    padding: 24px;
+    border-radius: 12px;
+  }
+  .dodont-card.do { background: #F0FDF4; border: 1px solid #BBF7D0; }
+  .dodont-card.dont { background: #FEF2F2; border: 1px solid #FECACA; }
+  .dodont-card h4 {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+  .dodont-card.do h4 { color: #16A34A; }
+  .dodont-card.dont h4 { color: #DC2626; }
+  .dodont-card ul { list-style: none; padding: 0; }
+  .dodont-card li {
+    font-size: 13px;
+    padding: 4px 0;
+    padding-left: 20px;
+    position: relative;
+  }
+  .dodont-card.do li::before { content: '✓'; position: absolute; left: 0; color: #16A34A; font-weight: 700; }
+  .dodont-card.dont li::before { content: '✗'; position: absolute; left: 0; color: #DC2626; font-weight: 700; }
+
+  /* ── SPEC TABLE ── */
+  .spec-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 16px;
+  }
+  .spec-table th {
+    text-align: left;
+    padding: 10px 14px;
+    background: var(--light);
+    font-weight: 600;
+    border-bottom: 2px solid #E2E8F0;
+  }
+  .spec-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #E2E8F0;
+  }
+  .spec-table code {
+    background: var(--light);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+
+  /* ── PATTERN SHAPES (decoration for thumbs) ── */
+  .deco-circle {
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0.15;
+  }
+  .deco-stripe {
+    position: absolute;
+    transform: rotate(-45deg);
+    opacity: 0.08;
+  }
+
+  @media (max-width: 768px) {
+    .color-grid, .gradient-grid, .thumb-grid { grid-template-columns: 1fr 1fr; }
+    .font-showcase, .dodont-grid { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 32px; }
+    .hero .logo-text { font-size: 40px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════ HERO ═══════════════════════════ -->
+<header class="hero">
+  <div class="container">
+    <img src="https://samcotech.com.vn/wp-content/uploads/2025/10/Samco-ngang-chuan-scaled.png" alt="Samco Tech Logo" style="height:64px;filter:brightness(0) invert(1);margin-bottom:16px;">
+    <div class="logo-text">SAMCO<span>TECH</span></div>
+    <h1>Brand & Thumbnail Design System</h1>
+    <p>Hệ thống thiết kế thương hiệu cho thumbnail, banner và nội dung truyền thông — đa dạng, sinh động, chuyên nghiệp</p>
+  </div>
+</header>
+
+<div class="container">
+
+<!-- ═══════════════════════════ 1. BRAND OVERVIEW ═══════════════════════════ -->
+<section class="section">
+  <span class="badge" style="background:#FEF2F2;color:var(--samco-red-brand);">Tổng quan thương hiệu</span>
+  <h2 style="margin-top:16px;">Brand Identity</h2>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;">
+    <div>
+      <h3>Về Samco Tech</h3>
+      <p>Samco Tech chuyên cung cấp nhãn in Brother, thiết bị mạng cáp quang, và giải pháp công nghệ cho doanh nghiệp tại Việt Nam. Thương hiệu thể hiện sự <strong>đáng tin cậy</strong>, <strong>chuyên nghiệp</strong> nhưng <strong>hiện đại và năng động</strong>.</p>
+
+      <h3>Brand Personality</h3>
+      <ul style="font-size:14px;color:var(--gray);padding-left:20px;">
+        <li><strong>Đáng tin cậy</strong> — Đối tác kỹ thuật lâu dài</li>
+        <li><strong>Chuyên nghiệp</strong> — Kiến thức sâu, tư vấn chuẩn</li>
+        <li><strong>Năng động</strong> — Cập nhật công nghệ mới</li>
+        <li><strong>Dễ tiếp cận</strong> — Giải thích đơn giản, trực quan</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Brand Voice</h3>
+      <p>Giọng điệu chuyên gia kỹ thuật nhưng thân thiện. Ưu tiên hình ảnh trực quan và nội dung dễ hiểu thay vì jargon.</p>
+
+      <h3>Thumbnail Strategy</h3>
+      <p>Mỗi category sản phẩm sử dụng <strong>màu chủ đạo riêng</strong> để tạo nhận diện. Nền sáng, contrast cao, text lớn dễ đọc trên mobile. Đa dạng layout nhưng giữ consistency qua typography và branding element.</p>
+
+      <div style="margin-top:16px;padding:16px;background:var(--light);border-radius:12px;border-left:4px solid var(--samco-red-brand);">
+        <strong style="font-size:13px;">Nguyên tắc #1:</strong>
+        <span style="font-size:13px;color:var(--gray);"> KHÔNG chỉ dùng 1 màu. Mỗi content dùng gradient/combo phù hợp category.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ 2. COLOR SYSTEM ═══════════════════════════ -->
+<section class="section">
+  <span class="badge" style="background:#FEF2F2;color:var(--samco-red-brand);">Hệ màu sắc</span>
+  <h2 style="margin-top:16px;">Color System — Đa Dạng & Sinh Động</h2>
+  <p>Hệ màu chính (Samco Red #B71C1C) lấy từ logo. 8 màu phụ cho phép mỗi thumbnail/banner có màu sắc riêng theo category sản phẩm.</p>
+
+  <!-- Primary -->
+  <h3>Primary — Màu thương hiệu (từ logo)</h3>
+  <div class="color-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:24px;">
+    <div class="color-card primary">
+      <div class="color-swatch" style="background:var(--samco-red-brand)"><span>#B71C1C</span></div>
+      <div class="color-info">
+        <div class="name">Samco Red</div>
+        <div class="use">Logo, header, CTA chính</div>
+      </div>
+    </div>
+    <div class="color-card primary">
+      <div class="color-swatch" style="background:var(--samco-red-bright)"><span>#D32F2F</span></div>
+      <div class="color-info">
+        <div class="name">Red Bright</div>
+        <div class="use">Accent, hover, highlight</div>
+      </div>
+    </div>
+    <div class="color-card primary">
+      <div class="color-swatch" style="background:var(--samco-red-dark)"><span>#8B0000</span></div>
+      <div class="color-info">
+        <div class="name">Red Dark</div>
+        <div class="use">Text trên nền sáng, footer</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Secondary -->
+  <h3>Secondary — Palette đa sắc cho Thumbnail</h3>
+  <div class="color-grid">
+    <div class="color-card">
+      <div class="color-swatch" style="background:var(--samco-orange)"><span>#FF6B2C</span></div>
+      <div class="color-info">
+        <div class="name">Tech Orange</div>
+        <div class="hex">Nhãn in Brother, sản phẩm hot</div>
+      </div>
+    </div>
+    <div class="color-card">
+      <div class="color-swatch" style="background:var(--samco-green)"><span>#00B87A</span></div>
+      <div class="color-info">
+        <div class="name">Network Green</div>
+        <div class="hex">Cáp quang, thiết bị mạng</div>
+      </div>
+    </div>
+    <div class="color-card">
+      <div class="color-swatch" style="background:var(--samco-purple)"><span>#7C3AED</span></div>
+      <div class="color-info">
+        <div class="name">Smart Purple</div>
+        <div class="hex">Giải pháp, hướng dẫn</div>
+      </div>
+    </div>
+    <div class="color-card">
+      <div class="color-swatch" style="background:var(--samco-cyan)"><span>#06B6D4</span></div>
+      <div class="color-info">
+        <div class="name">Digital Cyan</div>
+        <div class="hex">Module SFP, kỹ thuật số</div>
+      </div>
+    </div>
+    <div class="color-card">
+      <div class="color-swatch" style="background:var(--samco-red)"><span>#EF4444</span></div>
+      <div class="color-info">
+        <div class="name">Alert Red</div>
+        <div class="hex">Khuyến mãi, so sánh, cảnh báo</div>
+      </div>
+    </div>
+    <div class="color-card">
+      <div class="color-swatch" style="background:var(--samco-yellow)"><span>#F59E0B</span></div>
+      <div class="color-info">
+        <div class="name">Warm Yellow</div>
+        <div class="hex">Review, đánh giá, tips</div>
+      </div>
+    </div>
+    <div class="color-card">
+      <div class="color-swatch" style="background:var(--samco-pink)"><span>#EC4899</span></div>
+      <div class="color-info">
+        <div class="name">Creative Pink</div>
+        <div class="hex">In ấn sáng tạo, DIY</div>
+      </div>
+    </div>
+    <div class="color-card">
+      <div class="color-swatch" style="background:var(--samco-lime)"><span>#84CC16</span></div>
+      <div class="color-info">
+        <div class="name">Fresh Lime</div>
+        <div class="hex">Tiết kiệm, so sánh giá</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Category Color Map -->
+  <h3 style="margin-top:32px;">Category → Color Map</h3>
+  <table class="spec-table">
+    <thead>
+      <tr><th>Category nội dung</th><th>Màu chính</th><th>Gradient</th><th>Ví dụ bài viết</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Nhãn in Brother</strong></td>
+        <td><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:var(--samco-orange);vertical-align:middle;"></span> Orange + Yellow</td>
+        <td><code>135deg, #FF6B2C, #F59E0B</code></td>
+        <td>DK-11215, nhãn DK-22223</td>
+      </tr>
+      <tr>
+        <td><strong>Cáp quang / Mạng</strong></td>
+        <td><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:var(--samco-green);vertical-align:middle;"></span> Green + Cyan</td>
+        <td><code>135deg, #00B87A, #06B6D4</code></td>
+        <td>Module SFP, lắp đặt cáp quang</td>
+      </tr>
+      <tr>
+        <td><strong>Hướng dẫn kỹ thuật</strong></td>
+        <td><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:var(--samco-purple);vertical-align:middle;"></span> Purple + Pink</td>
+        <td><code>135deg, #7C3AED, #EC4899</code></td>
+        <td>Cách lắp, hướng dẫn sử dụng</td>
+      </tr>
+      <tr>
+        <td><strong>So sánh / Review</strong></td>
+        <td><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:var(--samco-red);vertical-align:middle;"></span> Red + Orange</td>
+        <td><code>135deg, #EF4444, #FF6B2C</code></td>
+        <td>DK-22205 vs DK-11201</td>
+      </tr>
+      <tr>
+        <td><strong>Giải pháp / Tư vấn</strong></td>
+        <td><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:var(--samco-red-brand);vertical-align:middle;"></span> Samco Red + Cyan</td>
+        <td><code>135deg, #B71C1C, #06B6D4</code></td>
+        <td>Chọn cáp quang cho camera</td>
+      </tr>
+      <tr>
+        <td><strong>Khuyến mãi / Giá</strong></td>
+        <td><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:var(--samco-lime);vertical-align:middle;"></span> Lime + Green</td>
+        <td><code>135deg, #84CC16, #00B87A</code></td>
+        <td>Bảng giá nhãn, combo tiết kiệm</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════════════════ 3. GRADIENTS ═══════════════════════════ -->
+<section class="section">
+  <span class="badge" style="background:#FEF2F2;color:var(--samco-red-brand);">Gradient Library</span>
+  <h2 style="margin-top:16px;">8 Gradient Presets</h2>
+  <p>Dùng gradient thay vì solid color để thumbnail sinh động, hiện đại. Mỗi preset gắn với mood riêng.</p>
+
+  <div class="gradient-grid">
+    <div class="gradient-card" style="background:var(--grad-tech)">Tech Trust</div>
+    <div class="gradient-card" style="background:var(--grad-energy)">Energy</div>
+    <div class="gradient-card" style="background:var(--grad-nature)">Nature</div>
+    <div class="gradient-card" style="background:var(--grad-creative)">Creative</div>
+    <div class="gradient-card" style="background:var(--grad-fire)">Fire</div>
+    <div class="gradient-card" style="background:var(--grad-ocean)">Ocean</div>
+    <div class="gradient-card" style="background:var(--grad-sunset)">Sunset</div>
+    <div class="gradient-card" style="background:var(--grad-frost)">Frost</div>
+  </div>
+
+  <div style="margin-top:16px;padding:16px;background:var(--light);border-radius:12px;">
+    <strong style="font-size:13px;">CSS Variables:</strong>
+    <code style="font-size:12px;display:block;margin-top:8px;white-space:pre;color:var(--gray);">--grad-brand: linear-gradient(135deg, #B71C1C, #D32F2F);
+--grad-energy: linear-gradient(135deg, #FF6B2C, #F59E0B);
+--grad-nature: linear-gradient(135deg, #00B87A, #84CC16);
+--grad-creative: linear-gradient(135deg, #7C3AED, #EC4899);
+--grad-fire: linear-gradient(135deg, #EF4444, #FF6B2C);
+--grad-ocean: linear-gradient(135deg, #B71C1C, #00B87A);
+--grad-sunset: linear-gradient(135deg, #F59E0B, #EC4899);
+--grad-frost: linear-gradient(135deg, #06B6D4, #7C3AED);</code>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ 4. TYPOGRAPHY ═══════════════════════════ -->
+<section class="section">
+  <span class="badge" style="background:#FEF2F2;color:var(--samco-red-brand);">Typography</span>
+  <h2 style="margin-top:16px;">Font System</h2>
+  <p>2 fonts hiện đại, dễ đọc trên mọi kích thước. Space Grotesk cho tiêu đề (geometric, techy), Be Vietnam Pro cho body (tối ưu cho tiếng Việt).</p>
+
+  <div class="font-showcase">
+    <div class="font-card">
+      <div class="font-name">Heading — Space Grotesk</div>
+      <div class="font-sample-lg" style="font-family:'Space Grotesk',sans-serif;">Nhãn in Brother</div>
+      <div class="font-sample-md" style="font-family:'Space Grotesk',sans-serif;">Giải pháp in ấn chuyên nghiệp</div>
+      <div class="font-sample-sm" style="font-family:'Space Grotesk',sans-serif;">ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789</div>
+      <div style="margin-top:12px;font-size:12px;color:var(--gray);">
+        <strong>Weights:</strong> 400, 500, 600, 700<br>
+        <strong>Dùng cho:</strong> Tiêu đề thumbnail, heading, badge, CTA
+      </div>
+    </div>
+    <div class="font-card">
+      <div class="font-name">Body — Be Vietnam Pro</div>
+      <div class="font-sample-lg" style="font-family:'Be Vietnam Pro',sans-serif;">Thiết bị cáp quang</div>
+      <div class="font-sample-md" style="font-family:'Be Vietnam Pro',sans-serif;">Đấu nối cáp quang chuẩn cho văn phòng</div>
+      <div class="font-sample-sm" style="font-family:'Be Vietnam Pro',sans-serif;">Tối ưu cho tiếng Việt có dấu: ĂÂĐÊÔƠƯàáảãạ</div>
+      <div style="margin-top:12px;font-size:12px;color:var(--gray);">
+        <strong>Weights:</strong> 400, 500, 600, 700, 800, 900<br>
+        <strong>Dùng cho:</strong> Subtitle, mô tả, body text
+      </div>
+    </div>
+  </div>
+
+  <h3>Type Scale cho Thumbnail</h3>
+  <div class="type-scale">
+    <div class="type-row">
+      <div class="type-label">Hero</div>
+      <div style="font-family:'Space Grotesk';font-size:36px;font-weight:800;letter-spacing:-0.02em;">Module SFP là gì?</div>
+    </div>
+    <div class="type-row">
+      <div class="type-label">Title</div>
+      <div style="font-family:'Space Grotesk';font-size:24px;font-weight:700;">Hướng dẫn chọn nhãn in Brother</div>
+    </div>
+    <div class="type-row">
+      <div class="type-label">Subtitle</div>
+      <div style="font-family:'Be Vietnam Pro';font-size:16px;font-weight:500;color:var(--gray);">So sánh chi tiết DK-22205 và DK-11201</div>
+    </div>
+    <div class="type-row">
+      <div class="type-label">Badge</div>
+      <div>
+        <span style="font-family:'Space Grotesk';font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;background:var(--samco-orange);color:white;padding:4px 12px;border-radius:100px;">Hướng dẫn</span>
+        <span style="font-family:'Space Grotesk';font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;background:var(--samco-green);color:white;padding:4px 12px;border-radius:100px;margin-left:8px;">Cáp quang</span>
+        <span style="font-family:'Space Grotesk';font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;background:var(--samco-red);color:white;padding:4px 12px;border-radius:100px;margin-left:8px;">So sánh</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ 5. THUMBNAIL TEMPLATES ═══════════════════════════ -->
+<section class="section">
+  <span class="badge" style="background:#FEF2F2;color:var(--samco-red-brand);">Thumbnail Templates</span>
+  <h2 style="margin-top:16px;">6 Thumbnail Styles</h2>
+  <p>Mỗi style phù hợp 1 loại nội dung. Mix and match để tạo đa dạng nhưng vẫn nhất quán thương hiệu.</p>
+
+  <div class="thumb-grid">
+    <!-- Style 1: Gradient Bold -->
+    <div class="thumb-card">
+      <div class="thumb-preview" style="background:var(--grad-energy);position:relative;">
+        <div class="thumb-tag">Hướng dẫn</div>
+        <div class="deco-circle" style="width:120px;height:120px;background:white;right:-30px;top:-30px;"></div>
+        <div class="deco-circle" style="width:60px;height:60px;background:white;left:20px;bottom:-10px;"></div>
+        <h4>Cách chọn nhãn in<br>Brother phù hợp</h4>
+        <div class="thumb-sub">samcotech.com.vn</div>
+      </div>
+      <div class="thumb-meta">
+        <div class="style-name">1. Gradient Bold</div>
+        <div class="style-use">Bài hướng dẫn, tutorial — nền gradient sinh động, text trắng lớn</div>
+      </div>
+    </div>
+
+    <!-- Style 2: Split Layout -->
+    <div class="thumb-card">
+      <div class="thumb-preview" style="background:linear-gradient(90deg, var(--dark) 50%, var(--samco-green) 50%);position:relative;">
+        <div class="thumb-tag">Kỹ thuật</div>
+        <div style="position:absolute;right:0;top:0;bottom:0;width:50%;display:flex;align-items:center;justify-content:center;">
+          <div style="width:50px;height:50px;background:rgba(255,255,255,0.2);border-radius:12px;"></div>
+        </div>
+        <h4 style="width:45%;">Module SFP<br>là gì?</h4>
+        <div class="thumb-sub" style="width:45%;">Giải thích từ A-Z</div>
+      </div>
+      <div class="thumb-meta">
+        <div class="style-name">2. Split Layout</div>
+        <div class="style-use">Sản phẩm kỹ thuật — dark left + color right, ảnh sản phẩm bên phải</div>
+      </div>
+    </div>
+
+    <!-- Style 3: Light Modern -->
+    <div class="thumb-card">
+      <div class="thumb-preview" style="background:white;border:2px solid #E2E8F0;position:relative;">
+        <div class="thumb-tag" style="background:var(--samco-red-brand);color:white;">Review</div>
+        <div style="position:absolute;top:0;left:0;right:0;height:4px;background:var(--grad-frost);"></div>
+        <h4 style="color:var(--dark);font-size:18px;">DK-22205 vs DK-11201<br><span style="color:var(--samco-red-brand);">Nên mua loại nào?</span></h4>
+        <div class="thumb-sub" style="color:var(--gray);">So sánh chi tiết 2026</div>
+      </div>
+      <div class="thumb-meta">
+        <div class="style-name">3. Light Modern</div>
+        <div class="style-use">So sánh, review — nền trắng sáng, text đậm, accent màu ở top bar</div>
+      </div>
+    </div>
+
+    <!-- Style 4: Number Highlight -->
+    <div class="thumb-card">
+      <div class="thumb-preview" style="background:var(--grad-creative);position:relative;">
+        <div class="thumb-tag">Top List</div>
+        <div style="position:absolute;right:20px;top:50%;transform:translateY(-50%);font-family:'Space Grotesk';font-size:72px;font-weight:900;color:rgba(255,255,255,0.15);">5</div>
+        <h4>Top 5 nhãn in<br>bán chạy nhất</h4>
+        <div class="thumb-sub">Tháng 04/2026</div>
+      </div>
+      <div class="thumb-meta">
+        <div class="style-name">4. Number Highlight</div>
+        <div class="style-use">Listicle, top N — con số lớn watermark, gradient nền</div>
+      </div>
+    </div>
+
+    <!-- Style 5: Photo Overlay -->
+    <div class="thumb-card">
+      <div class="thumb-preview" style="background:linear-gradient(135deg, rgba(0,0,0,0.7), rgba(183,28,28,0.5)), var(--dark-2);position:relative;">
+        <div class="thumb-tag">Giải pháp</div>
+        <h4>Lắp đặt hệ thống<br>cáp quang văn phòng</h4>
+        <div class="thumb-sub">Từ A đến Z cho SME</div>
+      </div>
+      <div class="thumb-meta">
+        <div class="style-name">5. Photo Overlay</div>
+        <div class="style-use">Giải pháp, case study — ảnh nền + dark overlay + gradient tint</div>
+      </div>
+    </div>
+
+    <!-- Style 6: Badge Focus -->
+    <div class="thumb-card">
+      <div class="thumb-preview" style="background:var(--light);position:relative;border:2px solid #E2E8F0;">
+        <div style="position:absolute;top:12px;left:12px;">
+          <span style="font-family:'Space Grotesk';font-size:10px;font-weight:700;background:var(--samco-red);color:white;padding:3px 10px;border-radius:100px;">GIẢM 30%</span>
+        </div>
+        <div style="text-align:center;padding-top:12px;">
+          <div style="width:60px;height:60px;background:var(--grad-energy);border-radius:12px;margin:0 auto 8px;"></div>
+          <h4 style="color:var(--dark);font-size:16px;">Combo Nhãn In<br>Brother Tiết Kiệm</h4>
+          <div class="thumb-sub" style="color:var(--samco-red-brand);font-weight:700;">Chỉ từ 89.000đ</div>
+        </div>
+      </div>
+      <div class="thumb-meta">
+        <div class="style-name">6. Badge Focus</div>
+        <div class="style-use">Khuyến mãi, sản phẩm — nền sáng, ảnh sp ở giữa, badge giảm giá nổi bật</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ 6. THUMBNAIL SPECS ═══════════════════════════ -->
+<section class="section">
+  <span class="badge" style="background:#FEF2F2;color:var(--samco-red-brand);">Thông số kỹ thuật</span>
+  <h2 style="margin-top:16px;">Thumbnail & Banner Sizes</h2>
+
+  <table class="spec-table">
+    <thead>
+      <tr><th>Loại</th><th>Kích thước (px)</th><th>Tỷ lệ</th><th>Dùng cho</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Blog Thumbnail</strong></td><td><code>1200 × 630</code></td><td>~1.9:1</td><td>Featured image, OG image, Facebook share</td></tr>
+      <tr><td><strong>WordPress Featured</strong></td><td><code>1200 × 675</code></td><td>16:9</td><td>Blog grid, archive page</td></tr>
+      <tr><td><strong>Category Banner</strong></td><td><code>1920 × 400</code></td><td>~4.8:1</td><td>Category page header</td></tr>
+      <tr><td><strong>Product Thumb</strong></td><td><code>800 × 800</code></td><td>1:1</td><td>Product card, listing</td></tr>
+      <tr><td><strong>Facebook Post</strong></td><td><code>1200 × 630</code></td><td>~1.9:1</td><td>Facebook feed</td></tr>
+      <tr><td><strong>Zalo Article</strong></td><td><code>1200 × 628</code></td><td>~1.9:1</td><td>Zalo OA article</td></tr>
+      <tr><td><strong>Google Ads</strong></td><td><code>1200 × 628</code></td><td>~1.9:1</td><td>Display ads</td></tr>
+    </tbody>
+  </table>
+
+  <h3 style="margin-top:32px;">Text Rules cho Thumbnail</h3>
+  <table class="spec-table">
+    <thead>
+      <tr><th>Element</th><th>Font</th><th>Size</th><th>Weight</th><th>Ghi chú</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Headline</td><td>Space Grotesk</td><td><code>36-48px</code></td><td>800</td><td>Max 2 dòng, tối đa 40 ký tự</td></tr>
+      <tr><td>Subtitle</td><td>Be Vietnam Pro</td><td><code>16-20px</code></td><td>500</td><td>1 dòng, mô tả ngắn</td></tr>
+      <tr><td>Badge/Tag</td><td>Space Grotesk</td><td><code>10-12px</code></td><td>700</td><td>UPPERCASE, letter-spacing 0.5-1px</td></tr>
+      <tr><td>Brand</td><td>Space Grotesk</td><td><code>12-14px</code></td><td>600</td><td>samcotech.com.vn — góc dưới</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════════════════ 7. DO & DON'T ═══════════════════════════ -->
+<section class="section">
+  <span class="badge" style="background:#FEF2F2;color:var(--samco-red-brand);">Quy tắc</span>
+  <h2 style="margin-top:16px;">Do's & Don'ts</h2>
+
+  <div class="dodont-grid">
+    <div class="dodont-card do">
+      <h4>✅ NÊN LÀM</h4>
+      <ul>
+        <li>Dùng gradient thay vì solid color đơn điệu</li>
+        <li>Đổi palette theo category (xem Color Map)</li>
+        <li>Text trắng trên nền tối/gradient, text đen trên nền sáng</li>
+        <li>Giữ headline ≤ 2 dòng, ≤ 40 ký tự</li>
+        <li>Luôn có branding element (logo/URL ở góc)</li>
+        <li>Ảnh sản phẩm chất lượng cao, nền trắng/trong suốt</li>
+        <li>Contrast ratio ≥ 4.5:1 cho text</li>
+        <li>Mix nhiều style khác nhau giữa các bài</li>
+        <li>Safe zone: text quan trọng nằm trong 80% giữa</li>
+      </ul>
+    </div>
+    <div class="dodont-card dont">
+      <h4>❌ KHÔNG LÀM</h4>
+      <ul>
+        <li>Dùng MỘT màu cho tất cả thumbnail</li>
+        <li>Text nhỏ dưới 24px trên thumbnail 1200px</li>
+        <li>Quá 3 màu trong 1 thumbnail</li>
+        <li>Ảnh stock chất lượng thấp, watermark</li>
+        <li>Font serif hoặc handwriting cho headline</li>
+        <li>Nền tối hoàn toàn không có gradient/accent</li>
+        <li>Text chiếm quá 30% diện tích (giảm engagement)</li>
+        <li>Đặt text quan trọng ở rìa (bị crop trên mobile)</li>
+        <li>Dùng nhiều hơn 2 font family trong 1 thumbnail</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ 8. CSS VARIABLES (COPY-PASTE) ═══════════════════════════ -->
+<section class="section">
+  <span class="badge" style="background:#FEF2F2;color:var(--samco-red-brand);">Code Reference</span>
+  <h2 style="margin-top:16px;">CSS Variables — Copy & Paste</h2>
+
+  <div style="background:var(--dark);border-radius:12px;padding:24px;overflow-x:auto;">
+    <pre style="color:#E2E8F0;font-size:13px;font-family:'SF Mono','Fira Code',monospace;line-height:1.8;margin:0;"><span style="color:#64748B;">/* ── Samco Tech Brand Colors ── */</span>
+<span style="color:#06B6D4;">:root</span> {
+  <span style="color:#F59E0B;">--samco-red-brand</span>: <span style="color:#D32F2F;">#B71C1C</span>;  <span style="color:#64748B;">/* Logo color */</span>
+  <span style="color:#F59E0B;">--samco-red-bright</span>: <span style="color:#D32F2F;">#D32F2F</span>;
+  <span style="color:#F59E0B;">--samco-red-dark</span>: <span style="color:#D32F2F;">#8B0000</span>;
+  <span style="color:#F59E0B;">--samco-orange</span>: <span style="color:#FF6B2C;">#FF6B2C</span>;
+  <span style="color:#F59E0B;">--samco-green</span>: <span style="color:#00B87A;">#00B87A</span>;
+  <span style="color:#F59E0B;">--samco-purple</span>: <span style="color:#7C3AED;">#7C3AED</span>;
+  <span style="color:#F59E0B;">--samco-cyan</span>: <span style="color:#06B6D4;">#06B6D4</span>;
+  <span style="color:#F59E0B;">--samco-red</span>: <span style="color:#EF4444;">#EF4444</span>;
+  <span style="color:#F59E0B;">--samco-yellow</span>: <span style="color:#F59E0B;">#F59E0B</span>;
+  <span style="color:#F59E0B;">--samco-pink</span>: <span style="color:#EC4899;">#EC4899</span>;
+  <span style="color:#F59E0B;">--samco-lime</span>: <span style="color:#84CC16;">#84CC16</span>;
+
+  <span style="color:#64748B;">/* Gradients */</span>
+  <span style="color:#F59E0B;">--grad-tech</span>: linear-gradient(135deg, #0066CC, #06B6D4);
+  <span style="color:#F59E0B;">--grad-energy</span>: linear-gradient(135deg, #FF6B2C, #F59E0B);
+  <span style="color:#F59E0B;">--grad-nature</span>: linear-gradient(135deg, #00B87A, #84CC16);
+  <span style="color:#F59E0B;">--grad-creative</span>: linear-gradient(135deg, #7C3AED, #EC4899);
+  <span style="color:#F59E0B;">--grad-fire</span>: linear-gradient(135deg, #EF4444, #FF6B2C);
+  <span style="color:#F59E0B;">--grad-ocean</span>: linear-gradient(135deg, #0066CC, #00B87A);
+  <span style="color:#F59E0B;">--grad-sunset</span>: linear-gradient(135deg, #F59E0B, #EC4899);
+  <span style="color:#F59E0B;">--grad-frost</span>: linear-gradient(135deg, #06B6D4, #7C3AED);
+
+  <span style="color:#64748B;">/* Typography */</span>
+  <span style="color:#F59E0B;">--font-heading</span>: 'Space Grotesk', 'Be Vietnam Pro', system-ui, sans-serif;
+  <span style="color:#F59E0B;">--font-body</span>: 'Be Vietnam Pro', system-ui, sans-serif;
+}
+
+<span style="color:#64748B;">/* Google Fonts import */</span>
+<span style="color:#EC4899;">@import</span> url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap');</pre>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ FOOTER ═══════════════════════════ -->
+<section style="padding:40px 0;text-align:center;">
+  <p style="font-size:12px;color:var(--gray);">
+    Samco Tech Brand Guidelines v1.0 — Generated 10/04/2026<br>
+    Dùng cho thiết kế thumbnail, banner, và nội dung truyền thông
+  </p>
+</section>
+
+</div>
+</body>
+</html>
