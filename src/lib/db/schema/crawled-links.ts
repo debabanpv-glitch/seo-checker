@@ -18,7 +18,7 @@ export const crawlSessions = sqliteTable('crawl_sessions', {
   crawled_at: text('crawled_at').notNull().default(sql`(datetime('now'))`),
 });
 
-// --- crawled_pages: mỗi URL đã crawl + title + HTTP status ---
+// --- crawled_pages: mỗi URL đã crawl + title + HTTP status + SEO details ---
 export const crawledPages = sqliteTable('crawled_pages', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   session_id: text('session_id').notNull().references(() => crawlSessions.id, { onDelete: 'cascade' }),
@@ -26,6 +26,17 @@ export const crawledPages = sqliteTable('crawled_pages', {
   title: text('title').notNull().default(''),
   http_status: integer('http_status').notNull().default(0),
   error: text('error'),
+  // SEO details (added for full page audit)
+  meta_description: text('meta_description').default(''),
+  h1: text('h1').default(''),
+  word_count: integer('word_count').default(0),
+  images_count: integer('images_count').default(0),
+  og_title: text('og_title').default(''),
+  og_description: text('og_description').default(''),
+  og_image: text('og_image').default(''),
+  canonical_url: text('canonical_url').default(''),
+  schema_types: text('schema_types').default(''),   // comma-separated: "Article,WebPage"
+  robots_meta: text('robots_meta').default(''),      // e.g. "index,follow" or "noindex"
 });
 
 // --- crawled_links: mỗi link tìm thấy trên page ---

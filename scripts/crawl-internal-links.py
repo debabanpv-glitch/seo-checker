@@ -397,13 +397,14 @@ def crawl_site(
                     f"{url[:80]:<80} ({elapsed:.1f}s)"
                 )
 
-                # Store page node
+                # Store page node (including SEO metadata)
                 norm_url = normalize_url(url)
                 all_pages[norm_url] = {
                     "url": norm_url,
                     "title": page["title"],
                     "status": page["status"],
                     "error": page["error"],
+                    **(page.get("seo") or {}),
                 }
 
                 # Process links

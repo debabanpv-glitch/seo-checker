@@ -22,7 +22,12 @@ interface CrawlImportData {
     crawl_duration_sec: number;
     crawled_at: string;
   };
-  nodes: Array<{ url: string; title: string; status: number; error?: string | null }>;
+  nodes: Array<{
+    url: string; title: string; status: number; error?: string | null;
+    meta_description?: string; h1?: string; word_count?: number; images_count?: number;
+    og_title?: string; og_description?: string; og_image?: string;
+    canonical_url?: string; schema_types?: string; robots_meta?: string;
+  }>;
   edges: Array<{
     source_url: string;
     target_url: string;
@@ -99,6 +104,16 @@ export function importCrawlData(projectId: string, data: CrawlImportData): strin
         title: n.title || '',
         http_status: n.status,
         error: n.error || null,
+        meta_description: n.meta_description || '',
+        h1: n.h1 || '',
+        word_count: n.word_count || 0,
+        images_count: n.images_count || 0,
+        og_title: n.og_title || '',
+        og_description: n.og_description || '',
+        og_image: n.og_image || '',
+        canonical_url: n.canonical_url || '',
+        schema_types: n.schema_types || '',
+        robots_meta: n.robots_meta || '',
       }))
     ).run();
   }
@@ -395,4 +410,138 @@ export function getLinksForUrl(sessionId: string, url: string) {
     .where(and(eq(crawledLinks.session_id, sessionId), eq(crawledLinks.target_url, url)))
     .all();
   return { outgoing, incoming };
+}
+
+// --- All Pages Audit ---
+
+export interface AuditPageRow {
+  url: string;
+  title: string;
+  h1: string;
+  meta_description: string;
+  http_status: number;
+  word_count: number;
+  images_count: number;
+  canonical_url: string;
+  schema_types: string;
+  robots_meta: string;
+  og_title: string;
+  og_description: string;
+  og_image: string;
+  internalInLinks: number;
+  internalOutLinks: number;
+  externalOutLinks: number;
+  clickDepth: number;
+  issues: string[]; // detected SEO issues
+}
+
+/** Get all pages with SEO audit data for the All Pages table */
+export function getAllPagesAudit(sessionId: string): AuditPageRow[] {
+  const pages = db.select().from(crawledPages)
+    .where(eq(crawledPages.session_id, sessionId))
+    .all();
+
+  // Count in/out links per URL
+  const links = db.select().from(crawledLinks)
+    .where(eq(crawledLinks.session_id, sessionId))
+    .all();
+
+  const inCount = new Map<string, number>();
+  const outCount = new Map<string, number>();
+  const extOutCount = new Map<string, number>();
+
+  for (const l of links) {
+    if (l.link_type === 'internal') {
+      inCount.set(l.target_url, (inCount.get(l.target_url) || 0) + 1);
+      outCount.set(l.source_url, (outCount.get(l.source_url) || 0) + 1);
+    } else {
+      extOutCount.set(l.source_url, (extOutCount.get(l.source_url) || 0) + 1);
+    }
+  }
+
+  // BFS click depth
+  const pageUrls = new Set(pages.map(p => p.url));
+  const adjList = new Map<string, string[]>();
+  for (const l of links) {
+    if (l.link_type === 'internal' && pageUrls.has(l.source_url) && pageUrls.has(l.target_url)) {
+      if (!adjList.has(l.source_url)) adjList.set(l.source_url, []);
+      adjList.get(l.source_url)!.push(l.target_url);
+    }
+  }
+
+  const depthMap = new Map<string, number>();
+  const homepage = pages.find(p => {
+    try { return new URL(p.url).pathname.replace(/\/+$/, '') === ''; } catch { return false; }
+  });
+  if (homepage) {
+    const queue: [string, number][] = [[homepage.url, 0]];
+    depthMap.set(homepage.url, 0);
+    while (queue.length > 0) {
+      const [url, depth] = queue.shift()!;
+      for (const neighbor of (adjList.get(url) || [])) {
+        if (!depthMap.has(neighbor)) {
+          depthMap.set(neighbor, depth + 1);
+          queue.push([neighbor, depth + 1]);
+        }
+      }
+    }
+  }
+
+  return pages.map(p => {
+    const issues: string[] = [];
+    const titleLen = (p.title || '').length;
+    const descLen = (p.meta_description || '').length;
+    const h1Text = p.h1 || '';
+    const wc = p.word_count || 0;
+
+    // Detect SEO issues
+    if (!p.title) issues.push('missing_title');
+    else if (titleLen > 60) issues.push('title_too_long');
+    else if (titleLen < 20) issues.push('title_too_short');
+
+    if (!p.meta_description) issues.push('missing_meta_desc');
+    else if (descLen > 160) issues.push('meta_desc_too_long');
+    else if (descLen < 50) issues.push('meta_desc_too_short');
+
+    if (!h1Text) issues.push('missing_h1');
+    if (wc > 0 && wc < 300) issues.push('thin_content');
+    if (p.http_status !== 200) issues.push('non_200_status');
+    if ((inCount.get(p.url) || 0) === 0) issues.push('orphan_page');
+    if ((depthMap.get(p.url) ?? -1) >= 4) issues.push('deep_page');
+    if ((depthMap.get(p.url) ?? -1) === -1) issues.push('unreachable');
+    if ((outCount.get(p.url) || 0) === 0 && p.http_status === 200) issues.push('dead_end');
+
+    // Canonical mismatch
+    if (p.canonical_url && p.canonical_url !== p.url) issues.push('canonical_mismatch');
+
+    // Noindex
+    if (p.robots_meta && /noindex/i.test(p.robots_meta)) issues.push('noindex');
+
+    // Missing OG
+    if (!p.og_title && !p.og_image) issues.push('missing_og');
+
+    // No schema
+    if (!p.schema_types) issues.push('no_schema');
+
+    return {
+      url: p.url,
+      title: p.title,
+      h1: h1Text,
+      meta_description: p.meta_description || '',
+      http_status: p.http_status,
+      word_count: wc,
+      images_count: p.images_count || 0,
+      canonical_url: p.canonical_url || '',
+      schema_types: p.schema_types || '',
+      robots_meta: p.robots_meta || '',
+      og_title: p.og_title || '',
+      og_description: p.og_description || '',
+      og_image: p.og_image || '',
+      internalInLinks: inCount.get(p.url) || 0,
+      internalOutLinks: outCount.get(p.url) || 0,
+      externalOutLinks: extOutCount.get(p.url) || 0,
+      clickDepth: depthMap.get(p.url) ?? -1,
+      issues,
+    };
+  });
 }

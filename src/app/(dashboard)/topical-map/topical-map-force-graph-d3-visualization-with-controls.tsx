@@ -267,15 +267,16 @@ export function TopicalMapForceGraph({ projectId }: Props) {
       .attr('d', 'M0,-5L10,0L0,5')
       .attr('fill', '#3b82f6');
 
-    // Draw edges — darker lines with arrow markers
+    // Draw edges — hide when in external links mode (edges are all internal)
+    const hideEdges = pageSortBy === 'externalLinks';
     const link = g.append('g')
       .selectAll('line')
       .data(simEdges)
       .enter().append('line')
       .attr('stroke', '#64748b')
-      .attr('stroke-opacity', 0.6)
-      .attr('stroke-width', 1.5)
-      .attr('marker-end', 'url(#arrowhead)');
+      .attr('stroke-opacity', hideEdges ? 0 : 0.6)
+      .attr('stroke-width', hideEdges ? 0 : 1.5)
+      .attr('marker-end', hideEdges ? '' : 'url(#arrowhead)');
 
     // Draw nodes
     const node = g.append('g')
