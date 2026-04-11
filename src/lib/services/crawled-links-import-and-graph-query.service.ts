@@ -300,13 +300,10 @@ export function getGraphData(sessionId: string, options?: {
   // Build edges (only between known pages for internal, cap at 3000 for performance)
   const MAX_EDGES = 3000;
   const pageUrls = new Set(pages.map(p => p.url));
+  // Only include edges where BOTH source AND target are known pages
+  // External links are tracked via externalOutLinks count, not as graph edges
   const allEdges: GraphEdge[] = dedupedLinks
-    .filter(l => {
-      if (l.link_type === 'internal') {
-        return pageUrls.has(l.source_url) && pageUrls.has(l.target_url);
-      }
-      return pageUrls.has(l.source_url); // external: source must be known
-    })
+    .filter(l => pageUrls.has(l.source_url) && pageUrls.has(l.target_url))
     .map(l => ({
       source: l.source_url,
       target: l.target_url,

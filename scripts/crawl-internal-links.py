@@ -78,14 +78,96 @@ def detect_link_position(tag) -> str:
     return "content"
 
 
+def extract_seo_details(soup, url: str) -> dict:
+    """Extract SEO-relevant metadata from parsed HTML."""
+    seo = {
+        "meta_description": "",
+        "h1": "",
+        "word_count": 0,
+        "images_count": 0,
+        "og_title": "",
+        "og_description": "",
+        "og_image": "",
+        "canonical_url": "",
+        "schema_types": "",
+        "robots_meta": "",
+    }
+
+    # Meta description
+    meta_desc = soup.find("meta", attrs={"name": re.compile(r"^description$", re.I)})
+    if meta_desc and meta_desc.get("content"):
+        seo["meta_description"] = meta_desc["content"].strip()[:500]
+
+    # H1 (first one)
+    h1_tag = soup.find("h1")
+    if h1_tag:
+        seo["h1"] = h1_tag.get_text(strip=True)[:300]
+
+    # Word count — visible body text only
+    body = soup.find("body")
+    if body:
+        # Remove script/style/nav/footer to count content words only
+        for tag in body.find_all(["script", "style", "noscript"]):
+            tag.decompose()
+        text = body.get_text(separator=" ", strip=True)
+        seo["word_count"] = len(text.split())
+
+    # Images count
+    seo["images_count"] = len(soup.find_all("img"))
+
+    # Open Graph
+    og_title = soup.find("meta", property="og:title")
+    if og_title and og_title.get("content"):
+        seo["og_title"] = og_title["content"].strip()[:300]
+    og_desc = soup.find("meta", property="og:description")
+    if og_desc and og_desc.get("content"):
+        seo["og_description"] = og_desc["content"].strip()[:500]
+    og_img = soup.find("meta", property="og:image")
+    if og_img and og_img.get("content"):
+        seo["og_image"] = og_img["content"].strip()[:500]
+
+    # Canonical URL
+    canonical = soup.find("link", rel="canonical")
+    if canonical and canonical.get("href"):
+        seo["canonical_url"] = canonical["href"].strip()[:500]
+
+    # JSON-LD schema types
+    schema_types = []
+    for script in soup.find_all("script", type="application/ld+json"):
+        try:
+            data = json.loads(script.string or "")
+            if isinstance(data, dict) and "@type" in data:
+                schema_types.append(data["@type"])
+            elif isinstance(data, list):
+                for item in data:
+                    if isinstance(item, dict) and "@type" in item:
+                        schema_types.append(item["@type"])
+            # Handle @graph
+            if isinstance(data, dict) and "@graph" in data:
+                for item in data["@graph"]:
+                    if isinstance(item, dict) and "@type" in item:
+                        schema_types.append(item["@type"])
+        except (json.JSONDecodeError, TypeError):
+            pass
+    seo["schema_types"] = ",".join(schema_types[:10]) if schema_types else ""
+
+    # Robots meta
+    robots = soup.find("meta", attrs={"name": re.compile(r"^robots$", re.I)})
+    if robots and robots.get("content"):
+        seo["robots_meta"] = robots["content"].strip()[:200]
+
+    return seo
+
+
 def fetch_page(url: str, timeout: int = DEFAULT_TIMEOUT) -> dict:
-    """Fetch a page and extract all links with metadata."""
+    """Fetch a page and extract all links + SEO metadata."""
     result = {
         "url": url,
         "status": 0,
         "title": "",
         "links": [],
         "error": None,
+        "seo": {},
     }
     try:
         resp = requests.get(
@@ -107,6 +189,9 @@ def fetch_page(url: str, timeout: int = DEFAULT_TIMEOUT) -> dict:
         # Page title
         title_tag = soup.find("title")
         result["title"] = title_tag.get_text(strip=True) if title_tag else ""
+
+        # SEO details (meta, h1, word count, images, OG, canonical, schema, robots)
+        result["seo"] = extract_seo_details(soup, url)
 
         # Extract all <a> tags
         for a_tag in soup.find_all("a", href=True):
