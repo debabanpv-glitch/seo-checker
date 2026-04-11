@@ -29,8 +29,12 @@ export const crawledPages = sqliteTable('crawled_pages', {
   // SEO details (added for full page audit)
   meta_description: text('meta_description').default(''),
   h1: text('h1').default(''),
+  h1_count: integer('h1_count').default(0),
+  h2_h6_count: integer('h2_h6_count').default(0),
   word_count: integer('word_count').default(0),
   images_count: integer('images_count').default(0),
+  images_without_alt: integer('images_without_alt').default(0),
+  meta_keywords: text('meta_keywords').default(''),
   og_title: text('og_title').default(''),
   og_description: text('og_description').default(''),
   og_image: text('og_image').default(''),

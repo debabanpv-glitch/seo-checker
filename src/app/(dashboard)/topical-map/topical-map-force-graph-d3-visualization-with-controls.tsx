@@ -14,6 +14,7 @@ interface GraphNode extends d3.SimulationNodeDatum {
   internalInLinks: number;
   internalOutLinks: number;
   externalOutLinks: number;
+  externalDomains: string[];
   group: string;
   clickDepth: number;
 }
@@ -508,10 +509,11 @@ export function TopicalMapForceGraph({ projectId }: Props) {
         <button
           onClick={async () => {
             if (isCrawling) return;
-            // Get project domain from API
-            const projRes = await fetch(`/api/v1/projects?id=${projectId}`);
+            // Get project domain from projects list API
+            const projRes = await fetch('/api/v1/projects');
             const projData = await projRes.json();
-            const domain = projData.project?.website || projData.project?.project_domain;
+            const proj = (projData.projects || []).find((p: Record<string, unknown>) => p.id === projectId);
+            const domain = proj?.website || proj?.project_domain;
             if (!domain) { alert('Không tìm thấy domain của project'); return; }
             const url = domain.startsWith('http') ? domain : `https://${domain}`;
             if (!confirm(`Crawl ${url}? (có thể mất 5-30 phút tùy số trang)`)) return;
@@ -923,14 +925,27 @@ export function TopicalMapForceGraph({ projectId }: Props) {
                       <div className="text-[10px] text-[var(--text-primary)] truncate" title={n.title}>
                         {n.title || getPath(n.id)}
                       </div>
-                      <div className="flex items-center gap-2 text-[9px] text-[var(--text-muted)]">
-                        <span className="truncate flex-1">{getPath(n.id)}</span>
-                        <span className={`shrink-0 ${n.clickDepth > 3 ? 'text-red-500' : n.clickDepth === -1 ? 'text-red-500' : ''}`}>
-                          d:{n.clickDepth === -1 ? '∞' : n.clickDepth}
-                        </span>
-                        <span className="shrink-0">←{n.internalInLinks}</span>
-                        <span className="shrink-0">→{n.internalOutLinks}</span>
-                      </div>
+                      {pageSortBy === 'externalLinks' ? (
+                        /* External links mode: show full URL + external domains */
+                        <div className="text-[9px] text-[var(--text-muted)]">
+                          <div className="truncate">{n.id}</div>
+                          {n.externalDomains.length > 0 && (
+                            <div className="text-amber-600 truncate">
+                              ↗ {n.externalOutLinks}: {n.externalDomains.slice(0, 3).join(', ')}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        /* Internal/depth mode */
+                        <div className="flex items-center gap-2 text-[9px] text-[var(--text-muted)]">
+                          <span className="truncate flex-1">{getPath(n.id)}</span>
+                          <span className={`shrink-0 ${n.clickDepth > 3 ? 'text-red-500' : n.clickDepth === -1 ? 'text-red-500' : ''}`}>
+                            d:{n.clickDepth === -1 ? '∞' : n.clickDepth}
+                          </span>
+                          <span className="shrink-0">←{n.internalInLinks}</span>
+                          <span className="shrink-0">→{n.internalOutLinks}</span>
+                        </div>
+                      )}
                     </div>
                   ));
                 })()}

@@ -24,8 +24,9 @@ interface CrawlImportData {
   };
   nodes: Array<{
     url: string; title: string; status: number; error?: string | null;
-    meta_description?: string; h1?: string; word_count?: number; images_count?: number;
-    og_title?: string; og_description?: string; og_image?: string;
+    meta_description?: string; h1?: string; h1_count?: number; h2_h6_count?: number;
+    word_count?: number; images_count?: number; images_without_alt?: number;
+    meta_keywords?: string; og_title?: string; og_description?: string; og_image?: string;
     canonical_url?: string; schema_types?: string; robots_meta?: string;
   }>;
   edges: Array<{
@@ -45,6 +46,7 @@ export interface GraphNode {
   internalInLinks: number;  // incoming internal links
   internalOutLinks: number; // outgoing internal links
   externalOutLinks: number;
+  externalDomains: string[]; // top external domains linked from this page
   group: string; // content type group for coloring
   clickDepth: number; // BFS distance from homepage (0 = homepage, -1 = unreachable)
 }
@@ -106,8 +108,12 @@ export function importCrawlData(projectId: string, data: CrawlImportData): strin
         error: n.error || null,
         meta_description: n.meta_description || '',
         h1: n.h1 || '',
+        h1_count: n.h1_count || 0,
+        h2_h6_count: n.h2_h6_count || 0,
         word_count: n.word_count || 0,
         images_count: n.images_count || 0,
+        images_without_alt: n.images_without_alt || 0,
+        meta_keywords: n.meta_keywords || '',
         og_title: n.og_title || '',
         og_description: n.og_description || '',
         og_image: n.og_image || '',
@@ -216,9 +222,17 @@ export function getGraphData(sessionId: string, options?: {
     .where(eq(crawledLinks.session_id, sessionId))
     .all();
 
+  // Track external link domains per source page
+  const extDomainsMap = new Map<string, Map<string, number>>(); // source → { domain → count }
   for (const l of allLinksUnfiltered) {
     if (l.link_type === 'external') {
       extOutCount.set(l.source_url, (extOutCount.get(l.source_url) || 0) + 1);
+      try {
+        const domain = new URL(l.target_url).hostname.replace(/^www\./, '');
+        if (!extDomainsMap.has(l.source_url)) extDomainsMap.set(l.source_url, new Map());
+        const dm = extDomainsMap.get(l.source_url)!;
+        dm.set(domain, (dm.get(domain) || 0) + 1);
+      } catch { /* invalid URL */ }
     }
   }
 
@@ -309,6 +323,11 @@ export function getGraphData(sessionId: string, options?: {
     internalInLinks: inCount.get(p.url) || 0,
     internalOutLinks: outCount.get(p.url) || 0,
     externalOutLinks: extOutCount.get(p.url) || 0,
+    externalDomains: (() => {
+      const dm = extDomainsMap.get(p.url);
+      if (!dm) return [];
+      return [...dm.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([d, c]) => `${d} (${c})`);
+    })(),
     group: getContentGroup(p.url, p.title),
   }));
 
@@ -417,22 +436,31 @@ export function getLinksForUrl(sessionId: string, url: string) {
 export interface AuditPageRow {
   url: string;
   title: string;
+  titleLength: number;
   h1: string;
+  h1Count: number;
+  h2H6Count: number;
   meta_description: string;
+  metaDescLength: number;
+  meta_keywords: string;
   http_status: number;
   word_count: number;
   images_count: number;
+  imagesWithoutAlt: number;
   canonical_url: string;
   schema_types: string;
   robots_meta: string;
+  robotsAllowed: boolean;
   og_title: string;
   og_description: string;
   og_image: string;
-  internalInLinks: number;
-  internalOutLinks: number;
-  externalOutLinks: number;
+  internalInLinks: number;   // links TO this page (internal)
+  internalOutLinks: number;  // internal links FROM this page
+  externalOutLinks: number;  // external links FROM this page
+  totalLinksFromPage: number;
+  nofollowLinks: number;     // nofollow links FROM this page
   clickDepth: number;
-  issues: string[]; // detected SEO issues
+  issues: string[];
 }
 
 /** Get all pages with SEO audit data for the All Pages table */
@@ -449,6 +477,7 @@ export function getAllPagesAudit(sessionId: string): AuditPageRow[] {
   const inCount = new Map<string, number>();
   const outCount = new Map<string, number>();
   const extOutCount = new Map<string, number>();
+  const nofollowCount = new Map<string, number>();
 
   for (const l of links) {
     if (l.link_type === 'internal') {
@@ -456,6 +485,9 @@ export function getAllPagesAudit(sessionId: string): AuditPageRow[] {
       outCount.set(l.source_url, (outCount.get(l.source_url) || 0) + 1);
     } else {
       extOutCount.set(l.source_url, (extOutCount.get(l.source_url) || 0) + 1);
+    }
+    if (l.nofollow) {
+      nofollowCount.set(l.source_url, (nofollowCount.get(l.source_url) || 0) + 1);
     }
   }
 
@@ -504,6 +536,8 @@ export function getAllPagesAudit(sessionId: string): AuditPageRow[] {
     else if (descLen < 50) issues.push('meta_desc_too_short');
 
     if (!h1Text) issues.push('missing_h1');
+    if ((p.h1_count || 0) > 1) issues.push('multiple_h1');
+    if ((p.images_without_alt || 0) > 0) issues.push('images_missing_alt');
     if (wc > 0 && wc < 300) issues.push('thin_content');
     if (p.http_status !== 200) issues.push('non_200_status');
     if ((inCount.get(p.url) || 0) === 0) issues.push('orphan_page');
@@ -523,23 +557,36 @@ export function getAllPagesAudit(sessionId: string): AuditPageRow[] {
     // No schema
     if (!p.schema_types) issues.push('no_schema');
 
+    const intIn = inCount.get(p.url) || 0;
+    const intOut = outCount.get(p.url) || 0;
+    const extOut = extOutCount.get(p.url) || 0;
+
     return {
       url: p.url,
       title: p.title,
+      titleLength: titleLen,
       h1: h1Text,
+      h1Count: p.h1_count || 0,
+      h2H6Count: p.h2_h6_count || 0,
       meta_description: p.meta_description || '',
+      metaDescLength: descLen,
+      meta_keywords: p.meta_keywords || '',
       http_status: p.http_status,
       word_count: wc,
       images_count: p.images_count || 0,
+      imagesWithoutAlt: p.images_without_alt || 0,
       canonical_url: p.canonical_url || '',
       schema_types: p.schema_types || '',
       robots_meta: p.robots_meta || '',
+      robotsAllowed: !p.robots_meta || !/noindex/i.test(p.robots_meta),
       og_title: p.og_title || '',
       og_description: p.og_description || '',
       og_image: p.og_image || '',
-      internalInLinks: inCount.get(p.url) || 0,
-      internalOutLinks: outCount.get(p.url) || 0,
-      externalOutLinks: extOutCount.get(p.url) || 0,
+      internalInLinks: intIn,
+      internalOutLinks: intOut,
+      externalOutLinks: extOut,
+      totalLinksFromPage: intOut + extOut,
+      nofollowLinks: nofollowCount.get(p.url) || 0,
       clickDepth: depthMap.get(p.url) ?? -1,
       issues,
     };

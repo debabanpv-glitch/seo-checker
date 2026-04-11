@@ -83,8 +83,12 @@ def extract_seo_details(soup, url: str) -> dict:
     seo = {
         "meta_description": "",
         "h1": "",
+        "h1_count": 0,
+        "h2_h6_count": 0,
         "word_count": 0,
         "images_count": 0,
+        "images_without_alt": 0,
+        "meta_keywords": "",
         "og_title": "",
         "og_description": "",
         "og_image": "",
@@ -98,10 +102,14 @@ def extract_seo_details(soup, url: str) -> dict:
     if meta_desc and meta_desc.get("content"):
         seo["meta_description"] = meta_desc["content"].strip()[:500]
 
-    # H1 (first one)
-    h1_tag = soup.find("h1")
-    if h1_tag:
-        seo["h1"] = h1_tag.get_text(strip=True)[:300]
+    # H1 (first one + count)
+    h1_tags = soup.find_all("h1")
+    seo["h1_count"] = len(h1_tags)
+    if h1_tags:
+        seo["h1"] = h1_tags[0].get_text(strip=True)[:300]
+
+    # H2-H6 count
+    seo["h2_h6_count"] = len(soup.find_all(["h2", "h3", "h4", "h5", "h6"]))
 
     # Word count — visible body text only
     body = soup.find("body")
@@ -112,8 +120,15 @@ def extract_seo_details(soup, url: str) -> dict:
         text = body.get_text(separator=" ", strip=True)
         seo["word_count"] = len(text.split())
 
-    # Images count
-    seo["images_count"] = len(soup.find_all("img"))
+    # Images count + images without alt
+    all_imgs = soup.find_all("img")
+    seo["images_count"] = len(all_imgs)
+    seo["images_without_alt"] = sum(1 for img in all_imgs if not (img.get("alt") or "").strip())
+
+    # Meta keywords
+    meta_kw = soup.find("meta", attrs={"name": re.compile(r"^keywords$", re.I)})
+    if meta_kw and meta_kw.get("content"):
+        seo["meta_keywords"] = meta_kw["content"].strip()[:500]
 
     # Open Graph
     og_title = soup.find("meta", property="og:title")
