@@ -40,7 +40,8 @@ export interface GraphNode {
   internalInLinks: number;  // incoming internal links
   internalOutLinks: number; // outgoing internal links
   externalOutLinks: number;
-  group: string; // URL directory prefix for coloring
+  group: string; // content type group for coloring
+  clickDepth: number; // BFS distance from homepage (0 = homepage, -1 = unreachable)
 }
 
 export interface GraphEdge {
@@ -204,41 +205,76 @@ export function getGraphData(sessionId: string, options?: {
     }
   }
 
-  // Group pages into 4 clear categories:
-  // - Trang chủ: homepage
-  // - Tour: tour product pages (main content)
-  // - Nội dung: blog, ẩm thực, điểm đến, cẩm nang, tin tức — all content/editorial
-  // - Hỗ trợ: chính sách, giới thiệu, liên hệ, cart, checkout, album
+  // Auto-detect content group from URL structure + title
+  // Works across different site types: tour, e-commerce, blog
   const getContentGroup = (url: string, title: string): string => {
     try {
       const path = new URL(url).pathname.toLowerCase();
       const slug = path.replace(/^\/|\/$/g, '');
       const t = title.toLowerCase();
+      const segments = slug.split('/');
 
       if (path === '/' || path === '') return 'Trang chủ';
 
-      // Tour product pages
+      // --- Category / listing pages (usually have sub-pages) ---
+      // WP/WC category patterns
+      if (slug.startsWith('danh-muc') || slug.startsWith('product-category')
+        || slug.startsWith('category/') || slug.startsWith('chuyen-muc')
+        || slug.startsWith('san-pham/') && segments.length === 2  // /san-pham/category-name/
+        || t.includes('danh mục') || t.includes('chuyên mục')) {
+        // Sub-categorize: product category vs blog category
+        if (slug.includes('san-pham') || slug.includes('product')
+          || t.includes('sản phẩm') || t.includes('máy in') || t.includes('máy quét')
+          || t.includes('mực in') || t.includes('nhãn') || t.includes('ribbon')) return 'DM Sản phẩm';
+        return 'DM Blog';
+      }
+
+      // Archive / tag pages
+      if (slug.startsWith('tag/') || slug.startsWith('author/') || slug.startsWith('page/')) return 'Hỗ trợ';
+
+      // --- Product pages ---
+      if (slug.startsWith('san-pham/') || slug.startsWith('product/')
+        || slug.startsWith('shop/') || slug.startsWith('woocommerce')
+        || t.includes('mua ngay') || t.includes('giá:')
+        || t.includes('máy in ') || t.includes('máy quét ') || t.includes('mực in ')
+        || t.includes('đầu in ') || t.includes('ribbon ')
+        || t.includes('nhãn in ') || t.includes('tem nhãn')) return 'Sản phẩm';
+
+      // --- Blog / content pages ---
+      if (slug.startsWith('blog') || slug.startsWith('tin-tuc') || slug.startsWith('bai-viet')
+        || slug.startsWith('cam-nang') || slug.startsWith('kinh-nghiem')
+        || slug.startsWith('huong-dan') || slug.startsWith('meo-')
+        || t.includes('hướng dẫn') || t.includes('cách ') || t.includes('kinh nghiệm')
+        || t.includes('cẩm nang') || t.includes('mẹo ') || t.includes('bí quyết')
+        || t.includes('top ') || t.includes('so sánh')) return 'Blog';
+
+      // --- Tour-specific (DLBM) ---
       if (slug.startsWith('tour') || slug.startsWith('dlbm')
         || slug.startsWith('tp-hcm') || slug.startsWith('tphcm')
         || t.includes('tour ') || t.includes(' tour')
         || slug.includes('-ngay-') || slug.includes('-dem-')) return 'Tour';
 
-      // Schedule / listing
-      if (slug.startsWith('lich-') || slug.startsWith('tour-trong') || slug.startsWith('tour-ban-chay')
-        || t.includes('lịch khởi hành')) return 'Danh mục';
+      // --- Food/destination (DLBM) ---
+      if (slug.startsWith('an-gi') || slug.startsWith('an-toi')
+        || t.includes('ăn gì') || t.includes('ẩm thực')
+        || t.includes('đặc sản')) return 'Ẩm thực';
 
-      // Support / utility pages
-      if (slug.startsWith('chinh-sach') || slug.startsWith('dieu-kien') || slug.startsWith('dieu-khoan')
+      // --- Schedule / listing ---
+      if (slug.startsWith('lich-') || t.includes('lịch khởi hành')) return 'Danh mục';
+
+      // --- Support pages ---
+      if (slug.startsWith('chinh-sach') || slug.startsWith('dieu-kien')
         || slug.startsWith('cart') || slug.startsWith('checkout') || slug.startsWith('thanh-toan')
         || slug.startsWith('gioi-thieu') || slug.startsWith('about')
         || slug.startsWith('lien-he') || slug.startsWith('contact')
-        || slug.startsWith('album')
+        || slug.startsWith('album') || slug.startsWith('my-account')
+        || slug.startsWith('gio-hang') || slug.startsWith('dat-hang')
         || t.includes('chính sách') || t.includes('điều khoản')
         || t.includes('giỏ hàng') || t.includes('giới thiệu') || t.includes('liên hệ')) return 'Hỗ trợ';
 
-      // Everything else = content (blog, food, destinations, guides)
-      return 'Nội dung';
-    } catch { return 'Nội dung'; }
+      // Fallback
+      return 'Khác';
+    } catch { return 'Khác'; }
   };
 
   const nodes: GraphNode[] = pages.map(p => ({
@@ -268,6 +304,41 @@ export function getGraphData(sessionId: string, options?: {
       nofollow: l.nofollow as boolean,
     }));
 
+  // --- Compute click depth via BFS from homepage ---
+  // Build adjacency list from deduped internal edges
+  const adjList = new Map<string, string[]>();
+  for (const e of edges) {
+    if (!pageUrls.has(e.target)) continue; // internal only
+    if (!adjList.has(e.source)) adjList.set(e.source, []);
+    adjList.get(e.source)!.push(e.target);
+  }
+
+  // Find homepage (path = "/" or empty)
+  const depthMap = new Map<string, number>();
+  const homepage = nodes.find(n => {
+    try { return new URL(n.id).pathname.replace(/\/+$/, '') === ''; } catch { return false; }
+  });
+
+  if (homepage) {
+    // BFS
+    const queue: [string, number][] = [[homepage.id, 0]];
+    depthMap.set(homepage.id, 0);
+    while (queue.length > 0) {
+      const [url, depth] = queue.shift()!;
+      for (const neighbor of (adjList.get(url) || [])) {
+        if (!depthMap.has(neighbor)) {
+          depthMap.set(neighbor, depth + 1);
+          queue.push([neighbor, depth + 1]);
+        }
+      }
+    }
+  }
+
+  // Assign click depth to nodes
+  for (const node of nodes) {
+    node.clickDepth = depthMap.get(node.id) ?? -1; // -1 = unreachable from homepage
+  }
+
   // Summary stats
   const orphanPages = nodes.filter(n => n.internalInLinks === 0).length;
   const totalIn = Array.from(inCount.values()).reduce((a, b) => a + b, 0);
@@ -281,6 +352,14 @@ export function getGraphData(sessionId: string, options?: {
       totalExternalLinks: allLinksUnfiltered.filter(l => l.link_type === 'external').length,
       avgInLinksPerPage: nodes.length > 0 ? Math.round(totalIn / nodes.length * 10) / 10 : 0,
       orphanPages,
+      clickDepthDistribution: {
+        depth0: nodes.filter(n => n.clickDepth === 0).length,
+        depth1: nodes.filter(n => n.clickDepth === 1).length,
+        depth2: nodes.filter(n => n.clickDepth === 2).length,
+        depth3: nodes.filter(n => n.clickDepth === 3).length,
+        depth4plus: nodes.filter(n => n.clickDepth >= 4).length,
+        unreachable: nodes.filter(n => n.clickDepth === -1).length,
+      },
     },
   };
 }

@@ -158,17 +158,37 @@ def fetch_page(url: str, timeout: int = DEFAULT_TIMEOUT) -> dict:
 def fetch_sitemap_urls(domain: str) -> list[str]:
     """Fetch all URLs from sitemap.xml (supports sitemap index)."""
     urls = []
-    sitemap_url = f"https://{domain}/sitemap.xml"
+    # Try multiple sitemap locations — validate XML content
+    import xml.etree.ElementTree as ET
+
+    sitemap_candidates = [
+        f"https://{domain}/sitemap_index.xml",
+        f"https://{domain}/sitemap.xml",
+        f"https://{domain}/wp-sitemap.xml",
+    ]
+    sitemap_url = None
+    sitemap_content = None
+    for candidate in sitemap_candidates:
+        try:
+            r = requests.get(candidate, headers={"User-Agent": USER_AGENT}, timeout=10, allow_redirects=True)
+            if r.status_code == 200 and "<?xml" in r.text[:100]:
+                ET.fromstring(r.text)  # validate XML
+                sitemap_url = candidate
+                sitemap_content = r.text
+                break
+        except ET.ParseError:
+            continue
+        except Exception:
+            continue
+
+    if not sitemap_url:
+        print(f"\n📋 No valid sitemap found for {domain}")
+        return urls
+
     print(f"\n📋 Fetching sitemap: {sitemap_url}")
 
     try:
-        resp = requests.get(sitemap_url, headers={"User-Agent": USER_AGENT}, timeout=15)
-        if resp.status_code != 200:
-            print(f"   ⚠ Sitemap not found ({resp.status_code})")
-            return urls
-
-        import xml.etree.ElementTree as ET
-        root = ET.fromstring(resp.text)
+        root = ET.fromstring(sitemap_content)
         ns = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9"}
 
         # Check if sitemap index

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Network, Upload, Trash2, RefreshCw, ExternalLink } from 'lucide-react';
+import { Network, Upload, Trash2, RefreshCw, ExternalLink, Search } from 'lucide-react';
 import * as d3 from 'd3';
 import { AnchorTextAnalysis } from './topical-map-anchor-text-analysis-table';
 
@@ -15,6 +15,7 @@ interface GraphNode extends d3.SimulationNodeDatum {
   internalOutLinks: number;
   externalOutLinks: number;
   group: string;
+  clickDepth: number;
 }
 
 interface GraphEdge {
@@ -82,6 +83,9 @@ export function TopicalMapForceGraph({ projectId }: Props) {
   const [linkDirection, setLinkDirection] = useState<'all' | 'in' | 'out'>('all');
   const [importFile, setImportFile] = useState<File | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [pageSearch, setPageSearch] = useState('');
+  const [pageSortBy, setPageSortBy] = useState<'depth' | 'inLinks' | 'outLinks'>('depth');
+  const [depthFilter, setDepthFilter] = useState<'all' | '4+' | '3' | '2' | '1' | '0' | 'unreachable'>('4+');
 
   // Tooltip
   const [tooltip, setTooltip] = useState<{ x: number; y: number; node: GraphNode } | null>(null);
@@ -211,40 +215,40 @@ export function TopicalMapForceGraph({ projectId }: Props) {
       .on('zoom', (event) => g.attr('transform', event.transform));
     svg.call(zoom);
 
-    // Arrow marker for directed edges
+    // Arrow markers for directed edges — larger + more visible
     const defs = svg.append('defs');
     defs.append('marker')
       .attr('id', 'arrowhead')
-      .attr('viewBox', '0 -5 10 10')
-      .attr('refX', 15)
+      .attr('viewBox', '0 -6 12 12')
+      .attr('refX', 18)
       .attr('refY', 0)
-      .attr('markerWidth', 8)
-      .attr('markerHeight', 8)
+      .attr('markerWidth', 10)
+      .attr('markerHeight', 10)
       .attr('orient', 'auto')
       .append('path')
-      .attr('d', 'M0,-4L8,0L0,4')
-      .attr('fill', '#94a3b8');
+      .attr('d', 'M0,-5L10,0L0,5')
+      .attr('fill', '#64748b');
     // Highlighted arrow
     defs.append('marker')
       .attr('id', 'arrowhead-hover')
-      .attr('viewBox', '0 -5 10 10')
-      .attr('refX', 15)
+      .attr('viewBox', '0 -6 12 12')
+      .attr('refX', 18)
       .attr('refY', 0)
-      .attr('markerWidth', 8)
-      .attr('markerHeight', 8)
+      .attr('markerWidth', 10)
+      .attr('markerHeight', 10)
       .attr('orient', 'auto')
       .append('path')
-      .attr('d', 'M0,-4L8,0L0,4')
+      .attr('d', 'M0,-5L10,0L0,5')
       .attr('fill', '#3b82f6');
 
-    // Draw edges — visible lines with color
+    // Draw edges — darker lines with arrow markers
     const link = g.append('g')
       .selectAll('line')
       .data(simEdges)
       .enter().append('line')
-      .attr('stroke', '#94a3b8')
-      .attr('stroke-opacity', 0.5)
-      .attr('stroke-width', 1)
+      .attr('stroke', '#64748b')
+      .attr('stroke-opacity', 0.6)
+      .attr('stroke-width', 1.5)
       .attr('marker-end', 'url(#arrowhead)');
 
     // Draw nodes
@@ -284,7 +288,7 @@ export function TopicalMapForceGraph({ projectId }: Props) {
       })
       .on('mouseout', function () {
         d3.select(this).attr('stroke', '#fff').attr('stroke-width', 1.5);
-        link.attr('stroke-opacity', 0.5).attr('stroke-width', 1).attr('stroke', '#94a3b8').attr('marker-end', 'url(#arrowhead)');
+        link.attr('stroke-opacity', 0.6).attr('stroke-width', 1.5).attr('stroke', '#64748b').attr('marker-end', 'url(#arrowhead)');
         node.attr('opacity', 1);
         setTooltip(null);
       })
@@ -495,11 +499,23 @@ export function TopicalMapForceGraph({ projectId }: Props) {
         <div className="flex gap-4 text-sm text-[var(--text-secondary)]">
           <span><strong>{graphData.summary.totalPages}</strong> trang</span>
           <span><strong>{graphData.summary.totalInternalLinks}</strong> link nội bộ</span>
-          <span><strong>{graphData.summary.totalExternalLinks}</strong> link ngoài</span>
           <span>TB <strong>{graphData.summary.avgInLinksPerPage}</strong> link vào/trang</span>
           {graphData.summary.orphanPages > 0 && (
-            <span className="text-amber-500"><strong>{graphData.summary.orphanPages}</strong> trang mồ côi (0 link vào)</span>
+            <span className="text-amber-500"><strong>{graphData.summary.orphanPages}</strong> mồ côi</span>
           )}
+          {graphData.summary.clickDepthDistribution && (() => {
+            const d = graphData.summary.clickDepthDistribution;
+            return (
+              <span className="flex items-center gap-1">
+                Click depth:
+                <span className="text-green-600" title="Depth 0-1">{d.depth0 + d.depth1}</span>/
+                <span className="text-blue-500" title="Depth 2">{d.depth2}</span>/
+                <span className="text-amber-500" title="Depth 3">{d.depth3}</span>/
+                <span className={d.depth4plus > 0 ? 'text-red-500' : 'text-[var(--text-muted)]'} title="Depth 4+">{d.depth4plus}</span>
+                {d.unreachable > 0 && <span className="text-red-500" title="Không truy cập được từ trang chủ">({d.unreachable} ∞)</span>}
+              </span>
+            );
+          })()}
         </div>
       )}
 
@@ -542,14 +558,14 @@ export function TopicalMapForceGraph({ projectId }: Props) {
               <div className="flex gap-3 mt-1 text-[var(--text-secondary)]">
                 <span>← {tooltip.node.internalInLinks} vào</span>
                 <span>→ {tooltip.node.internalOutLinks} ra</span>
-                <span>↗ {tooltip.node.externalOutLinks} ngoài</span>
+                <span>🔽 depth {tooltip.node.clickDepth === -1 ? '∞' : tooltip.node.clickDepth}</span>
               </div>
             </div>
           )}
         </div>
 
-        {/* Controls sidebar */}
-        <div className="w-56 space-y-4 shrink-0">
+        {/* Right panel: controls + all pages */}
+        <div className="w-64 shrink-0 flex flex-col gap-3 overflow-hidden">
           {/* Force slider */}
           <div>
             <label className="text-xs font-medium text-[var(--text-secondary)] mb-1 block">Lực đẩy</label>
@@ -639,8 +655,10 @@ export function TopicalMapForceGraph({ projectId }: Props) {
                   <div className="text-[var(--text-muted)]">Ra</div>
                 </div>
                 <div className="bg-[var(--bg-card)] rounded p-1.5">
-                  <div className="font-bold text-amber-500">{selectedNode.externalOutLinks}</div>
-                  <div className="text-[var(--text-muted)]">Ngoài</div>
+                  <div className={`font-bold ${selectedNode.clickDepth > 3 ? 'text-red-500' : selectedNode.clickDepth === -1 ? 'text-red-500' : 'text-purple-500'}`}>
+                    {selectedNode.clickDepth === -1 ? '∞' : selectedNode.clickDepth}
+                  </div>
+                  <div className="text-[var(--text-muted)]">Depth</div>
                 </div>
               </div>
               <div className="text-xs text-[var(--text-muted)]">Nhóm: {selectedNode.group}</div>
@@ -687,9 +705,7 @@ export function TopicalMapForceGraph({ projectId }: Props) {
                     )}
                   </div>
                   {groups.map(group => {
-                    const groupNodes = graphData.nodes.filter(n => n.group === group);
-                    const count = groupNodes.length;
-                    const extLinks = groupNodes.reduce((s, n) => s + n.externalOutLinks, 0);
+                    const count = graphData.nodes.filter(n => n.group === group).length;
                     const colorIdx = groups.indexOf(group) % COLORS.length;
                     const isActive = selectedGroups.has(group);
                     const hasFilter = selectedGroups.size > 0;
@@ -708,9 +724,6 @@ export function TopicalMapForceGraph({ projectId }: Props) {
                         <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: COLORS[colorIdx] }} />
                         <span className="text-[var(--text-secondary)] truncate flex-1">{group}</span>
                         <span className="text-[var(--text-muted)] tabular-nums">{count}</span>
-                        {extLinks > 0 && (
-                          <span className="text-amber-500 tabular-nums" title="Link ngoài">↗{extLinks}</span>
-                        )}
                       </div>
                     );
                   })}
@@ -718,6 +731,109 @@ export function TopicalMapForceGraph({ projectId }: Props) {
               );
             })()}
           </div>
+
+          {/* All Pages panel */}
+          {graphData && graphData.nodes.length > 0 && (
+            <div className="flex-1 min-h-0 flex flex-col bg-[var(--bg-card)] border border-[var(--border)] rounded-lg overflow-hidden">
+              <div className="px-3 py-2 border-b border-[var(--border)] space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-[var(--text-primary)]">All pages</span>
+                  <select
+                    value={pageSortBy}
+                    onChange={e => setPageSortBy(e.target.value as 'depth' | 'inLinks' | 'outLinks')}
+                    className="px-1.5 py-0.5 bg-[var(--bg-accent)] border border-[var(--border)] rounded text-[10px] text-[var(--text-primary)]"
+                  >
+                    <option value="depth">Click depth</option>
+                    <option value="inLinks">Links vào</option>
+                    <option value="outLinks">Links ra</option>
+                  </select>
+                </div>
+                {/* Depth filter tabs */}
+                <div className="flex flex-wrap gap-1">
+                  {([
+                    ['all', 'Tất cả'],
+                    ['4+', '4+ ⚠'],
+                    ['unreachable', '∞'],
+                    ['3', 'D3'],
+                    ['2', 'D2'],
+                    ['1', 'D1'],
+                    ['0', 'D0'],
+                  ] as const).map(([val, label]) => {
+                    const count = val === 'all' ? graphData.nodes.length
+                      : val === '4+' ? graphData.nodes.filter(n => n.clickDepth >= 4).length
+                      : val === 'unreachable' ? graphData.nodes.filter(n => n.clickDepth === -1).length
+                      : graphData.nodes.filter(n => n.clickDepth === Number(val)).length;
+                    return (
+                      <button
+                        key={val}
+                        onClick={() => setDepthFilter(val)}
+                        className={`px-1.5 py-0.5 rounded text-[10px] transition-colors ${
+                          depthFilter === val
+                            ? val === '4+' || val === 'unreachable'
+                              ? 'bg-red-100 text-red-700 ring-1 ring-red-300'
+                              : 'bg-blue-100 text-blue-700 ring-1 ring-blue-300'
+                            : 'bg-[var(--bg-accent)] text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                        }`}
+                      >
+                        {label} <span className="opacity-60">{count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="relative">
+                  <Search className="w-3 h-3 absolute left-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                  <input
+                    type="text"
+                    value={pageSearch}
+                    onChange={e => setPageSearch(e.target.value)}
+                    placeholder="Tìm trang..."
+                    className="w-full pl-7 pr-2 py-1 bg-[var(--bg-accent)] border border-[var(--border)] rounded text-[10px] text-[var(--text-primary)]"
+                  />
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                {(() => {
+                  const q = pageSearch.toLowerCase();
+                  const filtered = graphData.nodes
+                    .filter(n => {
+                      // Depth filter
+                      if (depthFilter === '4+' && n.clickDepth < 4 && n.clickDepth !== -1) return false;
+                      if (depthFilter === 'unreachable' && n.clickDepth !== -1) return false;
+                      if (['0', '1', '2', '3'].includes(depthFilter) && n.clickDepth !== Number(depthFilter)) return false;
+                      // Search filter
+                      if (q && !n.title.toLowerCase().includes(q) && !n.id.toLowerCase().includes(q)) return false;
+                      return true;
+                    })
+                    .sort((a, b) => {
+                      if (pageSortBy === 'depth') return (a.clickDepth === -1 ? 999 : a.clickDepth) - (b.clickDepth === -1 ? 999 : b.clickDepth);
+                      if (pageSortBy === 'inLinks') return b.internalInLinks - a.internalInLinks;
+                      return b.internalOutLinks - a.internalOutLinks;
+                    });
+                  return filtered.slice(0, 200).map(n => (
+                    <div
+                      key={n.id}
+                      onClick={() => setSelectedNode(n)}
+                      className={`px-3 py-1.5 border-b border-[var(--border)]/30 cursor-pointer hover:bg-[var(--bg-accent)] transition-colors ${
+                        selectedNode?.id === n.id ? 'bg-blue-50' : ''
+                      }`}
+                    >
+                      <div className="text-[10px] text-[var(--text-primary)] truncate" title={n.title}>
+                        {n.title || getPath(n.id)}
+                      </div>
+                      <div className="flex items-center gap-2 text-[9px] text-[var(--text-muted)]">
+                        <span className="truncate flex-1">{getPath(n.id)}</span>
+                        <span className={`shrink-0 ${n.clickDepth > 3 ? 'text-red-500' : n.clickDepth === -1 ? 'text-red-500' : ''}`}>
+                          d:{n.clickDepth === -1 ? '∞' : n.clickDepth}
+                        </span>
+                        <span className="shrink-0">←{n.internalInLinks}</span>
+                        <span className="shrink-0">→{n.internalOutLinks}</span>
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
