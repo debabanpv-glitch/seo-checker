@@ -860,140 +860,105 @@ export function TopicalMapForceGraph({ projectId }: Props) {
         </div>
       </div>
 
-      {/* Dynamic Charts — changes based on pageSortBy selection */}
+      {/* Actionable Insights — problems + recommendations */}
       {graphData && graphData.nodes.length > 0 && (() => {
         const ns = graphData.nodes;
-        const sW = 700, sH = 300, sPad = { t: 20, r: 20, b: 40, l: 55 };
-        const sInnerW = sW - sPad.l - sPad.r;
-        const sInnerH = sH - sPad.t - sPad.b;
 
-        // --- Config per view mode ---
-        const configs = {
-          depth: {
-            histTitle: 'Click Depth — Phân bố trang theo độ sâu',
-            histNote: 'Depth 0-2 = tốt · 3 = chấp nhận · 4+ = quá sâu · ∞ = không truy cập được',
-            scatterTitle: 'Inbound Links × Click Depth',
-            scatterNote: 'Góc phải-dưới = nhiều link nhưng depth sâu → vấn đề cấu trúc',
-            xLabel: 'Inbound Links', yLabel: 'Click Depth',
-            getX: (n: GraphNode) => n.internalInLinks,
-            getY: (n: GraphNode) => n.clickDepth,
-            dotColor: (n: GraphNode) => n.clickDepth > 3 ? '#ef4444' : n.clickDepth > 2 ? '#f59e0b' : '#3b82f6',
-            warnY: 3,
-          },
-          inLinks: {
-            histTitle: 'Inbound Links — Phân bố theo số link trỏ đến',
-            histNote: '0 = mồ côi · 1-5 = yếu · 6-20 = trung bình · 20+ = mạnh',
-            scatterTitle: 'Inbound Links × Outbound Links',
-            scatterNote: 'Góc trái-trên = nhận ít, gửi nhiều → link equity bị rò',
-            xLabel: 'Outbound Links', yLabel: 'Inbound Links',
-            getX: (n: GraphNode) => n.internalOutLinks,
-            getY: (n: GraphNode) => n.internalInLinks,
-            dotColor: (n: GraphNode) => n.internalInLinks === 0 ? '#ef4444' : n.internalInLinks < 5 ? '#f59e0b' : '#3b82f6',
-            warnY: -1,
-          },
-          outLinks: {
-            histTitle: 'Outbound Links — Phân bố theo số link đi ra',
-            histNote: '0 = dead end · 1-5 = ít · 6-20 = tốt · 50+ = quá nhiều',
-            scatterTitle: 'Outbound Links × Click Depth',
-            scatterNote: 'Góc phải-dưới = nhiều link ra nhưng depth sâu',
-            xLabel: 'Outbound Links', yLabel: 'Click Depth',
-            getX: (n: GraphNode) => n.internalOutLinks,
-            getY: (n: GraphNode) => n.clickDepth >= 0 ? n.clickDepth : 0,
-            dotColor: (n: GraphNode) => n.internalOutLinks === 0 ? '#ef4444' : n.internalOutLinks > 50 ? '#f59e0b' : '#3b82f6',
-            warnY: -1,
-          },
-        };
-        const cfg = configs[pageSortBy];
+        // Build issues list based on current view mode
+        type Issue = { severity: 'critical' | 'warning' | 'info'; title: string; count: number; action: string; pages: Array<{ title: string; url: string; value: number }> };
+        const issues: Issue[] = [];
 
-        // --- Histogram ---
-        const histBuckets: { label: string; count: number; color: string }[] = [];
         if (pageSortBy === 'depth') {
-          const depthColors: Record<string, string> = { '0': '#22c55e', '1': '#3b82f6', '2': '#6366f1', '3': '#f59e0b', '4': '#f97316', '5+': '#ef4444', '∞': '#dc2626' };
-          const buckets: Record<string, number> = { '0': 0, '1': 0, '2': 0, '3': 0, '4': 0, '5+': 0, '∞': 0 };
-          ns.forEach(n => {
-            if (n.clickDepth === -1) buckets['∞']++;
-            else if (n.clickDepth >= 5) buckets['5+']++;
-            else buckets[String(n.clickDepth)]++;
+          const unreachable = ns.filter(n => n.clickDepth === -1);
+          const deep = ns.filter(n => n.clickDepth >= 4 && n.clickDepth !== -1);
+          const depth3 = ns.filter(n => n.clickDepth === 3);
+
+          if (unreachable.length > 0) issues.push({
+            severity: 'critical', title: 'Không truy cập được từ trang chủ', count: unreachable.length,
+            action: 'Thêm link từ trang chính/danh mục trỏ đến các trang này',
+            pages: unreachable.slice(0, 10).map(n => ({ title: n.title, url: n.id, value: n.internalInLinks })),
           });
-          Object.entries(buckets).forEach(([k, v]) => histBuckets.push({ label: k, count: v, color: depthColors[k] }));
+          if (deep.length > 0) issues.push({
+            severity: 'warning', title: 'Click depth ≥ 4 (quá sâu)', count: deep.length,
+            action: 'Rút ngắn đường dẫn: thêm link từ trang depth 1-2 trỏ đến',
+            pages: deep.sort((a, b) => b.clickDepth - a.clickDepth).slice(0, 10).map(n => ({ title: n.title, url: n.id, value: n.clickDepth })),
+          });
+          if (depth3.length > 0) issues.push({
+            severity: 'info', title: 'Click depth = 3 (chấp nhận được)', count: depth3.length,
+            action: 'Cân nhắc thêm link nếu đây là trang quan trọng',
+            pages: depth3.slice(0, 5).map(n => ({ title: n.title, url: n.id, value: n.clickDepth })),
+          });
+        } else if (pageSortBy === 'inLinks') {
+          const orphans = ns.filter(n => n.internalInLinks === 0);
+          const weak = ns.filter(n => n.internalInLinks >= 1 && n.internalInLinks <= 3);
+          const hubs = ns.filter(n => n.internalInLinks > 50).sort((a, b) => b.internalInLinks - a.internalInLinks);
+
+          if (orphans.length > 0) issues.push({
+            severity: 'critical', title: 'Trang mồ côi (0 link trỏ đến)', count: orphans.length,
+            action: 'Google khó index trang không có link nội bộ nào trỏ đến. Thêm link từ bài viết liên quan.',
+            pages: orphans.slice(0, 10).map(n => ({ title: n.title, url: n.id, value: 0 })),
+          });
+          if (weak.length > 0) issues.push({
+            severity: 'warning', title: 'Ít link trỏ đến (1-3 links)', count: weak.length,
+            action: 'Tăng internal links bằng cách thêm liên kết từ bài viết cùng chủ đề',
+            pages: weak.slice(0, 10).map(n => ({ title: n.title, url: n.id, value: n.internalInLinks })),
+          });
+          if (hubs.length > 0) issues.push({
+            severity: 'info', title: 'Trang hub (>50 link trỏ đến)', count: hubs.length,
+            action: 'Các trang quan trọng nhất. Đảm bảo nội dung chất lượng cao.',
+            pages: hubs.slice(0, 10).map(n => ({ title: n.title, url: n.id, value: n.internalInLinks })),
+          });
         } else {
-          // Bin by link count ranges
-          const getValue = pageSortBy === 'inLinks' ? (n: GraphNode) => n.internalInLinks : (n: GraphNode) => n.internalOutLinks;
-          const ranges = [
-            { label: '0', min: 0, max: 0, color: '#ef4444' },
-            { label: '1-5', min: 1, max: 5, color: '#f59e0b' },
-            { label: '6-20', min: 6, max: 20, color: '#3b82f6' },
-            { label: '21-50', min: 21, max: 50, color: '#6366f1' },
-            { label: '51-100', min: 51, max: 100, color: '#8b5cf6' },
-            { label: '100+', min: 101, max: Infinity, color: '#22c55e' },
-          ];
-          ranges.forEach(r => {
-            const count = ns.filter(n => { const v = getValue(n); return v >= r.min && v <= r.max; }).length;
-            histBuckets.push({ label: r.label, count, color: r.color });
+          const deadEnds = ns.filter(n => n.internalOutLinks === 0);
+          const excessive = ns.filter(n => n.internalOutLinks > 100);
+
+          if (deadEnds.length > 0) issues.push({
+            severity: 'warning', title: 'Dead-end (0 link đi ra)', count: deadEnds.length,
+            action: 'Trang không link đi đâu = người dùng bí lối. Thêm related posts / CTA.',
+            pages: deadEnds.slice(0, 10).map(n => ({ title: n.title, url: n.id, value: 0 })),
+          });
+          if (excessive.length > 0) issues.push({
+            severity: 'warning', title: 'Quá nhiều link ra (>100)', count: excessive.length,
+            action: 'Quá nhiều link pha loãng PageRank. Cân nhắc giảm hoặc nofollow link ít quan trọng.',
+            pages: excessive.sort((a, b) => b.internalOutLinks - a.internalOutLinks).slice(0, 10).map(n => ({ title: n.title, url: n.id, value: n.internalOutLinks })),
           });
         }
-        const maxBucket = Math.max(...histBuckets.map(b => b.count), 1);
 
-        // --- Scatter plot ---
-        const scatterNodes = pageSortBy === 'depth' ? ns.filter(n => n.clickDepth >= 0) : ns;
-        const xVals = scatterNodes.map(cfg.getX);
-        const yVals = scatterNodes.map(cfg.getY);
-        const sMaxX = Math.max(...xVals, 1);
-        const sMaxY = Math.max(...yVals, 1);
-        const xTicks = Array.from({ length: 5 }, (_, i) => Math.round(sMaxX * i / 4));
-        const yTicks = Array.from({ length: 5 }, (_, i) => Math.round(sMaxY * i / 4));
+        const sevColors = { critical: 'bg-red-50 border-red-200', warning: 'bg-amber-50 border-amber-200', info: 'bg-blue-50 border-blue-200' };
+        const sevIcons = { critical: '🔴', warning: '🟡', info: '🔵' };
+        const modeLabels = { depth: 'Click Depth', inLinks: 'Inbound Links', outLinks: 'Outbound Links' };
 
         return (
-          <div className="grid grid-cols-2 gap-4">
-            {/* Histogram */}
-            <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4">
-              <div className="text-xs font-medium text-[var(--text-secondary)] mb-3">{cfg.histTitle}</div>
-              <div className="flex items-end gap-2 h-40">
-                {histBuckets.map(({ label, count, color }) => (
-                  <div key={label} className="flex-1 flex flex-col items-center gap-1">
-                    <span className="text-[10px] font-medium text-[var(--text-primary)]">{count}</span>
-                    <div className="w-full rounded-t-md" style={{ height: `${Math.max((count / maxBucket) * 100, 2)}%`, backgroundColor: color }} />
-                    <span className="text-[10px] text-[var(--text-muted)]">{label}</span>
-                  </div>
-                ))}
+          <div className="space-y-3">
+            <div className="text-sm font-medium text-[var(--text-primary)]">
+              Phân tích {modeLabels[pageSortBy]} — {issues.reduce((s, i) => s + i.count, 0)} vấn đề
+            </div>
+            {issues.length === 0 && (
+              <div className="text-sm text-green-600 py-4 text-center bg-green-50 rounded-lg">Không phát hiện vấn đề nào</div>
+            )}
+            {issues.map((issue, idx) => (
+              <div key={idx} className={`border rounded-lg p-4 ${sevColors[issue.severity]}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">{sevIcons[issue.severity]} {issue.title}</span>
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-white/60">{issue.count} trang</span>
+                </div>
+                <div className="text-xs text-[var(--text-secondary)] mb-3">💡 {issue.action}</div>
+                <div className="space-y-1">
+                  {issue.pages.map((p, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs bg-white/40 rounded px-2 py-1">
+                      <span className="text-[var(--text-primary)] truncate flex-1" title={p.title}>{p.title || getPath(p.url)}</span>
+                      <span className="text-[var(--text-muted)] truncate max-w-[200px]">{getPath(p.url)}</span>
+                      <span className="font-medium shrink-0 tabular-nums">{p.value}</span>
+                    </div>
+                  ))}
+                  {issue.count > 10 && (
+                    <div className="text-[10px] text-[var(--text-muted)] text-center pt-1">
+                      +{issue.count - 10} trang nữa — xem trong All Pages bên phải
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="text-[10px] text-[var(--text-muted)] mt-2 text-center">{cfg.histNote}</div>
-            </div>
-
-            {/* Scatter Plot */}
-            <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4">
-              <div className="text-xs font-medium text-[var(--text-secondary)] mb-1">{cfg.scatterTitle}</div>
-              <div className="text-[10px] text-[var(--text-muted)] mb-2">{cfg.scatterNote}</div>
-              <svg viewBox={`0 0 ${sW} ${sH}`} className="w-full">
-                {/* Grid */}
-                {yTicks.map(v => (
-                  <line key={`yg-${v}`} x1={sPad.l} x2={sW - sPad.r} y1={sPad.t + (v / sMaxY) * sInnerH} y2={sPad.t + (v / sMaxY) * sInnerH} stroke="#e2e8f0" strokeWidth="0.5" />
-                ))}
-                {/* Warning zone */}
-                {cfg.warnY > 0 && sMaxY > cfg.warnY && (
-                  <rect x={sPad.l} y={sPad.t + (cfg.warnY / sMaxY) * sInnerH} width={sInnerW} height={sInnerH - (cfg.warnY / sMaxY) * sInnerH} fill="#fef2f2" opacity="0.4" />
-                )}
-                {/* Axes */}
-                <line x1={sPad.l} x2={sPad.l} y1={sPad.t} y2={sH - sPad.b} stroke="#94a3b8" />
-                <line x1={sPad.l} x2={sW - sPad.r} y1={sH - sPad.b} y2={sH - sPad.b} stroke="#94a3b8" />
-                {yTicks.map(v => (
-                  <text key={`yl-${v}`} x={sPad.l - 8} y={sPad.t + (v / sMaxY) * sInnerH + 3} textAnchor="end" fontSize="9" fill="#64748b">{v}</text>
-                ))}
-                <text x={15} y={sH / 2} textAnchor="middle" fontSize="9" fill="#64748b" transform={`rotate(-90, 15, ${sH / 2})`}>{cfg.yLabel}</text>
-                {xTicks.map(v => (
-                  <text key={`xl-${v}`} x={sPad.l + (v / sMaxX) * sInnerW} y={sH - sPad.b + 16} textAnchor="middle" fontSize="9" fill="#64748b">{v}</text>
-                ))}
-                <text x={sPad.l + sInnerW / 2} y={sH - 4} textAnchor="middle" fontSize="9" fill="#64748b">{cfg.xLabel}</text>
-                {/* Data points */}
-                {scatterNodes.map((n, i) => (
-                  <circle key={i}
-                    cx={sPad.l + (cfg.getX(n) / sMaxX) * sInnerW}
-                    cy={sPad.t + (cfg.getY(n) / sMaxY) * sInnerH}
-                    r={3.5} fill={cfg.dotColor(n)} fillOpacity={0.5} stroke={cfg.dotColor(n)} strokeWidth={0.5}
-                  />
-                ))}
-              </svg>
-            </div>
+            ))}
           </div>
         );
       })()}
