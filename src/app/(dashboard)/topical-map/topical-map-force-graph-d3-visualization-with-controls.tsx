@@ -201,11 +201,31 @@ export function TopicalMapForceGraph({ projectId }: Props) {
       .domain([0, maxLinks])
       .range([8 * scaleFactor, 35 * scaleFactor]);
 
-    // Build group → color index map from node groups
+    // Node coloring based on current view mode (pageSortBy)
     const groupNames = [...new Set(simNodes.map(n => n.group))].sort();
     const groupColorMap = new Map<string, number>();
     groupNames.forEach((g, i) => groupColorMap.set(g, i % COLORS.length));
-    const getGroupColor = (group: string) => COLORS[groupColorMap.get(group) ?? 0];
+
+    // Color functions per mode
+    const depthColorScale = d3.scaleSequential(d3.interpolateRdYlGn).domain([6, 0]); // green=0, red=6+
+    const inLinksMax = Math.max(...simNodes.map(n => n.internalInLinks), 1);
+    const outLinksMax = Math.max(...simNodes.map(n => n.internalOutLinks), 1);
+    const inColorScale = d3.scaleSequential(d3.interpolateBlues).domain([0, Math.sqrt(inLinksMax)]);
+    const outColorScale = d3.scaleSequential(d3.interpolatePurples).domain([0, Math.sqrt(outLinksMax)]);
+
+    const getNodeColor = (n: GraphNode): string => {
+      if (pageSortBy === 'depth') {
+        if (n.clickDepth === -1) return '#dc2626'; // unreachable = red
+        return depthColorScale(Math.min(n.clickDepth, 6)) as string;
+      }
+      if (pageSortBy === 'inLinks') {
+        return inColorScale(Math.sqrt(n.internalInLinks)) as string;
+      }
+      if (pageSortBy === 'outLinks') {
+        return outColorScale(Math.sqrt(n.internalOutLinks)) as string;
+      }
+      return COLORS[groupColorMap.get(n.group) ?? 0]; // fallback: group color
+    };
 
     // Container group for zoom
     const g = svg.append('g');
@@ -258,7 +278,7 @@ export function TopicalMapForceGraph({ projectId }: Props) {
       .data(simNodes)
       .enter().append('circle')
       .attr('r', d => radiusScale(nodeWeight(d)))
-      .attr('fill', d => getGroupColor(d.group))
+      .attr('fill', d => getNodeColor(d))
       .attr('stroke', '#fff')
       .attr('stroke-width', 1.5)
       .attr('cursor', 'pointer')
@@ -273,7 +293,7 @@ export function TopicalMapForceGraph({ projectId }: Props) {
         link
           .attr('stroke-opacity', l => isConnected(l) ? 0.9 : 0.08)
           .attr('stroke-width', l => isConnected(l) ? 2.5 : 0.5)
-          .attr('stroke', l => isConnected(l) ? getGroupColor(d.group) : '#cbd5e1')
+          .attr('stroke', l => isConnected(l) ? getNodeColor(d) : '#cbd5e1')
           .attr('marker-end', l => isConnected(l) ? 'url(#arrowhead-hover)' : 'url(#arrowhead)');
         // Dim non-connected nodes
         node.attr('opacity', n => {
@@ -382,7 +402,7 @@ export function TopicalMapForceGraph({ projectId }: Props) {
     }, 2000);
 
     return () => { simulation.stop(); };
-  }, [graphData, forceStrength, nodeScale, showLabels]);
+  }, [graphData, forceStrength, nodeScale, showLabels, pageSortBy]);
 
   // --- Highlight group filter + link direction (without re-running simulation) ---
   useEffect(() => {
@@ -678,8 +698,10 @@ export function TopicalMapForceGraph({ projectId }: Props) {
           <div className="text-xs space-y-2">
             <div className="font-medium text-[var(--text-secondary)]">Chú thích</div>
             <div className="text-[var(--text-muted)] space-y-0.5">
-              <div>Node lớn = nhiều internal links</div>
-              <div>Mũi tên = hướng liên kết</div>
+              <div>Node lớn = nhiều link trỏ đến</div>
+              {pageSortBy === 'depth' && <div>Màu: 🟢 nông → 🔴 sâu (click depth)</div>}
+              {pageSortBy === 'inLinks' && <div>Màu: nhạt → đậm (số link vào)</div>}
+              {pageSortBy === 'outLinks' && <div>Màu: nhạt → đậm (số link ra)</div>}
               <div>Kéo node, scroll zoom</div>
             </div>
             {graphData && (() => {
