@@ -85,7 +85,7 @@ export function TopicalMapForceGraph({ projectId }: Props) {
   const [isImporting, setIsImporting] = useState(false);
   const [isCrawling, setIsCrawling] = useState(false);
   const [pageSearch, setPageSearch] = useState('');
-  const [pageSortBy, setPageSortBy] = useState<'depth' | 'inLinks' | 'outLinks'>('depth');
+  const [pageSortBy, setPageSortBy] = useState<'depth' | 'internalLinks' | 'externalLinks'>('depth');
   const [depthFilter, setDepthFilter] = useState<'all' | '4+' | '3' | '2' | '1' | '0' | 'unreachable'>('4+');
 
   // Tooltip
@@ -211,21 +211,25 @@ export function TopicalMapForceGraph({ projectId }: Props) {
     const depthColorScale = d3.scaleSequential(d3.interpolateRdYlGn).domain([6, 0]); // green=0, red=6+
     const inLinksMax = Math.max(...simNodes.map(n => n.internalInLinks), 1);
     const outLinksMax = Math.max(...simNodes.map(n => n.internalOutLinks), 1);
-    const inColorScale = d3.scaleSequential(d3.interpolateBlues).domain([0, Math.sqrt(inLinksMax)]);
-    const outColorScale = d3.scaleSequential(d3.interpolatePurples).domain([0, Math.sqrt(outLinksMax)]);
+    const totalInternalLinks = (n: GraphNode) => n.internalInLinks + n.internalOutLinks;
+    const maxInternal = Math.max(...simNodes.map(totalInternalLinks), 1);
+    const extMax = Math.max(...simNodes.map(n => n.externalOutLinks), 1);
+    const internalColorScale = d3.scaleSequential(d3.interpolateBlues).domain([0, Math.sqrt(maxInternal)]);
+    const externalColorScale = d3.scaleSequential(d3.interpolateOranges).domain([0, Math.sqrt(extMax)]);
 
     const getNodeColor = (n: GraphNode): string => {
       if (pageSortBy === 'depth') {
-        if (n.clickDepth === -1) return '#dc2626'; // unreachable = red
+        if (n.clickDepth === -1) return '#dc2626';
         return depthColorScale(Math.min(n.clickDepth, 6)) as string;
       }
-      if (pageSortBy === 'inLinks') {
-        return inColorScale(Math.sqrt(n.internalInLinks)) as string;
+      if (pageSortBy === 'internalLinks') {
+        return internalColorScale(Math.sqrt(totalInternalLinks(n))) as string;
       }
-      if (pageSortBy === 'outLinks') {
-        return outColorScale(Math.sqrt(n.internalOutLinks)) as string;
+      if (pageSortBy === 'externalLinks') {
+        if (n.externalOutLinks === 0) return '#e2e8f0';
+        return externalColorScale(Math.sqrt(n.externalOutLinks)) as string;
       }
-      return COLORS[groupColorMap.get(n.group) ?? 0]; // fallback: group color
+      return COLORS[groupColorMap.get(n.group) ?? 0];
     };
 
     // Container group for zoom
@@ -775,8 +779,8 @@ export function TopicalMapForceGraph({ projectId }: Props) {
             <div className="text-[var(--text-muted)] space-y-0.5">
               <div>Node lớn = nhiều link trỏ đến</div>
               {pageSortBy === 'depth' && <div>Màu: 🟢 nông → 🔴 sâu (click depth)</div>}
-              {pageSortBy === 'inLinks' && <div>Màu: nhạt → đậm (số link vào)</div>}
-              {pageSortBy === 'outLinks' && <div>Màu: nhạt → đậm (số link ra)</div>}
+              {pageSortBy === 'internalLinks' && <div>Màu: nhạt → xanh đậm (internal links)</div>}
+              {pageSortBy === 'externalLinks' && <div>Màu: nhạt → cam đậm (external links)</div>}
               <div>Kéo node, scroll zoom</div>
             </div>
             {graphData && (() => {
@@ -838,12 +842,12 @@ export function TopicalMapForceGraph({ projectId }: Props) {
                   <span className="text-xs font-medium text-[var(--text-primary)]">All pages</span>
                   <select
                     value={pageSortBy}
-                    onChange={e => setPageSortBy(e.target.value as 'depth' | 'inLinks' | 'outLinks')}
+                    onChange={e => setPageSortBy(e.target.value as 'depth' | 'internalLinks' | 'externalLinks')}
                     className="px-1.5 py-0.5 bg-[var(--bg-accent)] border border-[var(--border)] rounded text-[10px] text-[var(--text-primary)]"
                   >
                     <option value="depth">Click depth</option>
-                    <option value="inLinks">Links vào</option>
-                    <option value="outLinks">Links ra</option>
+                    <option value="internalLinks">Internal links</option>
+                    <option value="externalLinks">External links</option>
                   </select>
                 </div>
                 {/* Depth filter tabs */}
@@ -904,8 +908,8 @@ export function TopicalMapForceGraph({ projectId }: Props) {
                     })
                     .sort((a, b) => {
                       if (pageSortBy === 'depth') return (a.clickDepth === -1 ? 999 : a.clickDepth) - (b.clickDepth === -1 ? 999 : b.clickDepth);
-                      if (pageSortBy === 'inLinks') return b.internalInLinks - a.internalInLinks;
-                      return b.internalOutLinks - a.internalOutLinks;
+                      if (pageSortBy === 'internalLinks') return (b.internalInLinks + b.internalOutLinks) - (a.internalInLinks + a.internalOutLinks);
+                      return b.externalOutLinks - a.externalOutLinks;
                     });
                   return filtered.slice(0, 200).map(n => (
                     <div
@@ -967,10 +971,10 @@ export function TopicalMapForceGraph({ projectId }: Props) {
             pages: depth3.slice(0, 5).map(n => toRow(n, n.clickDepth)),
             allPages: depth3.map(n => toRow(n, n.clickDepth)),
           });
-        } else if (pageSortBy === 'inLinks') {
-          const orphans = ns.filter(n => n.internalInLinks === 0);
-          const weak = ns.filter(n => n.internalInLinks >= 1 && n.internalInLinks <= 3);
-          const hubs = ns.filter(n => n.internalInLinks > 50).sort((a, b) => b.internalInLinks - a.internalInLinks);
+        } else if (pageSortBy === 'internalLinks') {
+          const orphans = ns.filter(n => n.internalInLinks === 0 && n.internalOutLinks === 0);
+          const weak = ns.filter(n => (n.internalInLinks + n.internalOutLinks) >= 1 && (n.internalInLinks + n.internalOutLinks) <= 3);
+          const hubs = ns.filter(n => (n.internalInLinks + n.internalOutLinks) > 50).sort((a, b) => (b.internalInLinks + b.internalOutLinks) - (a.internalInLinks + a.internalOutLinks));
 
           const toRow2 = (n: GraphNode, val: number) => ({ title: n.title, url: n.id, value: val });
           if (orphans.length > 0) issues.push({
@@ -992,27 +996,26 @@ export function TopicalMapForceGraph({ projectId }: Props) {
             allPages: hubs.map(n => toRow2(n, n.internalInLinks)),
           });
         } else {
-          const deadEnds = ns.filter(n => n.internalOutLinks === 0);
-          const excessive = ns.filter(n => n.internalOutLinks > 100);
-
           const toRow3 = (n: GraphNode, val: number) => ({ title: n.title, url: n.id, value: val });
-          if (deadEnds.length > 0) issues.push({
-            severity: 'warning', title: 'Dead-end (0 link đi ra)', count: deadEnds.length,
-            action: 'Trang không link đi đâu = người dùng bí lối. Thêm related posts / CTA.',
-            pages: deadEnds.slice(0, 10).map(n => toRow3(n, 0)),
-            allPages: deadEnds.map(n => toRow3(n, 0)),
+          const manyExt = ns.filter(n => n.externalOutLinks > 20).sort((a, b) => b.externalOutLinks - a.externalOutLinks);
+          const noExt = ns.filter(n => n.externalOutLinks === 0);
+          if (manyExt.length > 0) issues.push({
+            severity: 'warning', title: 'Nhiều external links (>20 link ngoài)', count: manyExt.length,
+            action: 'Trang link ra FB/YouTube/bên ngoài quá nhiều → rò rỉ PageRank. Cân nhắc nofollow.',
+            pages: manyExt.slice(0, 10).map(n => toRow3(n, n.externalOutLinks)),
+            allPages: manyExt.map(n => toRow3(n, n.externalOutLinks)),
           });
-          if (excessive.length > 0) { excessive.sort((a, b) => b.internalOutLinks - a.internalOutLinks); issues.push({
-            severity: 'warning', title: 'Quá nhiều link ra (>100)', count: excessive.length,
-            action: 'Quá nhiều link pha loãng PageRank. Cân nhắc giảm hoặc nofollow link ít quan trọng.',
-            pages: excessive.slice(0, 10).map(n => toRow3(n, n.internalOutLinks)),
-            allPages: excessive.map(n => toRow3(n, n.internalOutLinks)),
-          }); }
+          if (noExt.length > 0) issues.push({
+            severity: 'info', title: 'Không có external link', count: noExt.length,
+            action: 'Trang không link ra bên ngoài. Thêm link đến nguồn uy tín (Wikipedia, gov...) để tăng E-E-A-T.',
+            pages: noExt.slice(0, 10).map(n => toRow3(n, 0)),
+            allPages: noExt.map(n => toRow3(n, 0)),
+          });
         }
 
         const sevColors = { critical: 'bg-red-50 border-red-200', warning: 'bg-amber-50 border-amber-200', info: 'bg-blue-50 border-blue-200' };
         const sevIcons = { critical: '🔴', warning: '🟡', info: '🔵' };
-        const modeLabels = { depth: 'Click Depth', inLinks: 'Inbound Links', outLinks: 'Outbound Links' };
+        const modeLabels = { depth: 'Click Depth', internalLinks: 'Internal Links', externalLinks: 'External Links' };
 
         return (
           <div className="space-y-3">
