@@ -338,7 +338,7 @@ export function AnchorTextAnalysis({ nodes, edges }: Props) {
         </div>
       </div>
 
-      {/* Chart view — treemap + donut + top pages */}
+      {/* Chart view — Donut + Bar charts (simple, readable) */}
       {view === 'chart' && (() => {
         const total = anchorStats.reduce((s, a) => s + a.count, 0);
         const normalCount = anchorStats.filter(a => !a.isGeneric && !a.isEmpty && !a.isImage).reduce((s, a) => s + a.count, 0);
@@ -354,7 +354,7 @@ export function AnchorTextAnalysis({ nodes, edges }: Props) {
           { label: 'Hình ảnh', value: imageCount, color: '#f59e0b' },
         ].filter(s => s.value > 0);
 
-        // SVG donut
+        // SVG donut arcs
         let cumulativePercent = 0;
         const donutSegments = segments.map(seg => {
           const percent = seg.value / total;
@@ -369,33 +369,23 @@ export function AnchorTextAnalysis({ nodes, edges }: Props) {
           return { ...seg, percent, d: `M ${x1} ${y1} A 40 40 0 ${largeArc} 1 ${x2} ${y2}` };
         });
 
-        // Top anchors for treemap
-        const top20 = anchorStats.filter(a => !a.isEmpty).slice(0, 20);
-        const maxVal = top20[0]?.count || 1;
+        // Top 15 anchors for bar chart
+        const top15 = anchorStats.filter(a => !a.isEmpty).slice(0, 15);
+        const barMax = top15[0]?.count || 1;
 
         return (
-          <div className="space-y-4">
-            {/* Row 1: Donut + Stats */}
+          <div className="space-y-5">
+            {/* Donut + Stats */}
             <div className="flex gap-6 items-start">
-              {/* Donut chart */}
               <div className="shrink-0">
                 <svg width="120" height="120" viewBox="-50 -50 100 100">
                   {donutSegments.map((seg, i) => (
-                    <path
-                      key={i}
-                      d={seg.d}
-                      fill="none"
-                      stroke={seg.color}
-                      strokeWidth="16"
-                      strokeLinecap="round"
-                    />
+                    <path key={i} d={seg.d} fill="none" stroke={seg.color} strokeWidth="16" strokeLinecap="round" />
                   ))}
                   <text x="0" y="-4" textAnchor="middle" className="text-lg font-bold fill-[var(--text-primary)]">{anchorStats.length}</text>
                   <text x="0" y="10" textAnchor="middle" className="text-[8px] fill-[var(--text-muted)]">unique</text>
                 </svg>
               </div>
-
-              {/* Stats + Legend */}
               <div className="flex-1 space-y-2">
                 <div className="text-xs font-medium text-[var(--text-secondary)]">Phân loại Anchor Text</div>
                 {segments.map((seg, i) => (
@@ -406,47 +396,64 @@ export function AnchorTextAnalysis({ nodes, edges }: Props) {
                     <span className="text-[10px] text-[var(--text-muted)] w-10 text-right">{Math.round(seg.value / total * 100)}%</span>
                   </div>
                 ))}
-                <div className="text-[10px] text-[var(--text-muted)] pt-1 border-t border-[var(--border)]">
-                  Tổng: {total.toLocaleString()} lượt sử dụng anchor
-                </div>
               </div>
             </div>
 
-            {/* Row 2: D3 Treemap — top 30 anchor text */}
-            <TreemapChart anchorStats={anchorStats} />
-
-            {/* Row 3: Top pages receiving most links */}
+            {/* Top 15 Anchor Text — horizontal bar chart */}
             <div>
-              <div className="text-xs font-medium text-[var(--text-secondary)] mb-2">Top 10 trang nhận nhiều internal link nhất</div>
-              <div className="space-y-1.5">
-                {pageAnchorStats.slice(0, 10).map((p, i) => {
-                  const maxLinks = pageAnchorStats[0]?.totalLinks || 1;
-                  const pct = (p.totalLinks / maxLinks) * 100;
+              <div className="text-xs font-medium text-[var(--text-secondary)] mb-3">Top 15 Anchor Text được dùng nhiều nhất</div>
+              <div className="space-y-1">
+                {top15.map((a, i) => {
+                  const pct = (a.count / barMax) * 100;
+                  const color = a.isGeneric ? '#ef4444' : a.isImage ? '#d97706' : '#3b82f6';
                   return (
-                    <div key={i} className="space-y-0.5">
-                      <div className="flex items-center gap-2 text-xs">
-                        <span className="text-[var(--text-muted)] w-4 text-right">{i + 1}</span>
-                        <span className="text-[var(--text-primary)] truncate flex-1" title={p.title}>{p.title || getPath(p.url)}</span>
-                        <span className="font-medium tabular-nums">{p.totalLinks}</span>
-                        <span className={`text-[10px] w-8 text-right ${p.diversity < 20 ? 'text-red-500' : p.diversity < 50 ? 'text-amber-500' : 'text-green-500'}`}>
-                          {p.diversity}%
-                        </span>
+                    <div key={i} className="flex items-center gap-2 text-xs hover:bg-[var(--bg-accent)] rounded px-1 py-1">
+                      <span className="w-[180px] truncate text-[var(--text-primary)] shrink-0" title={a.anchor}>
+                        {a.isGeneric && <span className="text-red-400 mr-1">⚠</span>}
+                        {a.anchor}
+                      </span>
+                      <div className="flex-1 h-5 bg-[var(--bg-accent)] rounded overflow-hidden">
+                        <div className="h-full rounded flex items-center px-1.5" style={{ width: `${Math.max(pct, 3)}%`, backgroundColor: color }}>
+                          <span className="text-[10px] text-white font-medium whitespace-nowrap">{a.count.toLocaleString()}</span>
+                        </div>
                       </div>
-                      <div className="ml-6 h-1.5 bg-[var(--bg-accent)] rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${pct}%`,
-                            backgroundColor: p.diversity < 20 ? '#ef4444' : p.diversity < 50 ? '#f59e0b' : '#3b82f6',
-                          }}
-                        />
-                      </div>
+                      <span className="text-[10px] text-[var(--text-muted)] w-20 text-right shrink-0">→{a.uniqueTargets} trang</span>
                     </div>
                   );
                 })}
               </div>
-              <div className="text-[10px] text-[var(--text-muted)] mt-1.5">
-                % = anchor diversity (đỏ {'<'}20% · vàng 20-50% · xanh {'>'}50%)
+              <div className="flex gap-4 text-[10px] text-[var(--text-muted)] mt-2">
+                <span><span className="inline-block w-2.5 h-2 rounded-sm mr-1" style={{ backgroundColor: '#3b82f6' }} />Bình thường</span>
+                <span><span className="inline-block w-2.5 h-2 rounded-sm mr-1" style={{ backgroundColor: '#ef4444' }} />⚠ Generic</span>
+                <span><span className="inline-block w-2.5 h-2 rounded-sm mr-1" style={{ backgroundColor: '#d97706' }} />Hình ảnh</span>
+              </div>
+            </div>
+
+            {/* Top 10 pages receiving most links */}
+            <div>
+              <div className="text-xs font-medium text-[var(--text-secondary)] mb-3">Top 10 trang nhận nhiều internal link nhất</div>
+              <div className="space-y-1">
+                {pageAnchorStats.slice(0, 10).map((p, i) => {
+                  const maxLinks = pageAnchorStats[0]?.totalLinks || 1;
+                  const pct = (p.totalLinks / maxLinks) * 100;
+                  const color = p.diversity < 20 ? '#ef4444' : p.diversity < 50 ? '#f59e0b' : '#3b82f6';
+                  return (
+                    <div key={i} className="flex items-center gap-2 text-xs hover:bg-[var(--bg-accent)] rounded px-1 py-1">
+                      <span className="w-[200px] truncate text-[var(--text-primary)] shrink-0" title={p.title}>
+                        {p.title || getPath(p.url)}
+                      </span>
+                      <div className="flex-1 h-5 bg-[var(--bg-accent)] rounded overflow-hidden">
+                        <div className="h-full rounded flex items-center px-1.5" style={{ width: `${Math.max(pct, 3)}%`, backgroundColor: color }}>
+                          <span className="text-[10px] text-white font-medium whitespace-nowrap">{p.totalLinks} links</span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-[var(--text-muted)] w-16 text-right shrink-0">{p.uniqueAnchors} anchor</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="text-[10px] text-[var(--text-muted)] mt-2">
+                Màu = đa dạng anchor: <span className="text-blue-500">xanh tốt ({'>'}50%)</span> · <span className="text-amber-500">vàng TB (20-50%)</span> · <span className="text-red-500">đỏ kém ({'<'}20%)</span>
               </div>
             </div>
           </div>
