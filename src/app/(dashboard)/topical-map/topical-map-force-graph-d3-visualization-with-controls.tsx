@@ -83,6 +83,7 @@ export function TopicalMapForceGraph({ projectId }: Props) {
   const [linkDirection, setLinkDirection] = useState<'all' | 'in' | 'out'>('all');
   const [importFile, setImportFile] = useState<File | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [isCrawling, setIsCrawling] = useState(false);
   const [pageSearch, setPageSearch] = useState('');
   const [pageSortBy, setPageSortBy] = useState<'depth' | 'inLinks' | 'outLinks'>('depth');
   const [depthFilter, setDepthFilter] = useState<'all' | '4+' | '3' | '2' | '1' | '0' | 'unreachable'>('4+');
@@ -497,6 +498,49 @@ export function TopicalMapForceGraph({ projectId }: Props) {
             {isImporting ? 'Đang import...' : `Import ${importFile.name}`}
           </button>
         )}
+
+        {/* Crawl button — run crawler from UI */}
+        <button
+          onClick={async () => {
+            if (isCrawling) return;
+            // Get project domain from API
+            const projRes = await fetch(`/api/v1/projects?id=${projectId}`);
+            const projData = await projRes.json();
+            const domain = projData.project?.website || projData.project?.project_domain;
+            if (!domain) { alert('Không tìm thấy domain của project'); return; }
+            const url = domain.startsWith('http') ? domain : `https://${domain}`;
+            if (!confirm(`Crawl ${url}? (có thể mất 5-30 phút tùy số trang)`)) return;
+            setIsCrawling(true);
+            try {
+              const res = await fetch('/api/v1/crawl', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'crawl', projectId, url, maxPages: 6000 }),
+              });
+              const result = await res.json();
+              if (!res.ok) throw new Error(result.error);
+              alert(`Crawl xong! ${result.summary?.total_pages || 0} trang, ${result.summary?.total_links || 0} links`);
+              // Refresh
+              const sessRes = await fetch(`/api/v1/crawl?projectId=${projectId}`);
+              const sessData = await sessRes.json();
+              setSessions(sessData.sessions || []);
+              if (sessData.sessions?.length > 0) setSelectedSessionId(sessData.sessions[0].id);
+            } catch (e: unknown) {
+              alert(`Lỗi: ${e instanceof Error ? e.message : String(e)}`);
+            } finally {
+              setIsCrawling(false);
+            }
+          }}
+          disabled={isCrawling}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+            isCrawling
+              ? 'bg-amber-100 text-amber-700 cursor-wait'
+              : 'bg-green-600 text-white hover:bg-green-700'
+          }`}
+        >
+          <Network className="w-4 h-4" />
+          {isCrawling ? 'Đang crawl...' : 'Crawl lại'}
+        </button>
 
         {/* Delete */}
         {selectedSessionId && (

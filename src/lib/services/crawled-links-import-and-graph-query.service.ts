@@ -148,6 +148,11 @@ export function deleteCrawlSession(sessionId: string) {
   db.delete(crawlSessions).where(eq(crawlSessions.id, sessionId)).run();
 }
 
+/** Delete all crawl sessions for a project (before re-crawl) */
+export function deleteAllProjectSessions(projectId: string) {
+  db.delete(crawlSessions).where(eq(crawlSessions.project_id, projectId)).run();
+}
+
 /** Build graph data (nodes + edges) for D3.js force graph */
 export function getGraphData(sessionId: string, options?: {
   linkType?: 'internal' | 'external' | 'all';

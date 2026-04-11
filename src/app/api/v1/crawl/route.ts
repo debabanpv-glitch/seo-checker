@@ -5,6 +5,7 @@ import {
   listCrawlSessions,
   getLatestSession,
   deleteCrawlSession,
+  deleteAllProjectSessions,
   getGraphData,
   getLinksForUrl,
 } from '@/lib/services/crawled-links-import-and-graph-query.service';
@@ -51,10 +52,59 @@ export function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { projectId, data } = body;
+    const { projectId, data, action, url, maxPages } = body;
 
+    // POST { action: 'crawl', projectId, url, maxPages? } → run Python crawler + auto-import
+    if (action === 'crawl' && projectId && url) {
+      const { execSync } = require('child_process');
+      const path = require('path');
+      const fs = require('fs');
+      const limit = maxPages || 6000;
+      const outFile = path.join(process.cwd(), 'data', `crawl-temp-${projectId}.json`);
+
+      // Run crawler synchronously (blocking but simple)
+      try {
+        execSync(
+          `python3 scripts/crawl-internal-links.py "${url}" --max-pages ${limit} --concurrency 10 -o "${outFile}"`,
+          { cwd: process.cwd(), timeout: 1800000, stdio: 'pipe' } // 30min timeout
+        );
+      } catch (crawlErr: unknown) {
+        const msg = crawlErr instanceof Error ? crawlErr.message : String(crawlErr);
+        return NextResponse.json({ error: `Crawler failed: ${msg.slice(0, 500)}` }, { status: 500 });
+      }
+
+      // Read + import
+      if (!fs.existsSync(outFile)) {
+        return NextResponse.json({ error: 'Crawler output not found' }, { status: 500 });
+      }
+      const crawlData = JSON.parse(fs.readFileSync(outFile, 'utf8'));
+
+      // Normalize URLs (http→https, www→non-www)
+      const norm = (u: string) => u.replace(/^http:\/\//, 'https://').replace(/^https:\/\/www\./, 'https://');
+      crawlData.nodes = crawlData.nodes.map((n: any) => ({ ...n, url: norm(n.url) }));
+      crawlData.edges = crawlData.edges.map((e: any) => ({
+        ...e,
+        source_url: norm(e.source_url),
+        target_url: norm(e.target_url),
+      }));
+
+      // Delete old sessions for this project, then import
+      deleteAllProjectSessions(projectId);
+      const sessionId = importCrawlData(projectId, crawlData);
+
+      // Cleanup temp file
+      try { fs.unlinkSync(outFile); } catch { /* ignore */ }
+
+      return NextResponse.json({
+        sessionId,
+        message: 'Crawl + import successful',
+        summary: crawlData.summary,
+      });
+    }
+
+    // POST { projectId, data } → import JSON directly
     if (!projectId || !data) {
-      return NextResponse.json({ error: 'projectId and data required' }, { status: 400 });
+      return NextResponse.json({ error: 'projectId and data (or action=crawl) required' }, { status: 400 });
     }
 
     const sessionId = importCrawlData(projectId, data);
