@@ -186,22 +186,27 @@ export function getGraphData(sessionId: string, options?: {
     return true;
   });
 
-  // Count in/out links per URL
+  // Count in/out links from FILTERED links (respects position filter)
   const inCount = new Map<string, number>();
   const outCount = new Map<string, number>();
   const extOutCount = new Map<string, number>();
 
-  // Count from ALL links (not deduped) for accurate metrics
+  // Count external links from all data
   const allLinksUnfiltered = db.select().from(crawledLinks)
     .where(eq(crawledLinks.session_id, sessionId))
     .all();
 
   for (const l of allLinksUnfiltered) {
+    if (l.link_type === 'external') {
+      extOutCount.set(l.source_url, (extOutCount.get(l.source_url) || 0) + 1);
+    }
+  }
+
+  // Count internal links from filtered set (after position exclusion)
+  for (const l of allLinks) {
     if (l.link_type === 'internal') {
       inCount.set(l.target_url, (inCount.get(l.target_url) || 0) + 1);
       outCount.set(l.source_url, (outCount.get(l.source_url) || 0) + 1);
-    } else {
-      extOutCount.set(l.source_url, (extOutCount.get(l.source_url) || 0) + 1);
     }
   }
 
@@ -287,9 +292,10 @@ export function getGraphData(sessionId: string, options?: {
     group: getContentGroup(p.url, p.title),
   }));
 
-  // Build edges (only between known pages for internal)
+  // Build edges (only between known pages for internal, cap at 3000 for performance)
+  const MAX_EDGES = 3000;
   const pageUrls = new Set(pages.map(p => p.url));
-  const edges: GraphEdge[] = dedupedLinks
+  const allEdges: GraphEdge[] = dedupedLinks
     .filter(l => {
       if (l.link_type === 'internal') {
         return pageUrls.has(l.source_url) && pageUrls.has(l.target_url);
@@ -303,6 +309,9 @@ export function getGraphData(sessionId: string, options?: {
       position: l.position,
       nofollow: l.nofollow as boolean,
     }));
+
+  // Cap edges for browser performance
+  const edges = allEdges.length > MAX_EDGES ? allEdges.slice(0, MAX_EDGES) : allEdges;
 
   // --- Compute click depth via BFS from homepage ---
   // Build adjacency list from deduped internal edges
@@ -348,7 +357,7 @@ export function getGraphData(sessionId: string, options?: {
     edges,
     summary: {
       totalPages: nodes.length,
-      totalInternalLinks: edges.filter(e => pageUrls.has(e.target)).length,
+      totalInternalLinks: allEdges.filter(e => pageUrls.has(e.target)).length,
       totalExternalLinks: allLinksUnfiltered.filter(l => l.link_type === 'external').length,
       avgInLinksPerPage: nodes.length > 0 ? Math.round(totalIn / nodes.length * 10) / 10 : 0,
       orphanPages,

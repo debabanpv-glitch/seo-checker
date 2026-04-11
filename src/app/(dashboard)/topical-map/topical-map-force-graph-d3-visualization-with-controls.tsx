@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Network, Upload, Trash2, RefreshCw, ExternalLink, Search } from 'lucide-react';
 import * as d3 from 'd3';
-import { AnchorTextAnalysis } from './topical-map-anchor-text-analysis-table';
+// Anchor Text Analysis moved to separate tab (topical-map-anchor-analysis-full-page.tsx)
 
 // --- Types ---
 
@@ -192,13 +192,14 @@ export function TopicalMapForceGraph({ projectId }: Props) {
     const simNodes: GraphNode[] = nodes.map(n => ({ ...n }));
     const simEdges: GraphEdge[] = edges.map(e => ({ ...e }));
 
-    // Node size scale based on total internal links (in + out)
-    const totalLinks = (n: GraphNode) => n.internalInLinks + n.internalOutLinks;
-    const maxLinks = Math.max(...simNodes.map(totalLinks), 1);
+    // Node size based on inbound links — more inlinks = more important
+    // Min size 8px so all nodes are visible, max 35px to avoid overlap
+    const nodeWeight = (n: GraphNode) => n.internalInLinks;
+    const maxLinks = Math.max(...simNodes.map(nodeWeight), 1);
     const scaleFactor = nodeScale / 50;
     const radiusScale = d3.scaleSqrt()
       .domain([0, maxLinks])
-      .range([5 * scaleFactor, 40 * scaleFactor]);
+      .range([8 * scaleFactor, 35 * scaleFactor]);
 
     // Build group → color index map from node groups
     const groupNames = [...new Set(simNodes.map(n => n.group))].sort();
@@ -256,7 +257,7 @@ export function TopicalMapForceGraph({ projectId }: Props) {
       .selectAll('circle')
       .data(simNodes)
       .enter().append('circle')
-      .attr('r', d => radiusScale(totalLinks(d)))
+      .attr('r', d => radiusScale(nodeWeight(d)))
       .attr('fill', d => getGroupColor(d.group))
       .attr('stroke', '#fff')
       .attr('stroke-width', 1.5)
@@ -326,7 +327,7 @@ export function TopicalMapForceGraph({ projectId }: Props) {
       .attr('font-size', 9)
       .attr('fill', 'var(--text-secondary)')
       .attr('text-anchor', 'middle')
-      .attr('dy', d => radiusScale(totalLinks(d)) + 12)
+      .attr('dy', d => radiusScale(nodeWeight(d)) + 12)
       .attr('pointer-events', 'none')
       .style('display', showLabels ? 'block' : 'none');
 
@@ -345,7 +346,7 @@ export function TopicalMapForceGraph({ projectId }: Props) {
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force('x', d3.forceX(width / 2).strength(0.03))
       .force('y', d3.forceY(height / 2).strength(0.03))
-      .force('collision', d3.forceCollide<GraphNode>().radius(d => radiusScale(totalLinks(d)) + 3))
+      .force('collision', d3.forceCollide<GraphNode>().radius(d => radiusScale(nodeWeight(d)) + 3))
       .on('tick', () => {
         link
           .attr('x1', d => (d.source as GraphNode).x!)
@@ -837,10 +838,7 @@ export function TopicalMapForceGraph({ projectId }: Props) {
         </div>
       </div>
 
-      {/* Anchor Text Analysis — below graph */}
-      {graphData && graphData.edges.length > 0 && (
-        <AnchorTextAnalysis nodes={graphData.nodes} edges={graphData.edges} />
-      )}
+      {/* Anchor Text Analysis moved to separate tab */}
     </div>
   );
 }

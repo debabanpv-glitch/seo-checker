@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, LayoutGrid, Network } from 'lucide-react';
+import { ArrowLeft, LayoutGrid, Network, Type } from 'lucide-react';
 import { TopicalMapOverviewGrid } from './topical-map-overview-grid-with-stats-and-cluster-cards';
 import { TopicalMapClusterDetail } from './topical-map-cluster-detail-with-tabs-keywords-pages-overlap';
 import { TopicalMapForceGraph } from './topical-map-force-graph-d3-visualization-with-controls';
+import { TopicalMapAnchorAnalysisPage } from './topical-map-anchor-analysis-full-page';
 
-type ViewMode = 'clusters' | 'graph';
+type ViewMode = 'clusters' | 'graph' | 'anchors';
 
 interface Project {
   id: string;
@@ -120,6 +121,17 @@ export default function TopicalMapMain() {
                 <Network className="w-4 h-4" />
                 Biểu đồ liên kết
               </button>
+              <button
+                onClick={() => setViewMode('anchors')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
+                  viewMode === 'anchors'
+                    ? 'bg-[var(--bg-card)] text-[var(--text-primary)] shadow-sm'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                }`}
+              >
+                <Type className="w-4 h-4" />
+                Anchor Text
+              </button>
             </div>
           )}
 
@@ -146,6 +158,8 @@ export default function TopicalMapMain() {
         />
       ) : viewMode === 'graph' ? (
         <TopicalMapForceGraph projectId={selectedProjectId} />
+      ) : viewMode === 'anchors' ? (
+        <TopicalMapAnchorAnalysisPage projectId={selectedProjectId} />
       ) : (
         <TopicalMapOverviewGrid
           clusters={clusters}

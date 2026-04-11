@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { AlertTriangle, ArrowUpDown, Search } from 'lucide-react';
+import * as d3 from 'd3';
 
 interface GraphNode {
   id: string;
@@ -32,10 +33,146 @@ const GENERIC_ANCHORS = new Set([
   '', 'xem ngay', 'đọc thêm',
 ]);
 
+// --- D3 Treemap component for anchor text visualization ---
+function TreemapChart({ anchorStats }: { anchorStats: Array<{ anchor: string; count: number; uniqueTargets: number; isGeneric: boolean; isImage: boolean; isEmpty: boolean }> }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [hoveredAnchor, setHoveredAnchor] = useState<string | null>(null);
+
+  const top30 = useMemo(() =>
+    anchorStats.filter(a => !a.isEmpty).slice(0, 30),
+    [anchorStats]
+  );
+
+  const tiles = useMemo(() => {
+    if (top30.length === 0) return [];
+    const width = 800;
+    const height = 400;
+
+    // Build hierarchy data
+    const root = d3.hierarchy({ children: top30.map(a => ({ ...a, value: a.count })) })
+      .sum(d => (d as any).value || 0)
+      .sort((a, b) => (b.value || 0) - (a.value || 0));
+
+    d3.treemap<any>()
+      .size([width, height])
+      .padding(2)
+      .round(true)(root);
+
+    return root.leaves().map(leaf => {
+      const d = leaf.data;
+      return {
+        x: leaf.x0!,
+        y: leaf.y0!,
+        w: leaf.x1! - leaf.x0!,
+        h: leaf.y1! - leaf.y0!,
+        anchor: d.anchor,
+        count: d.count,
+        uniqueTargets: d.uniqueTargets,
+        isGeneric: d.isGeneric,
+        isImage: d.isImage,
+      };
+    });
+  }, [top30]);
+
+  const getColor = (t: typeof tiles[0]) => {
+    if (t.isGeneric) return { bg: '#dc2626', text: '#ffffff' }; // red
+    if (t.isImage) return { bg: '#d97706', text: '#ffffff' }; // amber
+    // Blue gradient based on count
+    const maxCount = tiles[0]?.count || 1;
+    const ratio = t.count / maxCount;
+    if (ratio > 0.5) return { bg: '#1e40af', text: '#ffffff' };
+    if (ratio > 0.2) return { bg: '#3b82f6', text: '#ffffff' };
+    return { bg: '#93c5fd', text: '#1e3a5f' };
+  };
+
+  return (
+    <div>
+      <div className="text-xs font-medium text-[var(--text-secondary)] mb-2">Top 30 Anchor Text</div>
+      <div ref={containerRef} className="relative rounded-lg overflow-hidden border border-[var(--border)]" style={{ aspectRatio: '2/1' }}>
+        <svg viewBox="0 0 800 400" className="w-full h-full">
+          {tiles.map((t, i) => {
+            const colors = getColor(t);
+            const isHovered = hoveredAnchor === t.anchor;
+            const showLabel = t.w > 40 && t.h > 20;
+            const showCount = t.w > 50 && t.h > 35;
+            const fontSize = Math.min(Math.max(t.w / 10, 8), 14);
+            return (
+              <g
+                key={i}
+                onMouseEnter={() => setHoveredAnchor(t.anchor)}
+                onMouseLeave={() => setHoveredAnchor(null)}
+                className="cursor-pointer"
+              >
+                <rect
+                  x={t.x}
+                  y={t.y}
+                  width={t.w}
+                  height={t.h}
+                  rx={3}
+                  fill={colors.bg}
+                  stroke={isHovered ? '#000' : 'rgba(255,255,255,0.3)'}
+                  strokeWidth={isHovered ? 2 : 0.5}
+                  opacity={hoveredAnchor && !isHovered ? 0.5 : 1}
+                />
+                {showLabel && (
+                  <text
+                    x={t.x + t.w / 2}
+                    y={t.y + t.h / 2 - (showCount ? 5 : 0)}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fill={colors.text}
+                    fontSize={fontSize}
+                    fontWeight="500"
+                  >
+                    {t.anchor.length > Math.floor(t.w / (fontSize * 0.6))
+                      ? t.anchor.slice(0, Math.floor(t.w / (fontSize * 0.6))) + '…'
+                      : t.anchor}
+                  </text>
+                )}
+                {showCount && (
+                  <text
+                    x={t.x + t.w / 2}
+                    y={t.y + t.h / 2 + fontSize * 0.8}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fill={colors.text}
+                    fontSize={Math.max(fontSize - 3, 8)}
+                    opacity={0.7}
+                  >
+                    {t.count.toLocaleString()}x
+                  </text>
+                )}
+              </g>
+            );
+          })}
+        </svg>
+
+        {/* Hover tooltip */}
+        {hoveredAnchor && (() => {
+          const t = tiles.find(t => t.anchor === hoveredAnchor);
+          if (!t) return null;
+          return (
+            <div className="absolute bottom-2 left-2 bg-[var(--bg-card)] border border-[var(--border)] rounded-lg shadow-lg px-3 py-2 text-xs pointer-events-none">
+              <div className="font-medium text-[var(--text-primary)]">&quot;{t.anchor}&quot;</div>
+              <div className="text-[var(--text-muted)]">{t.count}x · →{t.uniqueTargets} trang{t.isGeneric ? ' · ⚠ Generic' : ''}</div>
+            </div>
+          );
+        })()}
+      </div>
+      <div className="flex gap-4 text-[10px] text-[var(--text-muted)] mt-1.5">
+        <span><span className="inline-block w-3 h-2 rounded-sm mr-1" style={{ backgroundColor: '#3b82f6' }} />Bình thường</span>
+        <span><span className="inline-block w-3 h-2 rounded-sm mr-1" style={{ backgroundColor: '#dc2626' }} />Generic</span>
+        <span><span className="inline-block w-3 h-2 rounded-sm mr-1" style={{ backgroundColor: '#d97706' }} />Hình ảnh</span>
+        <span>Ô lớn = dùng nhiều</span>
+      </div>
+    </div>
+  );
+}
+
 export function AnchorTextAnalysis({ nodes, edges }: Props) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'count' | 'alpha'>('count');
-  const [view, setView] = useState<'top-anchors' | 'by-page' | 'warnings'>('top-anchors');
+  const [view, setView] = useState<'chart' | 'top-anchors' | 'by-page' | 'warnings'>('chart');
 
   // Build node URL → group map
   const nodeGroupMap = useMemo(() => {
@@ -185,7 +322,7 @@ export function AnchorTextAnalysis({ nodes, edges }: Props) {
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-[var(--text-primary)]">Phân tích Anchor Text</h3>
         <div className="flex bg-[var(--bg-accent)] rounded-lg p-0.5 border border-[var(--border)]">
-          {([['top-anchors', 'Top Anchor'], ['by-page', 'Theo trang'], ['warnings', `Cảnh báo (${warnings.length})`]] as const).map(([val, label]) => (
+          {([['chart', 'Biểu đồ'], ['top-anchors', 'Bảng chi tiết'], ['by-page', 'Theo trang'], ['warnings', `Cảnh báo (${warnings.length})`]] as const).map(([val, label]) => (
             <button
               key={val}
               onClick={() => setView(val)}
@@ -200,6 +337,121 @@ export function AnchorTextAnalysis({ nodes, edges }: Props) {
           ))}
         </div>
       </div>
+
+      {/* Chart view — treemap + donut + top pages */}
+      {view === 'chart' && (() => {
+        const total = anchorStats.reduce((s, a) => s + a.count, 0);
+        const normalCount = anchorStats.filter(a => !a.isGeneric && !a.isEmpty && !a.isImage).reduce((s, a) => s + a.count, 0);
+        const genericCount = anchorStats.filter(a => a.isGeneric).reduce((s, a) => s + a.count, 0);
+        const emptyCount = anchorStats.filter(a => a.isEmpty).reduce((s, a) => s + a.count, 0);
+        const imageCount = anchorStats.filter(a => a.isImage).reduce((s, a) => s + a.count, 0);
+
+        // Donut segments
+        const segments = [
+          { label: 'Bình thường', value: normalCount, color: '#3b82f6' },
+          { label: 'Generic', value: genericCount, color: '#ef4444' },
+          { label: 'Trống', value: emptyCount, color: '#6b7280' },
+          { label: 'Hình ảnh', value: imageCount, color: '#f59e0b' },
+        ].filter(s => s.value > 0);
+
+        // SVG donut
+        let cumulativePercent = 0;
+        const donutSegments = segments.map(seg => {
+          const percent = seg.value / total;
+          const startAngle = cumulativePercent * 2 * Math.PI;
+          cumulativePercent += percent;
+          const endAngle = cumulativePercent * 2 * Math.PI;
+          const x1 = Math.cos(startAngle - Math.PI / 2) * 40;
+          const y1 = Math.sin(startAngle - Math.PI / 2) * 40;
+          const x2 = Math.cos(endAngle - Math.PI / 2) * 40;
+          const y2 = Math.sin(endAngle - Math.PI / 2) * 40;
+          const largeArc = percent > 0.5 ? 1 : 0;
+          return { ...seg, percent, d: `M ${x1} ${y1} A 40 40 0 ${largeArc} 1 ${x2} ${y2}` };
+        });
+
+        // Top anchors for treemap
+        const top20 = anchorStats.filter(a => !a.isEmpty).slice(0, 20);
+        const maxVal = top20[0]?.count || 1;
+
+        return (
+          <div className="space-y-4">
+            {/* Row 1: Donut + Stats */}
+            <div className="flex gap-6 items-start">
+              {/* Donut chart */}
+              <div className="shrink-0">
+                <svg width="120" height="120" viewBox="-50 -50 100 100">
+                  {donutSegments.map((seg, i) => (
+                    <path
+                      key={i}
+                      d={seg.d}
+                      fill="none"
+                      stroke={seg.color}
+                      strokeWidth="16"
+                      strokeLinecap="round"
+                    />
+                  ))}
+                  <text x="0" y="-4" textAnchor="middle" className="text-lg font-bold fill-[var(--text-primary)]">{anchorStats.length}</text>
+                  <text x="0" y="10" textAnchor="middle" className="text-[8px] fill-[var(--text-muted)]">unique</text>
+                </svg>
+              </div>
+
+              {/* Stats + Legend */}
+              <div className="flex-1 space-y-2">
+                <div className="text-xs font-medium text-[var(--text-secondary)]">Phân loại Anchor Text</div>
+                {segments.map((seg, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: seg.color }} />
+                    <span className="text-xs text-[var(--text-primary)] flex-1">{seg.label}</span>
+                    <span className="text-xs font-medium tabular-nums">{seg.value.toLocaleString()}</span>
+                    <span className="text-[10px] text-[var(--text-muted)] w-10 text-right">{Math.round(seg.value / total * 100)}%</span>
+                  </div>
+                ))}
+                <div className="text-[10px] text-[var(--text-muted)] pt-1 border-t border-[var(--border)]">
+                  Tổng: {total.toLocaleString()} lượt sử dụng anchor
+                </div>
+              </div>
+            </div>
+
+            {/* Row 2: D3 Treemap — top 30 anchor text */}
+            <TreemapChart anchorStats={anchorStats} />
+
+            {/* Row 3: Top pages receiving most links */}
+            <div>
+              <div className="text-xs font-medium text-[var(--text-secondary)] mb-2">Top 10 trang nhận nhiều internal link nhất</div>
+              <div className="space-y-1.5">
+                {pageAnchorStats.slice(0, 10).map((p, i) => {
+                  const maxLinks = pageAnchorStats[0]?.totalLinks || 1;
+                  const pct = (p.totalLinks / maxLinks) * 100;
+                  return (
+                    <div key={i} className="space-y-0.5">
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-[var(--text-muted)] w-4 text-right">{i + 1}</span>
+                        <span className="text-[var(--text-primary)] truncate flex-1" title={p.title}>{p.title || getPath(p.url)}</span>
+                        <span className="font-medium tabular-nums">{p.totalLinks}</span>
+                        <span className={`text-[10px] w-8 text-right ${p.diversity < 20 ? 'text-red-500' : p.diversity < 50 ? 'text-amber-500' : 'text-green-500'}`}>
+                          {p.diversity}%
+                        </span>
+                      </div>
+                      <div className="ml-6 h-1.5 bg-[var(--bg-accent)] rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${pct}%`,
+                            backgroundColor: p.diversity < 20 ? '#ef4444' : p.diversity < 50 ? '#f59e0b' : '#3b82f6',
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="text-[10px] text-[var(--text-muted)] mt-1.5">
+                % = anchor diversity (đỏ {'<'}20% · vàng 20-50% · xanh {'>'}50%)
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Top Anchors view */}
       {view === 'top-anchors' && (
