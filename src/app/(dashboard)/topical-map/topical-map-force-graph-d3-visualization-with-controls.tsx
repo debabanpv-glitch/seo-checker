@@ -940,7 +940,7 @@ export function TopicalMapForceGraph({ projectId }: Props) {
         const ns = graphData.nodes;
 
         // Build issues list based on current view mode
-        type Issue = { severity: 'critical' | 'warning' | 'info'; title: string; count: number; action: string; pages: Array<{ title: string; url: string; value: number }> };
+        type Issue = { severity: 'critical' | 'warning' | 'info'; title: string; count: number; action: string; pages: Array<{ title: string; url: string; value: number }>; allPages: Array<{ title: string; url: string; value: number }> };
         const issues: Issue[] = [];
 
         if (pageSortBy === 'depth') {
@@ -948,55 +948,66 @@ export function TopicalMapForceGraph({ projectId }: Props) {
           const deep = ns.filter(n => n.clickDepth >= 4 && n.clickDepth !== -1);
           const depth3 = ns.filter(n => n.clickDepth === 3);
 
+          const toRow = (n: GraphNode, val: number) => ({ title: n.title, url: n.id, value: val });
           if (unreachable.length > 0) issues.push({
             severity: 'critical', title: 'Không truy cập được từ trang chủ', count: unreachable.length,
             action: 'Thêm link từ trang chính/danh mục trỏ đến các trang này',
-            pages: unreachable.slice(0, 10).map(n => ({ title: n.title, url: n.id, value: n.internalInLinks })),
+            pages: unreachable.slice(0, 10).map(n => toRow(n, n.internalInLinks)),
+            allPages: unreachable.map(n => toRow(n, n.internalInLinks)),
           });
-          if (deep.length > 0) issues.push({
+          if (deep.length > 0) { deep.sort((a, b) => b.clickDepth - a.clickDepth); issues.push({
             severity: 'warning', title: 'Click depth ≥ 4 (quá sâu)', count: deep.length,
             action: 'Rút ngắn đường dẫn: thêm link từ trang depth 1-2 trỏ đến',
-            pages: deep.sort((a, b) => b.clickDepth - a.clickDepth).slice(0, 10).map(n => ({ title: n.title, url: n.id, value: n.clickDepth })),
-          });
+            pages: deep.slice(0, 10).map(n => toRow(n, n.clickDepth)),
+            allPages: deep.map(n => toRow(n, n.clickDepth)),
+          }); }
           if (depth3.length > 0) issues.push({
             severity: 'info', title: 'Click depth = 3 (chấp nhận được)', count: depth3.length,
             action: 'Cân nhắc thêm link nếu đây là trang quan trọng',
-            pages: depth3.slice(0, 5).map(n => ({ title: n.title, url: n.id, value: n.clickDepth })),
+            pages: depth3.slice(0, 5).map(n => toRow(n, n.clickDepth)),
+            allPages: depth3.map(n => toRow(n, n.clickDepth)),
           });
         } else if (pageSortBy === 'inLinks') {
           const orphans = ns.filter(n => n.internalInLinks === 0);
           const weak = ns.filter(n => n.internalInLinks >= 1 && n.internalInLinks <= 3);
           const hubs = ns.filter(n => n.internalInLinks > 50).sort((a, b) => b.internalInLinks - a.internalInLinks);
 
+          const toRow2 = (n: GraphNode, val: number) => ({ title: n.title, url: n.id, value: val });
           if (orphans.length > 0) issues.push({
             severity: 'critical', title: 'Trang mồ côi (0 link trỏ đến)', count: orphans.length,
             action: 'Google khó index trang không có link nội bộ nào trỏ đến. Thêm link từ bài viết liên quan.',
-            pages: orphans.slice(0, 10).map(n => ({ title: n.title, url: n.id, value: 0 })),
+            pages: orphans.slice(0, 10).map(n => toRow2(n, 0)),
+            allPages: orphans.map(n => toRow2(n, 0)),
           });
           if (weak.length > 0) issues.push({
             severity: 'warning', title: 'Ít link trỏ đến (1-3 links)', count: weak.length,
             action: 'Tăng internal links bằng cách thêm liên kết từ bài viết cùng chủ đề',
-            pages: weak.slice(0, 10).map(n => ({ title: n.title, url: n.id, value: n.internalInLinks })),
+            pages: weak.slice(0, 10).map(n => toRow2(n, n.internalInLinks)),
+            allPages: weak.map(n => toRow2(n, n.internalInLinks)),
           });
           if (hubs.length > 0) issues.push({
             severity: 'info', title: 'Trang hub (>50 link trỏ đến)', count: hubs.length,
             action: 'Các trang quan trọng nhất. Đảm bảo nội dung chất lượng cao.',
-            pages: hubs.slice(0, 10).map(n => ({ title: n.title, url: n.id, value: n.internalInLinks })),
+            pages: hubs.slice(0, 10).map(n => toRow2(n, n.internalInLinks)),
+            allPages: hubs.map(n => toRow2(n, n.internalInLinks)),
           });
         } else {
           const deadEnds = ns.filter(n => n.internalOutLinks === 0);
           const excessive = ns.filter(n => n.internalOutLinks > 100);
 
+          const toRow3 = (n: GraphNode, val: number) => ({ title: n.title, url: n.id, value: val });
           if (deadEnds.length > 0) issues.push({
             severity: 'warning', title: 'Dead-end (0 link đi ra)', count: deadEnds.length,
             action: 'Trang không link đi đâu = người dùng bí lối. Thêm related posts / CTA.',
-            pages: deadEnds.slice(0, 10).map(n => ({ title: n.title, url: n.id, value: 0 })),
+            pages: deadEnds.slice(0, 10).map(n => toRow3(n, 0)),
+            allPages: deadEnds.map(n => toRow3(n, 0)),
           });
-          if (excessive.length > 0) issues.push({
+          if (excessive.length > 0) { excessive.sort((a, b) => b.internalOutLinks - a.internalOutLinks); issues.push({
             severity: 'warning', title: 'Quá nhiều link ra (>100)', count: excessive.length,
             action: 'Quá nhiều link pha loãng PageRank. Cân nhắc giảm hoặc nofollow link ít quan trọng.',
-            pages: excessive.sort((a, b) => b.internalOutLinks - a.internalOutLinks).slice(0, 10).map(n => ({ title: n.title, url: n.id, value: n.internalOutLinks })),
-          });
+            pages: excessive.slice(0, 10).map(n => toRow3(n, n.internalOutLinks)),
+            allPages: excessive.map(n => toRow3(n, n.internalOutLinks)),
+          }); }
         }
 
         const sevColors = { critical: 'bg-red-50 border-red-200', warning: 'bg-amber-50 border-amber-200', info: 'bg-blue-50 border-blue-200' };
@@ -1015,7 +1026,25 @@ export function TopicalMapForceGraph({ projectId }: Props) {
               <div key={idx} className={`border rounded-lg p-4 ${sevColors[issue.severity]}`}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium">{sevIcons[issue.severity]} {issue.title}</span>
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-white/60">{issue.count} trang</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        const header = 'URL,Title,Value';
+                        const rows = issue.allPages.map(p => `${p.url},"${p.title.replace(/"/g, '""')}",${p.value}`);
+                        const csv = [header, ...rows].join('\n');
+                        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+                        const a = document.createElement('a');
+                        a.href = URL.createObjectURL(blob);
+                        a.download = `${issue.title.replace(/[^a-zA-Z0-9]/g, '-')}.csv`;
+                        a.click();
+                      }}
+                      className="text-[10px] px-2 py-0.5 rounded bg-white/60 hover:bg-white/80 transition-colors flex items-center gap-1"
+                      title="Download CSV"
+                    >
+                      <Download className="w-3 h-3" /> CSV
+                    </button>
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-white/60">{issue.count} trang</span>
+                  </div>
                 </div>
                 <div className="text-xs text-[var(--text-secondary)] mb-3">💡 {issue.action}</div>
                 <div className="space-y-1">
