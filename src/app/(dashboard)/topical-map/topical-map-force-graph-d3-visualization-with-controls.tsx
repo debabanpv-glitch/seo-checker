@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Network, Upload, Trash2, RefreshCw, ExternalLink, Search } from 'lucide-react';
+import { Network, Upload, Trash2, RefreshCw, ExternalLink, Search, Download } from 'lucide-react';
 import * as d3 from 'd3';
 // Anchor Text Analysis moved to separate tab (topical-map-anchor-analysis-full-page.tsx)
 
@@ -537,6 +537,37 @@ export function TopicalMapForceGraph({ projectId }: Props) {
               </span>
             );
           })()}
+          {/* Download CSV */}
+          <button
+            onClick={() => {
+              if (!graphData) return;
+              const rows = graphData.nodes.map(n => ({
+                url: n.id,
+                title: n.title.replace(/,/g, ' '),
+                group: n.group,
+                click_depth: n.clickDepth === -1 ? 'unreachable' : n.clickDepth,
+                inbound_links: n.internalInLinks,
+                outbound_links: n.internalOutLinks,
+                external_links: n.externalOutLinks,
+                status: n.internalInLinks === 0 ? 'orphan' : n.clickDepth >= 4 ? 'deep' : n.clickDepth === -1 ? 'unreachable' : 'ok',
+              }));
+              const header = 'URL,Title,Group,Click Depth,Inbound Links,Outbound Links,External Links,Status';
+              const csv = [header, ...rows.map(r =>
+                `${r.url},"${r.title}",${r.group},${r.click_depth},${r.inbound_links},${r.outbound_links},${r.external_links},${r.status}`
+              )].join('\n');
+              const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `internal-links-${new Date().toISOString().slice(0, 10)}.csv`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="flex items-center gap-1 px-2.5 py-1 bg-[var(--bg-card)] border border-[var(--border)] rounded-lg text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-accent)] transition-colors ml-auto"
+          >
+            <Download className="w-3.5 h-3.5" />
+            CSV
+          </button>
         </div>
       )}
 
