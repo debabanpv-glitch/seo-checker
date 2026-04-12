@@ -89,12 +89,13 @@ export function GET(req: NextRequest) {
       const classify = (title: string, slug: string) => {
         const t = title.toLowerCase();
         const isTour = slug.includes('tour') || slug.startsWith('dlbm') || slug.startsWith('tp-hcm') || slug.startsWith('tphcm');
-        const isFood = t.includes('ăn gì') || t.includes('đặc sản') || t.includes('món ');
-        const isGuide = t.includes('kinh nghiệm') || t.includes('cẩm nang') || t.includes('hướng dẫn') || t.includes('top ') || t.includes('check-in') || t.includes('khám phá') || t.includes('địa điểm');
-        return isTour ? 'tour' : isFood ? 'food' : isGuide ? 'guide' : 'content';
+        const isFood = t.includes('ăn gì') || t.includes('đặc sản') || t.includes('món ') || t.includes('bánh') || t.includes('bún ') || t.includes('lẩu ') || t.includes('cách nấu');
+        const isGuide = t.includes('kinh nghiệm') || t.includes('cẩm nang') || t.includes('hướng dẫn') || t.includes('top ') || t.includes('check-in') || t.includes('khám phá') || t.includes('địa điểm') || t.includes('mùa nào') || t.includes('nên đi') || t.includes('lưu ý') || t.includes('checklist') || t.includes('chuẩn bị');
+        // "place" = bài review địa điểm cụ thể (không phải tour, food, guide)
+        return isTour ? 'tour' : isFood ? 'food' : isGuide ? 'guide' : 'place';
       };
 
-      type ClusterResult = { name: string; pages: Array<{ url: string; title: string; type: string }>; tourCount: number; contentCount: number; foodCount: number; guideCount: number };
+      type ClusterResult = { name: string; pages: Array<{ url: string; title: string; type: string }>; tour: number; food: number; guide: number; place: number; content: number; total: number };
       const clusters: ClusterResult[] = [];
       const assigned = new Set<string>();
 
@@ -110,10 +111,12 @@ export function GET(req: NextRequest) {
         const items = matched.map(p => ({ url: p.url, title: p.title, type: classify(p.title, new URL(p.url).pathname) }));
         clusters.push({
           name, pages: items,
-          tourCount: items.filter(i => i.type === 'tour').length,
-          contentCount: items.filter(i => i.type === 'content').length,
-          foodCount: items.filter(i => i.type === 'food').length,
-          guideCount: items.filter(i => i.type === 'guide').length,
+          tour: items.filter(i => i.type === 'tour').length,
+          food: items.filter(i => i.type === 'food').length,
+          guide: items.filter(i => i.type === 'guide').length,
+          place: items.filter(i => i.type === 'place').length,
+          content: items.length,
+          total: items.length,
         });
       }
 
