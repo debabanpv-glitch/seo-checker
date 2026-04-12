@@ -23,7 +23,9 @@ export const modules: ModuleConfig[] = [
   { id: 'gsc',          name: 'Search Console', icon: 'Globe',           path: '/gsc',             order: 6, group: 'core', enabled: true },
   { id: 'seo-report', name: 'Báo cáo SEO', icon: 'FileBarChart', path: '/seo-report', order: 7, group: 'core', enabled: true },
   { id: 'salary',    name: 'Tính lương',  icon: 'Wallet',          path: '/salary',          order: 8,  group: 'core',      enabled: true },
-  { id: 'all-pages', name: 'Tất cả trang', icon: 'FileSearch', path: '/all-pages', order: 9, group: 'core', enabled: true },
+  { id: 'all-pages', name: 'Tất cả trang', icon: 'FileSearch', path: '/all-pages', order: 9, group: 'core', enabled: true, children: [
+    { id: 'seo-keywords', name: 'KW cam kết', icon: 'Star', path: '/all-pages/seo-keywords' },
+  ]},
   { id: 'fix-alt-text', name: 'Fix Alt Text', icon: 'ImageOff',    path: '/fix-alt-text',    order: 10,  group: 'core',      enabled: true },
   // HIDDEN — pages still accessible via URL, just hidden from sidebar
   { id: 'tasks',     name: 'Công việc',    icon: 'ListTodo',        path: '/tasks',           order: 6,  group: 'core', enabled: true },
