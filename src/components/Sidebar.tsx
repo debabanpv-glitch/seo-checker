@@ -74,16 +74,19 @@ function NavItem({ item, onClick }: { item: ModuleConfig; onClick: () => void })
   if (hasChildren) {
     return (
       <div>
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className={cn('nav-link w-full justify-between', (isActive || isChildActive) && 'active')}
-        >
-          <span className="flex items-center gap-3">
+        <div className={cn('nav-link w-full justify-between', (isActive || isChildActive) && 'active')}>
+          <Link
+            href={item.path}
+            onClick={onClick}
+            className="flex items-center gap-3 flex-1 min-w-0"
+          >
             {Icon && <Icon className="w-5 h-5" />}
             <span>{item.name}</span>
-          </span>
-          <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', expanded && 'rotate-180')} />
-        </button>
+          </Link>
+          <button onClick={() => setExpanded(!expanded)} className="p-0.5 -mr-1 rounded hover:bg-[var(--bg-accent)]">
+            <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', expanded && 'rotate-180')} />
+          </button>
+        </div>
         {expanded && (
           <div className="ml-4 mt-0.5 space-y-0.5 border-l border-border pl-3">
             {item.children!.map(child => {
