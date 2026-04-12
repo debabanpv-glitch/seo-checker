@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, LayoutGrid, Network, Type } from 'lucide-react';
+import { ArrowLeft, LayoutGrid, Network, Type, Layers } from 'lucide-react';
 import { TopicalMapOverviewGrid } from './topical-map-overview-grid-with-stats-and-cluster-cards';
 import { TopicalMapClusterDetail } from './topical-map-cluster-detail-with-tabs-keywords-pages-overlap';
 import { TopicalMapForceGraph } from './topical-map-force-graph-d3-visualization-with-controls';
 import { TopicalMapAnchorAnalysisPage } from './topical-map-anchor-analysis-full-page';
+import { TopicalMapAutoClusterView } from './topical-map-auto-topical-clusters-view';
 
-type ViewMode = 'clusters' | 'graph' | 'anchors';
+type ViewMode = 'clusters' | 'graph' | 'anchors' | 'topical';
 
 interface Project {
   id: string;
@@ -132,6 +133,17 @@ export default function TopicalMapMain() {
                 <Type className="w-4 h-4" />
                 Anchor Text
               </button>
+              <button
+                onClick={() => setViewMode('topical')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
+                  viewMode === 'topical'
+                    ? 'bg-[var(--bg-card)] text-[var(--text-primary)] shadow-sm'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                }`}
+              >
+                <Layers className="w-4 h-4" />
+                Topical SEO
+              </button>
             </div>
           )}
 
@@ -160,6 +172,8 @@ export default function TopicalMapMain() {
         <TopicalMapForceGraph projectId={selectedProjectId} />
       ) : viewMode === 'anchors' ? (
         <TopicalMapAnchorAnalysisPage projectId={selectedProjectId} />
+      ) : viewMode === 'topical' ? (
+        <TopicalMapAutoClusterView projectId={selectedProjectId} />
       ) : (
         <TopicalMapOverviewGrid
           clusters={clusters}
