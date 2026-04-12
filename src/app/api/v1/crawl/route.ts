@@ -49,27 +49,28 @@ export function GET(req: NextRequest) {
       const pages = db.select().from(crawledPages).where(eq(crawledPages.session_id, session.id)).all();
 
       // Destination keywords for clustering
+      // NOTE: order matters — pages assigned to first matching cluster only
+      // Merged Châu Đốc + An Giang to match benchmark naming
       const destinations: [string, string[]][] = [
-        ['Cần Thơ', ['cần thơ', 'can-tho', 'cai-rang', 'ninh-kieu']],
-        ['Phú Quốc', ['phú quốc', 'phu-quoc', 'hon-thom']],
+        ['Cần Thơ', ['cần thơ', 'can-tho', 'cai-rang', 'ninh-kieu', 'cho-noi-cai-rang', 'phong-dien']],
+        ['Châu Đốc / An Giang', ['châu đốc', 'chau-doc', 'tra-su', 'nui-cam', 'mieu-ba', 'an giang', 'an-giang', 'nui-sam', 'tinh-bien', 'tuc-dup']],
         ['Cà Mau', ['cà mau', 'ca-mau', 'dat-mui', 'u-minh']],
-        ['Châu Đốc', ['châu đốc', 'chau-doc', 'tra-su', 'nui-cam', 'mieu-ba']],
+        ['Bạc Liêu', ['bạc liêu', 'bac-lieu', 'cong-tu', 'xiem-can']],
+        ['Sóc Trăng', ['sóc trăng', 'soc-trang', 'khmer', 'nga-nam']],
+        ['Đồng Tháp', ['đồng tháp', 'dong-thap', 'sa-dec', 'tram-chim', 'gao-giong', 'go-thap']],
+        ['Mỹ Tho / Tiền Giang', ['mỹ tho', 'my-tho', 'tien-giang', 'thoi-son']],
+        ['Bến Tre', ['bến tre', 'ben-tre', 'keo-dua']],
+        ['Vĩnh Long', ['vĩnh long', 'vinh-long', 'cai-be']],
+        ['Phú Quốc', ['phú quốc', 'phu-quoc', 'hon-thom', 'bai-sao', 'ham-ninh', 'dinh-cau']],
+        ['Phan Thiết / Mũi Né', ['phan thiết', 'phan-thiet', 'mũi né', 'mui-ne', 'hon-rom', 'ke-ga', 'doi-cat']],
+        ['Kiên Giang / Hà Tiên', ['kiên giang', 'kien-giang', 'nam-du', 'ha-tien', 'ba-lua', 'hon-son', 'mui-nai']],
+        ['Tây Ninh', ['tây ninh', 'tay-ninh', 'nui-ba-den', 'cao-dai']],
+        ['Vũng Tàu', ['vũng tàu', 'vung-tau', 'ho-coc', 'binh-chau']],
+        ['Côn Đảo', ['côn đảo', 'con-dao']],
         ['Đà Lạt', ['đà lạt', 'da-lat', 'dalat']],
         ['Nha Trang', ['nha trang', 'nha-trang', 'vinpearl']],
-        ['Mũi Né / Phan Thiết', ['mũi né', 'phan thiết', 'mui-ne', 'phan-thiet', 'ho-tram']],
         ['Đà Nẵng / Hội An / Huế', ['đà nẵng', 'hội an', 'huế', 'da-nang', 'hoi-an', 'hue', 'ba-na', 'phong-nha']],
         ['Hà Nội / Sapa / Hạ Long', ['hà nội', 'sapa', 'hạ long', 'ha-noi', 'ha-long', 'tam-coc']],
-        ['Tây Ninh', ['tây ninh', 'tay-ninh', 'nui-ba-den']],
-        ['Vũng Tàu', ['vũng tàu', 'vung-tau', 'ho-tram', 'ho-coc']],
-        ['Đồng Tháp', ['đồng tháp', 'dong-thap', 'sa-dec', 'tram-chim', 'gao-giong']],
-        ['Sóc Trăng', ['sóc trăng', 'soc-trang', 'khmer']],
-        ['Bạc Liêu', ['bạc liêu', 'bac-lieu', 'cong-tu']],
-        ['Bến Tre', ['bến tre', 'ben-tre']],
-        ['Mỹ Tho', ['mỹ tho', 'my-tho', 'tien-giang']],
-        ['An Giang', ['an giang', 'an-giang']],
-        ['Vĩnh Long', ['vĩnh long', 'vinh-long']],
-        ['Kiên Giang', ['kiên giang', 'kien-giang', 'nam-du', 'ha-tien']],
-        ['Côn Đảo', ['côn đảo', 'con-dao']],
         ['Củ Chi', ['củ chi', 'cu-chi', 'dia-dao']],
         ['Tây Nguyên', ['tây nguyên', 'tay-nguyen', 'buon-ma', 'ta-dung', 'cat-tien']],
         ['Tour Cano Sài Gòn', ['cano', 'sông sài gòn']],
@@ -101,7 +102,6 @@ export function GET(req: NextRequest) {
 
       for (const [name, keywords] of destinations) {
         const matched = pages.filter(p => {
-          if (assigned.has(p.url)) return false;
           const t = p.title.toLowerCase();
           const slug = new URL(p.url).pathname.toLowerCase();
           return keywords.some(kw => t.includes(kw) || slug.includes(kw));
