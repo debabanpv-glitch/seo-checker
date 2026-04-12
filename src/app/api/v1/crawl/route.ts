@@ -41,11 +41,6 @@ export function GET(req: NextRequest) {
       return NextResponse.json(links);
     }
 
-    // GET ?projectId=xxx → list crawl sessions
-    if (projectId) {
-      return NextResponse.json({ sessions: listCrawlSessions(projectId) });
-    }
-
     // GET ?projectId=xxx&topicalClusters=true → auto-group pages into topical clusters
     if (projectId && sp.get('topicalClusters') === 'true') {
       const session = getLatestSession(projectId);
@@ -126,6 +121,11 @@ export function GET(req: NextRequest) {
       clusters.sort((a, b) => b.pages.length - a.pages.length);
 
       return NextResponse.json({ clusters, totalPages: pages.length, assignedPages: assigned.size });
+    }
+
+    // GET ?projectId=xxx → list crawl sessions
+    if (projectId) {
+      return NextResponse.json({ sessions: listCrawlSessions(projectId) });
     }
 
     return NextResponse.json({ error: 'projectId required' }, { status: 400 });
