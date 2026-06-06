@@ -1,12 +1,15 @@
 'use client';
 
+// useSearchParams cần render dynamic (tránh lỗi prerender static khi build)
+export const dynamic = 'force-dynamic';
+
 // ---------------------------------------------------------------------------
 // Keyword Ranking Page — Orchestrator (SE Ranking style)
 // Two tabs: Summary (overview charts) + Detailed (filterable keyword table)
 // Data: keyword-insights API + growth API + projects + sheet configs
 // ---------------------------------------------------------------------------
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   BarChart3, List, RefreshCw, Loader2, CheckCircle, AlertCircle, Settings2, Star, Eye, FileText,
@@ -26,7 +29,7 @@ import { RankingTopPagesTab } from './keyword-ranking-top-pages-tab';
 
 type MainTab = 'summary' | 'detailed' | 'top-pages';
 
-export default function KeywordRankingPage() {
+function KeywordRankingContent() {
   const searchParams = useSearchParams();
   const kwType = searchParams.get('type'); // 'committed' | 'follow' | null (all)
   const [mainTab, setMainTab] = useState<MainTab>('summary');
@@ -67,7 +70,7 @@ export default function KeywordRankingPage() {
       // Fetch insights + growth for selected project
       if (projId) {
         const [insightsRes, growthRes] = await Promise.all([
-          fetch(`/api/v1/keyword-insights?projectId=${projId}`),
+          fetch(`/api/v1/keyword-insights?projectId=${projId}&batch=new`),
           fetch(`/api/v1/keyword-rankings/growth?projectId=${projId}&days=90`),
         ]);
         const insightsData = await insightsRes.json();
@@ -278,5 +281,14 @@ export default function KeywordRankingPage() {
         />
       )}
     </div>
+  );
+}
+
+// Wrap trong Suspense vì KeywordRankingContent dùng useSearchParams (yêu cầu của Next.js)
+export default function KeywordRankingPage() {
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <KeywordRankingContent />
+    </Suspense>
   );
 }
