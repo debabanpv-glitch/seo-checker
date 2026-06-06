@@ -23,7 +23,7 @@ import {
 import { eq, and, desc, sql, isNotNull } from 'drizzle-orm';
 import { getAppConfig } from './app-config-crud.service';
 import { isPublishedStatus } from '@/lib/task-helpers';
-import { safePct, computeStrategyCompletion } from './kpi-calculators';
+import { safePct, computeStrategyCompletion, getHealthScore } from './kpi-calculators';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -553,8 +553,8 @@ async function getStrategyKpi(projectId?: string): Promise<UnifiedDashboardSumma
 
 async function getProjectRows(projectId?: string): Promise<UnifiedDashboardSummary['projects']> {
   const projectList = projectId
-    ? await db.select({ id: projects.id, name: projects.name }).from(projects).where(eq(projects.id, projectId))
-    : await db.select({ id: projects.id, name: projects.name }).from(projects);
+    ? await db.select({ id: projects.id, name: projects.name, domain: projects.domain }).from(projects).where(eq(projects.id, projectId))
+    : await db.select({ id: projects.id, name: projects.name, domain: projects.domain }).from(projects);
 
   return Promise.all(projectList.map(async proj => {
     // Clicks: latest weekly snapshot
@@ -634,19 +634,8 @@ async function getProjectRows(projectId?: string): Promise<UnifiedDashboardSumma
       .where(eq(sheetContent.project_id, proj.id));
     const contentPublishedCount = contentRows.filter((r) => isPublishedStatus(r.content_status)).length;
 
-    // Audit score: latest
-    const auditRow = ((await db
-      .select({ summary: auditResults.summary })
-      .from(auditResults)
-      .where(and(eq(auditResults.project_id, proj.id), isNotNull(auditResults.summary)))
-      .orderBy(desc(auditResults.created_at))
-      .limit(1))[0]) as { summary: Record<string, number> | null } | undefined;
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const auditScore = typeof (auditRow?.summary as any)?.seo_score === 'number'
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ? (auditRow!.summary as any).seo_score as number
-      : 0;
+    // Audit/health score: định nghĩa đầy đủ chung (auditor → crawl → on-page)
+    const auditScore = (await getHealthScore(proj.id, proj.domain)).score;
 
     // Strategy progress
     const allActions = await db

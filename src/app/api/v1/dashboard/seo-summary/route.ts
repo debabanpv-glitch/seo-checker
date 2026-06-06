@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { projects } from '@/lib/db/schema/projects';
 import { auditResults } from '@/lib/db/schema/audit-results-table';
+import { getHealthScore } from '@/lib/services/kpi-calculators';
 import { eq, desc } from 'drizzle-orm';
 import { handleApiError } from '@/lib/api-response';
 import { getSnapshots } from '@/lib/services/gsc-snapshots-save-and-query.service';
@@ -34,18 +35,17 @@ interface DailyPoint {
 // GET /api/v1/dashboard/seo-summary
 // ---------------------------------------------------------------------------
 
-export function GET() {
+export async function GET() {
   try {
-    const allProjects = db.select().from(projects)
-      .where(eq(projects.status, 'active'))
-      .all();
+    const allProjects = await db.select().from(projects)
+      .where(eq(projects.status, 'active'));
 
     const dailyMap = new Map<string, { clicks: number; impressions: number }>();
 
-    const projectSummaries = allProjects.map((project) => {
+    const projectSummaries = await Promise.all(allProjects.map(async (project) => {
       try {
         // --- GSC data ---
-        const snapshots = getSnapshots(project.id);
+        const snapshots = await getSnapshots(project.id);
         const weeklySnaps = snapshots.filter((s) => s.period === 'weekly');
         const latest = weeklySnaps[0] ?? null;
         const prev = weeklySnaps[1] ?? null;
@@ -89,7 +89,7 @@ export function GET() {
         };
 
         try {
-          const ki = getKeywordInsights(project.id);
+          const ki = await getKeywordInsights(project.id);
           const tiers = ki.tiers;
           const top3Count = tiers.top5.filter((k) => k.currentPosition <= 3).length;
           const top10Count = tiers.top5.filter((k) => k.currentPosition > 3).length + tiers.top10.length;
@@ -116,16 +116,16 @@ export function GET() {
         let auditDate: string | null = null;
         let categoryScores: Record<string, number> | null = null;
         try {
-          const latestAudit = db.select().from(auditResults)
+          const latestAudit = (await db.select().from(auditResults)
             .where(eq(auditResults.project_id, project.id))
             .orderBy(desc(auditResults.audit_date))
-            .limit(1)
-            .get();
+            .limit(1))[0];
 
+          // Health score: định nghĩa đầy đủ chung (auditor → crawl → on-page)
+          healthScore = (await getHealthScore(project.id, project.domain)).score;
           if (latestAudit) {
             auditDate = latestAudit.audit_date;
             const summary = (latestAudit.summary || {}) as AuditSummary;
-            healthScore = summary.seo_score || 0;
             // Category scores from seo-master-auditor
             if (summary.content_score != null) {
               categoryScores = {
@@ -166,7 +166,7 @@ export function GET() {
           auditDate: null,
         };
       }
-    });
+    }));
 
     // --- Totals ---
     const totals = {

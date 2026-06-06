@@ -2,6 +2,7 @@ import { db } from '@/lib/db';
 import { tasks, members, projects, salaryPayments, keywordRankings, seoResults, monthlyTargets } from '@/lib/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { isPublished, isDoneQC } from '@/lib/task-helpers';
+import { countKeywordTiers } from './kpi-calculators';
 
 // ---------------------------------------------------------------------------
 // Dashboard overview (GET /api/dashboard/overview)
@@ -82,12 +83,14 @@ export async function getDashboardOverview(month: number, year: number) {
   const latestDate = rankings.length > 0 ? rankings[0].date : null;
   const latestRankings = latestDate ? rankings.filter((r) => r.date === latestDate) : [];
 
+  // Dùng countKeywordTiers chung (lọc position>0 — bỏ KW chưa rank khỏi top tiers)
+  const _tiers = countKeywordTiers(latestRankings, [3, 10, 20, 30]);
   const keywordStats = {
     total: latestRankings.length,
-    top3: latestRankings.filter((r) => r.position <= 3).length,
-    top10: latestRankings.filter((r) => r.position <= 10).length,
-    top20: latestRankings.filter((r) => r.position <= 20).length,
-    top30: latestRankings.filter((r) => r.position <= 30).length,
+    top3: _tiers.top3,
+    top10: _tiers.top10,
+    top20: _tiers.top20,
+    top30: _tiers.top30,
   };
 
   // Declining keywords
