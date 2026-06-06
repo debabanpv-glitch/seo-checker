@@ -2,33 +2,26 @@ import { db } from '@/lib/db';
 import { tasks, projects, salaryPayments } from '@/lib/db/schema';
 import { eq, and, gte, lte } from 'drizzle-orm';
 import { calculateSalary } from '@/lib/utils';
+import { isPublishedStatus } from '@/lib/task-helpers';
 
 // ---------------------------------------------------------------------------
 // Salary data (GET /api/salary)
 // ---------------------------------------------------------------------------
 
-// Local helper matching original route logic (status-based check)
-function isPublishedByStatus(statusContent: string | null) {
-  if (!statusContent) return false;
-  const status = statusContent.toLowerCase().trim();
-  return status.includes('publish') || status.includes('4.') || status === 'done' || status === 'hoàn thành';
-}
-
-export function getSalaryData(month: number, year: number, projectId?: string) {
+export async function getSalaryData(month: number, year: number, projectId?: string) {
   const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
   const endDate = new Date(year, month, 0).toISOString().split('T')[0];
 
   const conditions = [gte(tasks.publish_date, startDate), lte(tasks.publish_date, endDate)];
   if (projectId) conditions.push(eq(tasks.project_id, projectId));
 
-  const taskList = db.select().from(tasks)
+  const taskList = await db.select().from(tasks)
     .leftJoin(projects, eq(tasks.project_id, projects.id))
-    .where(and(...conditions))
-    .all();
+    .where(and(...conditions));
 
   // Filter published tasks
   const publishedTasks = taskList.filter(
-    (row) => (row.tasks.title || row.tasks.keyword_sub) && isPublishedByStatus(row.tasks.status_content)
+    (row) => (row.tasks.title || row.tasks.keyword_sub) && isPublishedStatus(row.tasks.status_content)
   );
 
   // Group by PIC
@@ -68,7 +61,7 @@ export function getSalaryData(month: number, year: number, projectId?: string) {
     })
     .sort((a, b) => b.total - a.total);
 
-  const projectList = db.select({ id: projects.id, name: projects.name }).from(projects).all();
+  const projectList = await db.select({ id: projects.id, name: projects.name }).from(projects);
 
   return {
     salaryData,
@@ -81,7 +74,7 @@ export function getSalaryData(month: number, year: number, projectId?: string) {
 // Salary analytics (GET /api/salary/analytics)
 // ---------------------------------------------------------------------------
 
-export function getSalaryAnalytics(months: number = 6) {
+export async function getSalaryAnalytics(months: number = 6) {
   const now = new Date();
   const monthlyData: Array<{
     month: number; year: number; label: string; shortLabel: string;
@@ -109,13 +102,12 @@ export function getSalaryAnalytics(months: number = 6) {
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
     const endDate = new Date(year, month, 0).toISOString().split('T')[0];
 
-    const taskRows = db.select().from(tasks)
+    const taskRows = await db.select().from(tasks)
       .leftJoin(projects, eq(tasks.project_id, projects.id))
-      .where(and(gte(tasks.publish_date, startDate), lte(tasks.publish_date, endDate)))
-      .all();
+      .where(and(gte(tasks.publish_date, startDate), lte(tasks.publish_date, endDate)));
 
     const publishedTasks = taskRows.filter(
-      (row) => (row.tasks.title || row.tasks.keyword_sub) && isPublishedByStatus(row.tasks.status_content)
+      (row) => (row.tasks.title || row.tasks.keyword_sub) && isPublishedStatus(row.tasks.status_content)
     );
 
     const picCounts = new Map<string, number>();
@@ -152,9 +144,8 @@ export function getSalaryAnalytics(months: number = 6) {
       memberTotals.set(memberName, memberData);
     });
 
-    const payments = db.select().from(salaryPayments)
-      .where(and(eq(salaryPayments.month, month), eq(salaryPayments.year, year)))
-      .all();
+    const payments = await db.select().from(salaryPayments)
+      .where(and(eq(salaryPayments.month, month), eq(salaryPayments.year, year)));
 
     const totalPaid = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
     const paidCount = payments.length;
@@ -246,28 +237,26 @@ export function getSalaryAnalytics(months: number = 6) {
 // Salary payments CRUD (GET/POST/DELETE /api/salary-payments)
 // ---------------------------------------------------------------------------
 
-export function getPayments(month: number, year: number) {
+export async function getPayments(month: number, year: number) {
   return db.select().from(salaryPayments)
-    .where(and(eq(salaryPayments.month, month), eq(salaryPayments.year, year)))
-    .all();
+    .where(and(eq(salaryPayments.month, month), eq(salaryPayments.year, year)));
 }
 
-export function upsertPayment(member_name: string, month: number, year: number, amount: number) {
-  return db.insert(salaryPayments)
+export async function upsertPayment(member_name: string, month: number, year: number, amount: number) {
+  return (await db.insert(salaryPayments)
     .values({ member_name, month, year, amount })
     .onConflictDoUpdate({
       target: [salaryPayments.member_name, salaryPayments.month, salaryPayments.year],
       set: { amount },
     })
-    .returning().get();
+    .returning())[0];
 }
 
-export function deletePayment(member_name: string, month: number, year: number) {
-  db.delete(salaryPayments)
+export async function deletePayment(member_name: string, month: number, year: number) {
+  await db.delete(salaryPayments)
     .where(and(
       eq(salaryPayments.member_name, member_name),
       eq(salaryPayments.month, month),
       eq(salaryPayments.year, year),
-    ))
-    .run();
+    ));
 }

@@ -9,21 +9,31 @@ export interface TaskStatusFields {
 }
 
 /**
- * Check if a task is published
- * Priority: publish_date first, then status_content
+ * Published theo TRẠNG THÁI nội dung (status-only). Dùng cho salary —
+ * nơi đã lọc theo publish_date nên chỉ cần xác nhận status đã đăng.
+ * Cũng dùng cho field content_status của sheet_content.
  */
-export const isPublished = (task: TaskStatusFields): boolean => {
-  // If has publish_date, consider it published
-  if (task.publish_date) return true;
-
-  if (!task.status_content) return false;
-  const status = task.status_content.toLowerCase().trim();
+export const isPublishedStatus = (statusContent?: string | null): boolean => {
+  if (!statusContent) return false;
+  const status = statusContent.toLowerCase().trim();
   return (
-    status.includes('publish') ||
+    status.includes('publish') || // gồm cả 'published'
     status.includes('4.') ||
     status === 'done' ||
-    status === 'hoàn thành'
+    status === 'hoàn thành' ||
+    status.includes('xuất bản') ||
+    status.includes('live') ||
+    status.includes('đã đăng')
   );
+};
+
+/**
+ * Check if a task is published.
+ * Priority: publish_date first, then status_content (qua isPublishedStatus).
+ */
+export const isPublished = (task: TaskStatusFields): boolean => {
+  if (task.publish_date) return true;
+  return isPublishedStatus(task.status_content);
 };
 
 /**

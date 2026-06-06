@@ -3,9 +3,10 @@
 // Dedupes by project_id + stt + month + year
 // ---------------------------------------------------------------------------
 
+import { isPublishedStatus } from '@/lib/task-helpers';
 import { db } from '@/lib/db';
 import { sheetContent, activityLog } from '@/lib/db/schema';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -58,30 +59,30 @@ export interface SheetContentStats {
 
 // ── Upsert ─────────────────────────────────────────────────────────────────
 
-export function upsertSheetContent(
+export async function upsertSheetContent(
   projectId: string,
   data: SheetContentInput[]
-): { inserted: number; updated: number } {
+): Promise<{ inserted: number; updated: number }> {
   if (!data.length) return { inserted: 0, updated: 0 };
   let inserted = 0, updated = 0;
   const nowStr = new Date().toISOString().replace('T', ' ').slice(0, 19);
 
-  db.transaction((tx) => {
+  await db.transaction(async (tx) => {
     for (const item of data) {
       // Find existing by project_id + stt + month + year
       const existing = (item.stt && item.month && item.year)
-        ? tx.select({ id: sheetContent.id }).from(sheetContent).where(
+        ? (await tx.select({ id: sheetContent.id }).from(sheetContent).where(
             and(
               eq(sheetContent.project_id, projectId),
               eq(sheetContent.stt, item.stt),
               eq(sheetContent.month, item.month),
               eq(sheetContent.year, item.year)
             )
-          ).get()
+          ))[0]
         : null;
 
       if (existing) {
-        tx.update(sheetContent).set({
+        await tx.update(sheetContent).set({
           parent_keyword: item.parent_keyword,
           sub_keywords: item.sub_keywords,
           search_volume: item.search_volume,
@@ -95,42 +96,42 @@ export function upsertSheetContent(
           publish_date: item.publish_date,
           notes: item.notes,
           updated_at: nowStr,
-        }).where(eq(sheetContent.id, existing.id)).run();
+        }).where(eq(sheetContent.id, existing.id));
         updated++;
       } else {
-        tx.insert(sheetContent).values({
+        await tx.insert(sheetContent).values({
           id: crypto.randomUUID(),
           project_id: projectId,
           ...item,
           created_at: nowStr,
           updated_at: nowStr,
-        }).run();
+        });
         inserted++;
       }
     }
   });
 
   // Log activity
-  db.insert(activityLog).values({
+  await db.insert(activityLog).values({
     id: crypto.randomUUID(),
     source: 'sheet',
     action: 'synced',
     description: `Đồng bộ ${data.length} bản ghi nội dung từ Google Sheets`,
     project_id: projectId,
     entity_type: 'content',
-  }).run();
+  });
 
   return { inserted, updated };
 }
 
 // ── Query ──────────────────────────────────────────────────────────────────
 
-export function getSheetContent(filters: {
+export async function getSheetContent(filters: {
   projectId?: string;
   month?: number;
   year?: number;
   status?: string;
-}): SheetContentRow[] {
+}): Promise<SheetContentRow[]> {
   const conditions = [];
   if (filters.projectId) conditions.push(eq(sheetContent.project_id, filters.projectId));
   if (filters.month) conditions.push(eq(sheetContent.month, filters.month));
@@ -138,18 +139,14 @@ export function getSheetContent(filters: {
   if (filters.status) conditions.push(eq(sheetContent.content_status, filters.status));
 
   const where = conditions.length ? and(...conditions) : undefined;
-  return db.select().from(sheetContent).where(where).all() as SheetContentRow[];
+  return (await db.select().from(sheetContent).where(where)) as SheetContentRow[];
 }
 
-export function getSheetContentStats(projectId: string): SheetContentStats {
-  const rows = db.select().from(sheetContent)
-    .where(eq(sheetContent.project_id, projectId)).all();
+export async function getSheetContentStats(projectId: string): Promise<SheetContentStats> {
+  const rows = await db.select().from(sheetContent)
+    .where(eq(sheetContent.project_id, projectId));
 
-  const published = rows.filter(r =>
-    r.content_status?.toLowerCase().includes('publish') ||
-    r.content_status?.toLowerCase().includes('done') ||
-    r.content_status?.toLowerCase().includes('xuất bản')
-  ).length;
+  const published = rows.filter(r => isPublishedStatus(r.content_status)).length;
 
   const inProgress = rows.filter(r =>
     r.content_status?.toLowerCase().includes('progress') ||
@@ -164,11 +161,7 @@ export function getSheetContentStats(projectId: string): SheetContentStats {
     const key = `${row.year}-${row.month}`;
     const entry = monthMap.get(key) || { month: row.month, year: row.year, total: 0, published: 0 };
     entry.total++;
-    if (
-      row.content_status?.toLowerCase().includes('publish') ||
-      row.content_status?.toLowerCase().includes('done') ||
-      row.content_status?.toLowerCase().includes('xuất bản')
-    ) {
+    if (isPublishedStatus(row.content_status)) {
       entry.published++;
     }
     monthMap.set(key, entry);

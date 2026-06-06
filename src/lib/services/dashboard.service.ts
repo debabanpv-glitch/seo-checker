@@ -13,17 +13,15 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
-export function getDashboardOverview(month: number, year: number) {
+export async function getDashboardOverview(month: number, year: number) {
   const startDate = new Date(year, month - 1, 1);
   const endDate = new Date(year, month, 0);
   const startStr = startDate.toISOString().split('T')[0];
   const endStr = endDate.toISOString().split('T')[0];
 
-  // All queries are sync
-  const allTasks = db.select().from(tasks)
-    .leftJoin(projects, eq(tasks.project_id, projects.id))
-    .all()
-    .map((row) => ({ ...row.tasks, project: row.projects ? { id: row.projects.id, name: row.projects.name } : null }));
+  const allTaskRows = await db.select().from(tasks)
+    .leftJoin(projects, eq(tasks.project_id, projects.id));
+  const allTasks = allTaskRows.map((row) => ({ ...row.tasks, project: row.projects ? { id: row.projects.id, name: row.projects.name } : null }));
 
   // Filter tasks for the date range (matching original: deadline or publish_date in range)
   const monthTasks = allTasks.filter((t) => {
@@ -32,34 +30,27 @@ export function getDashboardOverview(month: number, year: number) {
     return inDeadlineRange || inPublishRange;
   });
 
-  const allMembers = db.select().from(members).all();
-  const allProjects = db.select().from(projects).all();
-  const payments = db.select().from(salaryPayments)
-    .where(and(eq(salaryPayments.month, month), eq(salaryPayments.year, year)))
-    .all();
-  const rankings = db.select().from(keywordRankings)
+  const allMembers = await db.select().from(members);
+  const allProjects = await db.select().from(projects);
+  const payments = await db.select().from(salaryPayments)
+    .where(and(eq(salaryPayments.month, month), eq(salaryPayments.year, year)));
+  const rankings = await db.select().from(keywordRankings)
     .orderBy(desc(keywordRankings.date))
-    .limit(1000)
-    .all();
-  const seoData = db.select({ score: seoResults.score, max_score: seoResults.max_score, url: seoResults.url })
+    .limit(1000);
+  const seoData = await db.select({ score: seoResults.score, max_score: seoResults.max_score, url: seoResults.url })
     .from(seoResults)
     .orderBy(desc(seoResults.checked_at))
-    .limit(500)
-    .all();
+    .limit(500);
 
-  // Task stats
-  const publishedTasks = monthTasks.filter((t) =>
-    t.status_content?.includes('4. Publish') || t.status_content?.includes('4.Publish')
-  );
-  const inProgressTasks = monthTasks.filter((t) =>
-    t.status_content && !t.status_content.includes('4. Publish') && !t.status_content.includes('4.Publish')
-  );
+  // Task stats (dùng isPublished chung — task-helpers)
+  const publishedTasks = monthTasks.filter((t) => isPublished(t));
+  const inProgressTasks = monthTasks.filter((t) => t.status_content && !isPublished(t));
   const overdueTasks = monthTasks.filter((t) => {
-    if (!t.deadline || t.status_content?.includes('4. Publish')) return false;
+    if (!t.deadline || isPublished(t)) return false;
     return new Date(t.deadline) < new Date();
   });
   const dueSoonTasks = monthTasks.filter((t) => {
-    if (!t.deadline || t.status_content?.includes('4. Publish')) return false;
+    if (!t.deadline || isPublished(t)) return false;
     const deadline = new Date(t.deadline);
     const now = new Date();
     const threeDaysLater = new Date();
@@ -144,10 +135,10 @@ export function getDashboardOverview(month: number, year: number) {
   // Project stats
   const projectStats = allProjects.map((project) => {
     const projectTasks = monthTasks.filter((t) => t.project_id === project.id);
-    const published = projectTasks.filter((t) => t.status_content?.includes('4. Publish')).length;
-    const inProgress = projectTasks.filter((t) => t.status_content && !t.status_content.includes('4. Publish')).length;
+    const published = projectTasks.filter((t) => isPublished(t)).length;
+    const inProgress = projectTasks.filter((t) => t.status_content && !isPublished(t)).length;
     const overdue = projectTasks.filter((t) => {
-      if (!t.deadline || t.status_content?.includes('4. Publish')) return false;
+      if (!t.deadline || isPublished(t)) return false;
       return new Date(t.deadline) < new Date();
     }).length;
     return {
@@ -178,11 +169,10 @@ export function getDashboardOverview(month: number, year: number) {
 // Stats (GET /api/stats)
 // ---------------------------------------------------------------------------
 
-export function getStats(selectedMonth: number, selectedYear: number) {
+export async function getStats(selectedMonth: number, selectedYear: number) {
   // All tasks with project info
-  const allTaskRows = db.select().from(tasks)
-    .leftJoin(projects, eq(tasks.project_id, projects.id))
-    .all();
+  const allTaskRows = await db.select().from(tasks)
+    .leftJoin(projects, eq(tasks.project_id, projects.id));
 
   const allTasks = allTaskRows.map((row) => ({
     ...row.tasks,
@@ -199,10 +189,9 @@ export function getStats(selectedMonth: number, selectedYear: number) {
     overdue: validTasks.filter((t) => { if (!t.deadline || isPublished(t)) return false; return new Date(t.deadline) < new Date(); }).length,
   };
 
-  const allProjects = db.select().from(projects).all();
-  const targets = db.select().from(monthlyTargets)
-    .where(and(eq(monthlyTargets.month, selectedMonth), eq(monthlyTargets.year, selectedYear)))
-    .all();
+  const allProjects = await db.select().from(projects);
+  const targets = await db.select().from(monthlyTargets)
+    .where(and(eq(monthlyTargets.month, selectedMonth), eq(monthlyTargets.year, selectedYear)));
 
   const projectStats = allProjects.map((project) => {
     const projectTasks = taskList.filter((t) => t.project_id === project.id && (t.title || t.keyword_sub));

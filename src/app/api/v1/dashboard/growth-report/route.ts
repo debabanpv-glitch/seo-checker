@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { gscSnapshots, keywordRankings, sheetContent, notionContent, backlinks, auditResults, projects } from '@/lib/db/schema';
-import { eq, and, desc, sql, gte } from 'drizzle-orm';
+import { gscSnapshots, keywordRankings, sheetContent, backlinks, auditResults, projects } from '@/lib/db/schema';
+import { eq, desc } from 'drizzle-orm';
 import { handleApiError } from '@/lib/api-response';
+import { isPublishedStatus } from '@/lib/task-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,7 +35,7 @@ function getWeekNumber(dateStr: string): number {
   return Math.ceil((diff / 86400000 + start.getDay() + 1) / 7);
 }
 
-export function GET(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     const sp = new URL(request.url).searchParams;
     const projectId = sp.get('project_id') ?? undefined;
@@ -42,8 +43,8 @@ export function GET(request: NextRequest) {
 
     // Get all GSC snapshots
     const snapshots = projectId
-      ? db.select().from(gscSnapshots).where(eq(gscSnapshots.project_id, projectId)).orderBy(desc(gscSnapshots.date)).all()
-      : db.select().from(gscSnapshots).orderBy(desc(gscSnapshots.date)).all();
+      ? await db.select().from(gscSnapshots).where(eq(gscSnapshots.project_id, projectId)).orderBy(desc(gscSnapshots.date))
+      : await db.select().from(gscSnapshots).orderBy(desc(gscSnapshots.date));
 
     // Group snapshots by period
     const grouped = new Map<string, { clicks: number; impressions: number; dates: string[] }>();
@@ -67,11 +68,9 @@ export function GET(request: NextRequest) {
     }
 
     // Get keyword rankings by latest check dates
-    const kwConditions = projectId ? eq(keywordRankings.project_id, projectId) : undefined;
-    const allKw = db.select({
-      check_date: keywordRankings.date,
-      position: keywordRankings.position,
-    }).from(keywordRankings).where(kwConditions).all();
+    const allKw = projectId
+      ? await db.select({ check_date: keywordRankings.date, position: keywordRankings.position }).from(keywordRankings).where(eq(keywordRankings.project_id, projectId))
+      : await db.select({ check_date: keywordRankings.date, position: keywordRankings.position }).from(keywordRankings);
 
     // Group KW top10 by check date
     const kwByDate = new Map<string, number>();
@@ -82,26 +81,25 @@ export function GET(request: NextRequest) {
     }
 
     // Content published counts
-    const scConditions = projectId ? eq(sheetContent.project_id, projectId) : undefined;
-    const sheetRows = db.select({
-      publish_date: sheetContent.publish_date,
-      content_status: sheetContent.content_status,
-    }).from(sheetContent).where(scConditions).all();
+    const sheetRows = projectId
+      ? await db.select({ publish_date: sheetContent.publish_date, content_status: sheetContent.content_status }).from(sheetContent).where(eq(sheetContent.project_id, projectId))
+      : await db.select({ publish_date: sheetContent.publish_date, content_status: sheetContent.content_status }).from(sheetContent);
 
     // Backlinks by first_seen (created_at)
-    const blConditions = projectId ? eq(backlinks.project_id, projectId) : undefined;
-    const blRows = db.select({ created_at: backlinks.created_at }).from(backlinks).where(blConditions).all();
+    const blRows = projectId
+      ? await db.select({ created_at: backlinks.created_at }).from(backlinks).where(eq(backlinks.project_id, projectId))
+      : await db.select({ created_at: backlinks.created_at }).from(backlinks);
 
     // Latest audit score
     const auditRows = projectId
-      ? db.select({ summary: auditResults.summary }).from(auditResults).where(eq(auditResults.project_id, projectId)).orderBy(desc(auditResults.created_at)).limit(1).all()
-      : db.select({ summary: auditResults.summary }).from(auditResults).orderBy(desc(auditResults.created_at)).limit(3).all();
+      ? await db.select({ summary: auditResults.summary }).from(auditResults).where(eq(auditResults.project_id, projectId)).orderBy(desc(auditResults.created_at)).limit(1)
+      : await db.select({ summary: auditResults.summary }).from(auditResults).orderBy(desc(auditResults.created_at)).limit(3);
 
     let latestAuditScore = 0;
     if (auditRows.length > 0) {
       try {
-        const s = typeof auditRows[0].summary === 'string' ? JSON.parse(auditRows[0].summary) : auditRows[0].summary;
-        latestAuditScore = s?.seo_score ?? 0;
+        const s = typeof auditRows[0].summary === 'string' ? JSON.parse(auditRows[0].summary as string) : auditRows[0].summary as Record<string, unknown>;
+        latestAuditScore = (s as Record<string, unknown>)?.seo_score as number ?? 0;
       } catch { /* ignore */ }
     }
 
@@ -117,14 +115,12 @@ export function GET(request: NextRequest) {
       // Count content published in this period's dates
       const periodDates = new Set(curr.dates.map(d => d.slice(0, 7)));
       const contentCount = sheetRows.filter(r =>
-        r.publish_date && periodDates.has(r.publish_date.slice(0, 7)) &&
-        (r.content_status?.toLowerCase().includes('publish') || r.content_status?.toLowerCase().includes('done'))
+        r.publish_date && periodDates.has(r.publish_date.slice(0, 7)) && isPublishedStatus(r.content_status)
       ).length;
       const prevContentCount = prev
         ? sheetRows.filter(r => {
             const prevDates = new Set(prev.dates.map(d => d.slice(0, 7)));
-            return r.publish_date && prevDates.has(r.publish_date.slice(0, 7)) &&
-              (r.content_status?.toLowerCase().includes('publish') || r.content_status?.toLowerCase().includes('done'));
+            return r.publish_date && prevDates.has(r.publish_date.slice(0, 7)) && isPublishedStatus(r.content_status);
           }).length
         : 0;
 
@@ -161,7 +157,7 @@ export function GET(request: NextRequest) {
 
     // Get project info
     const project = projectId
-      ? db.select({ id: projects.id, name: projects.name }).from(projects).where(eq(projects.id, projectId)).get()
+      ? (await db.select({ id: projects.id, name: projects.name }).from(projects).where(eq(projects.id, projectId)).limit(1))[0]
       : null;
 
     return NextResponse.json({
