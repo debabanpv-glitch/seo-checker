@@ -23,6 +23,7 @@ import {
 import { eq, and, desc, sql, isNotNull } from 'drizzle-orm';
 import { getAppConfig } from './app-config-crud.service';
 import { isPublishedStatus } from '@/lib/task-helpers';
+import { safePct, computeStrategyCompletion } from './kpi-calculators';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -119,10 +120,7 @@ export interface UnifiedDashboardSummary {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-function safePct(current: number, previous: number): number {
-  if (previous === 0) return 0;
-  return Math.round(((current - previous) / previous) * 100 * 10) / 10;
-}
+// safePct → đã chuyển sang ./kpi-calculators (dùng chung)
 
 function currentMonthPrefix(): string {
   const now = new Date();
@@ -539,13 +537,12 @@ async function getStrategyKpi(projectId?: string): Promise<UnifiedDashboardSumma
     : await db.select({ status: strategyActions.status })
         .from(strategyActions);
 
-  const totalActions = actionRows.length;
-  const completedActions = actionRows.filter(a => a.status === 'done').length;
+  const { total: totalActions, done: completedActions, rate: completionRate } = computeStrategyCompletion(actionRows);
 
   return {
     totalActions,
     completedActions,
-    completionRate: totalActions > 0 ? Math.round((completedActions / totalActions) * 100) : 0,
+    completionRate,
     activePhases,
   };
 }
@@ -657,10 +654,7 @@ async function getProjectRows(projectId?: string): Promise<UnifiedDashboardSumma
       .from(strategyActions)
       .where(eq(strategyActions.project_id, proj.id));
 
-    const doneActions = allActions.filter(a => a.status === 'done').length;
-    const progressPercent = allActions.length > 0
-      ? Math.round((doneActions / allActions.length) * 100)
-      : 0;
+    const { done: doneActions, rate: progressPercent } = computeStrategyCompletion(allActions);
     const strategyRate = progressPercent;
 
     // Tasks per project (status_content holds content task status)
