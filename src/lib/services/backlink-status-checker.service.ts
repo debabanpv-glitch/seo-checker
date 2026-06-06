@@ -59,7 +59,7 @@ export async function checkSingleBacklink(backlink: {
     if (res.status >= 400) {
       result.status = 'dead';
       // Save to DB
-      saveCheckResult(result);
+      await saveCheckResult(result);
       return result;
     }
 
@@ -83,7 +83,7 @@ export async function checkSingleBacklink(backlink: {
     result.error = e instanceof Error ? e.message : String(e);
   }
 
-  saveCheckResult(result);
+  await saveCheckResult(result);
   return result;
 }
 
@@ -96,8 +96,8 @@ export async function checkBacklinksBatch(
   delayMs = 500,
 ): Promise<BatchCheckProgress> {
   const items = projectId
-    ? db.select().from(backlinks).where(eq(backlinks.project_id, projectId)).all()
-    : db.select().from(backlinks).all();
+    ? await db.select().from(backlinks).where(eq(backlinks.project_id, projectId))
+    : await db.select().from(backlinks);
 
   // Deduplicate by source_url — many backlinks share same source page
   const uniqueUrls = new Map<string, typeof items>();
@@ -137,14 +137,14 @@ export async function checkBacklinksBatch(
             ? result.html.toLowerCase().includes(item.keyword.toLowerCase())
             : false;
 
-          db.update(backlinks).set({
-            status: result.link_found ? 'alive' : (result.http_status && result.http_status >= 400 ? 'dead' : 'dead'),
+          await db.update(backlinks).set({
+            status: result.link_found ? 'alive' : 'dead',
             http_status: result.http_status,
             link_found: result.link_found,
             anchor_found: kwFound,
             last_checked_at: now,
             check_error: result.error ?? null,
-          }).where(eq(backlinks.id, item.id)).run();
+          }).where(eq(backlinks.id, item.id));
         }
 
         return result;
@@ -180,16 +180,16 @@ function extractPath(url: string): string {
   try { return new URL(url).pathname; } catch { return ''; }
 }
 
-function saveCheckResult(result: BacklinkCheckResult) {
+async function saveCheckResult(result: BacklinkCheckResult) {
   const now = new Date().toISOString();
-  db.update(backlinks).set({
+  await db.update(backlinks).set({
     status: result.status,
     http_status: result.http_status,
     anchor_found: result.anchor_found,
     link_found: result.link_found,
     last_checked_at: now,
     check_error: result.error ?? null,
-  }).where(eq(backlinks.id, result.id)).run();
+  }).where(eq(backlinks.id, result.id));
 }
 
 /** Check without saving — returns raw HTML for batch re-use */
@@ -240,10 +240,10 @@ async function checkSingleBacklinkWithoutSave(backlink: {
 
 // ── Get check summary stats ──────────────────────────────────────────────
 
-export function getBacklinkCheckSummary(projectId?: string) {
+export async function getBacklinkCheckSummary(projectId?: string) {
   const items = projectId
-    ? db.select().from(backlinks).where(eq(backlinks.project_id, projectId)).all()
-    : db.select().from(backlinks).all();
+    ? await db.select().from(backlinks).where(eq(backlinks.project_id, projectId))
+    : await db.select().from(backlinks);
 
   const total = items.length;
   const alive = items.filter((b) => b.status === 'alive').length;

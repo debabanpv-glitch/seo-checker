@@ -49,27 +49,28 @@ export function GET(req: NextRequest) {
       const pages = db.select().from(crawledPages).where(eq(crawledPages.session_id, session.id)).all();
 
       // Destination keywords for clustering
+      // NOTE: order matters — pages assigned to first matching cluster only
+      // Merged Châu Đốc + An Giang to match benchmark naming
       const destinations: [string, string[]][] = [
-        ['Cần Thơ', ['cần thơ', 'can-tho', 'cai-rang', 'ninh-kieu']],
-        ['Phú Quốc', ['phú quốc', 'phu-quoc', 'hon-thom']],
+        ['Cần Thơ', ['cần thơ', 'can-tho', 'cai-rang', 'ninh-kieu', 'cho-noi-cai-rang', 'phong-dien']],
+        ['Châu Đốc / An Giang', ['châu đốc', 'chau-doc', 'tra-su', 'nui-cam', 'mieu-ba', 'an giang', 'an-giang', 'nui-sam', 'tinh-bien', 'tuc-dup']],
         ['Cà Mau', ['cà mau', 'ca-mau', 'dat-mui', 'u-minh']],
-        ['Châu Đốc', ['châu đốc', 'chau-doc', 'tra-su', 'nui-cam', 'mieu-ba']],
+        ['Bạc Liêu', ['bạc liêu', 'bac-lieu', 'cong-tu', 'xiem-can']],
+        ['Sóc Trăng', ['sóc trăng', 'soc-trang', 'khmer', 'nga-nam']],
+        ['Đồng Tháp', ['đồng tháp', 'dong-thap', 'sa-dec', 'tram-chim', 'gao-giong', 'go-thap']],
+        ['Mỹ Tho / Tiền Giang', ['mỹ tho', 'my-tho', 'tien-giang', 'thoi-son']],
+        ['Bến Tre', ['bến tre', 'ben-tre', 'keo-dua']],
+        ['Vĩnh Long', ['vĩnh long', 'vinh-long', 'cai-be']],
+        ['Phú Quốc', ['phú quốc', 'phu-quoc', 'hon-thom', 'bai-sao', 'ham-ninh', 'dinh-cau']],
+        ['Phan Thiết / Mũi Né', ['phan thiết', 'phan-thiet', 'mũi né', 'mui-ne', 'hon-rom', 'ke-ga', 'doi-cat']],
+        ['Kiên Giang / Hà Tiên', ['kiên giang', 'kien-giang', 'nam-du', 'ha-tien', 'ba-lua', 'hon-son', 'mui-nai']],
+        ['Tây Ninh', ['tây ninh', 'tay-ninh', 'nui-ba-den', 'cao-dai']],
+        ['Vũng Tàu', ['vũng tàu', 'vung-tau', 'ho-coc', 'binh-chau']],
+        ['Côn Đảo', ['côn đảo', 'con-dao']],
         ['Đà Lạt', ['đà lạt', 'da-lat', 'dalat']],
         ['Nha Trang', ['nha trang', 'nha-trang', 'vinpearl']],
-        ['Mũi Né / Phan Thiết', ['mũi né', 'phan thiết', 'mui-ne', 'phan-thiet', 'ho-tram']],
         ['Đà Nẵng / Hội An / Huế', ['đà nẵng', 'hội an', 'huế', 'da-nang', 'hoi-an', 'hue', 'ba-na', 'phong-nha']],
         ['Hà Nội / Sapa / Hạ Long', ['hà nội', 'sapa', 'hạ long', 'ha-noi', 'ha-long', 'tam-coc']],
-        ['Tây Ninh', ['tây ninh', 'tay-ninh', 'nui-ba-den']],
-        ['Vũng Tàu', ['vũng tàu', 'vung-tau', 'ho-tram', 'ho-coc']],
-        ['Đồng Tháp', ['đồng tháp', 'dong-thap', 'sa-dec', 'tram-chim', 'gao-giong']],
-        ['Sóc Trăng', ['sóc trăng', 'soc-trang', 'khmer']],
-        ['Bạc Liêu', ['bạc liêu', 'bac-lieu', 'cong-tu']],
-        ['Bến Tre', ['bến tre', 'ben-tre']],
-        ['Mỹ Tho', ['mỹ tho', 'my-tho', 'tien-giang']],
-        ['An Giang', ['an giang', 'an-giang']],
-        ['Vĩnh Long', ['vĩnh long', 'vinh-long']],
-        ['Kiên Giang', ['kiên giang', 'kien-giang', 'nam-du', 'ha-tien']],
-        ['Côn Đảo', ['côn đảo', 'con-dao']],
         ['Củ Chi', ['củ chi', 'cu-chi', 'dia-dao']],
         ['Tây Nguyên', ['tây nguyên', 'tay-nguyen', 'buon-ma', 'ta-dung', 'cat-tien']],
         ['Tour Cano Sài Gòn', ['cano', 'sông sài gòn']],
@@ -89,18 +90,18 @@ export function GET(req: NextRequest) {
       const classify = (title: string, slug: string) => {
         const t = title.toLowerCase();
         const isTour = slug.includes('tour') || slug.startsWith('dlbm') || slug.startsWith('tp-hcm') || slug.startsWith('tphcm');
-        const isFood = t.includes('ăn gì') || t.includes('đặc sản') || t.includes('món ');
-        const isGuide = t.includes('kinh nghiệm') || t.includes('cẩm nang') || t.includes('hướng dẫn') || t.includes('top ') || t.includes('check-in') || t.includes('khám phá') || t.includes('địa điểm');
-        return isTour ? 'tour' : isFood ? 'food' : isGuide ? 'guide' : 'content';
+        const isFood = t.includes('ăn gì') || t.includes('đặc sản') || t.includes('món ') || t.includes('bánh') || t.includes('bún ') || t.includes('lẩu ') || t.includes('cách nấu');
+        const isGuide = t.includes('kinh nghiệm') || t.includes('cẩm nang') || t.includes('hướng dẫn') || t.includes('top ') || t.includes('check-in') || t.includes('khám phá') || t.includes('địa điểm') || t.includes('mùa nào') || t.includes('nên đi') || t.includes('lưu ý') || t.includes('checklist') || t.includes('chuẩn bị');
+        // "place" = bài review địa điểm cụ thể (không phải tour, food, guide)
+        return isTour ? 'tour' : isFood ? 'food' : isGuide ? 'guide' : 'place';
       };
 
-      type ClusterResult = { name: string; pages: Array<{ url: string; title: string; type: string }>; tourCount: number; contentCount: number; foodCount: number; guideCount: number };
+      type ClusterResult = { name: string; pages: Array<{ url: string; title: string; type: string }>; tour: number; food: number; guide: number; place: number; content: number; total: number };
       const clusters: ClusterResult[] = [];
       const assigned = new Set<string>();
 
       for (const [name, keywords] of destinations) {
         const matched = pages.filter(p => {
-          if (assigned.has(p.url)) return false;
           const t = p.title.toLowerCase();
           const slug = new URL(p.url).pathname.toLowerCase();
           return keywords.some(kw => t.includes(kw) || slug.includes(kw));
@@ -110,10 +111,12 @@ export function GET(req: NextRequest) {
         const items = matched.map(p => ({ url: p.url, title: p.title, type: classify(p.title, new URL(p.url).pathname) }));
         clusters.push({
           name, pages: items,
-          tourCount: items.filter(i => i.type === 'tour').length,
-          contentCount: items.filter(i => i.type === 'content').length,
-          foodCount: items.filter(i => i.type === 'food').length,
-          guideCount: items.filter(i => i.type === 'guide').length,
+          tour: items.filter(i => i.type === 'tour').length,
+          food: items.filter(i => i.type === 'food').length,
+          guide: items.filter(i => i.type === 'guide').length,
+          place: items.filter(i => i.type === 'place').length,
+          content: items.length,
+          total: items.length,
         });
       }
 

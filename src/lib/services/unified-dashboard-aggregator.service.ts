@@ -1,7 +1,6 @@
 // ---------------------------------------------------------------------------
 // Unified Dashboard Aggregator Service
 // Reads ALL data sources → produces a unified KPI summary for the dashboard.
-// SYNC only — no async/await (better-sqlite3 sync API).
 // ---------------------------------------------------------------------------
 
 import { db } from '@/lib/db';
@@ -23,6 +22,8 @@ import {
 } from '@/lib/db/schema';
 import { eq, and, desc, sql, isNotNull } from 'drizzle-orm';
 import { getAppConfig } from './app-config-crud.service';
+import { isPublishedStatus } from '@/lib/task-helpers';
+import { safePct, computeStrategyCompletion, getHealthScore } from './kpi-calculators';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -119,10 +120,7 @@ export interface UnifiedDashboardSummary {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-function safePct(current: number, previous: number): number {
-  if (previous === 0) return 0;
-  return Math.round(((current - previous) / previous) * 100 * 10) / 10;
-}
+// safePct → đã chuyển sang ./kpi-calculators (dùng chung)
 
 function currentMonthPrefix(): string {
   const now = new Date();
@@ -134,7 +132,7 @@ function currentMonthPrefix(): string {
 // Traffic — latest vs previous GSC snapshot
 // ---------------------------------------------------------------------------
 
-function getTrafficKpi(projectId?: string): UnifiedDashboardSummary['traffic'] {
+async function getTrafficKpi(projectId?: string): Promise<UnifiedDashboardSummary['traffic']> {
   // Fetch 2 most recent snapshots per project (or overall)
   const baseQuery = db
     .select({
@@ -147,14 +145,12 @@ function getTrafficKpi(projectId?: string): UnifiedDashboardSummary['traffic'] {
     .from(gscSnapshots);
 
   const rows = projectId
-    ? baseQuery.where(and(eq(gscSnapshots.project_id, projectId), eq(gscSnapshots.period, 'weekly')))
+    ? await baseQuery.where(and(eq(gscSnapshots.project_id, projectId), eq(gscSnapshots.period, 'weekly')))
         .orderBy(desc(gscSnapshots.date))
         .limit(10)
-        .all()
-    : baseQuery.where(eq(gscSnapshots.period, 'weekly'))
+    : await baseQuery.where(eq(gscSnapshots.period, 'weekly'))
         .orderBy(desc(gscSnapshots.date))
-        .limit(30)
-        .all();
+        .limit(30);
 
   if (rows.length === 0) {
     return { totalClicks: 0, totalImpressions: 0, avgPosition: 0, clicksTrend: 0, impressionsTrend: 0 };
@@ -205,21 +201,19 @@ function getTrafficKpi(projectId?: string): UnifiedDashboardSummary['traffic'] {
 // Keywords — positions from latest check date
 // ---------------------------------------------------------------------------
 
-function getKeywordsKpi(projectId?: string): UnifiedDashboardSummary['keywords'] {
+async function getKeywordsKpi(projectId?: string): Promise<UnifiedDashboardSummary['keywords']> {
   // Get all unique check dates for this project, latest 2
   const dateQuery = db
     .selectDistinct({ date: keywordRankings.date })
     .from(keywordRankings);
 
   const dates = projectId
-    ? dateQuery.where(and(eq(keywordRankings.project_id, projectId), isNotNull(keywordRankings.date)))
+    ? await dateQuery.where(and(eq(keywordRankings.project_id, projectId), isNotNull(keywordRankings.date)))
         .orderBy(desc(keywordRankings.date))
         .limit(2)
-        .all()
-    : dateQuery.where(isNotNull(keywordRankings.date))
+    : await dateQuery.where(isNotNull(keywordRankings.date))
         .orderBy(desc(keywordRankings.date))
-        .limit(2)
-        .all();
+        .limit(2);
 
   if (dates.length === 0) {
     return { total: 0, top3: 0, top10: 0, top30: 0, trackedFromNotion: 0, moversUp: 0, moversDown: 0 };
@@ -230,14 +224,12 @@ function getKeywordsKpi(projectId?: string): UnifiedDashboardSummary['keywords']
 
   // Latest snapshot counts
   const latestRows = projectId
-    ? db.select({ position: keywordRankings.position, is_tracked: keywordRankings.is_tracked, keyword: keywordRankings.keyword })
+    ? await db.select({ position: keywordRankings.position, is_tracked: keywordRankings.is_tracked, keyword: keywordRankings.keyword })
         .from(keywordRankings)
         .where(and(eq(keywordRankings.project_id, projectId), eq(keywordRankings.date, latestDate)))
-        .all()
-    : db.select({ position: keywordRankings.position, is_tracked: keywordRankings.is_tracked, keyword: keywordRankings.keyword })
+    : await db.select({ position: keywordRankings.position, is_tracked: keywordRankings.is_tracked, keyword: keywordRankings.keyword })
         .from(keywordRankings)
-        .where(eq(keywordRankings.date, latestDate))
-        .all();
+        .where(eq(keywordRankings.date, latestDate));
 
   let top3 = 0, top10 = 0, top30 = 0, trackedCount = 0;
   const latestByKw = new Map<string, number>();
@@ -256,14 +248,12 @@ function getKeywordsKpi(projectId?: string): UnifiedDashboardSummary['keywords']
 
   if (prevDate) {
     const prevRows = projectId
-      ? db.select({ keyword: keywordRankings.keyword, position: keywordRankings.position })
+      ? await db.select({ keyword: keywordRankings.keyword, position: keywordRankings.position })
           .from(keywordRankings)
           .where(and(eq(keywordRankings.project_id, projectId), eq(keywordRankings.date, prevDate)))
-          .all()
-      : db.select({ keyword: keywordRankings.keyword, position: keywordRankings.position })
+      : await db.select({ keyword: keywordRankings.keyword, position: keywordRankings.position })
           .from(keywordRankings)
-          .where(eq(keywordRankings.date, prevDate))
-          .all();
+          .where(eq(keywordRankings.date, prevDate));
 
     const prevByKw = new Map<string, number>();
     for (const r of prevRows) prevByKw.set(r.keyword, r.position);
@@ -293,21 +283,19 @@ function getKeywordsKpi(projectId?: string): UnifiedDashboardSummary['keywords']
 // Content — notion_content + sheet_content
 // ---------------------------------------------------------------------------
 
-function getContentKpi(projectId?: string): UnifiedDashboardSummary['content'] {
+async function getContentKpi(projectId?: string): Promise<UnifiedDashboardSummary['content']> {
   const monthPrefix = currentMonthPrefix();
 
   // notion_content: published items
-  let notionPublishedQuery = db
+  const notionRows = await db
     .select({ status: notionContent.status, publish_date: notionContent.publish_date })
     .from(notionContent);
-
-  const notionRows = notionPublishedQuery.all();
 
   let notionPublished = 0, notionDrafts = 0, notionThisMonth = 0;
 
   for (const r of notionRows) {
     const status = (r.status ?? '').toLowerCase();
-    if (status.includes('published') || status.includes('done') || status.includes('live')) {
+    if (isPublishedStatus(status)) {
       notionPublished++;
       if (r.publish_date && r.publish_date.startsWith(monthPrefix)) notionThisMonth++;
     } else {
@@ -316,24 +304,19 @@ function getContentKpi(projectId?: string): UnifiedDashboardSummary['content'] {
   }
 
   // sheet_content: filter by project if needed
-  let sheetRows: { content_status: string | null; publish_date: string | null }[] = [];
-  if (projectId) {
-    sheetRows = db
-      .select({ content_status: sheetContent.content_status, publish_date: sheetContent.publish_date })
-      .from(sheetContent)
-      .where(eq(sheetContent.project_id, projectId))
-      .all();
-  } else {
-    sheetRows = db
-      .select({ content_status: sheetContent.content_status, publish_date: sheetContent.publish_date })
-      .from(sheetContent)
-      .all();
-  }
+  const sheetRows: { content_status: string | null; publish_date: string | null }[] = projectId
+    ? await db
+        .select({ content_status: sheetContent.content_status, publish_date: sheetContent.publish_date })
+        .from(sheetContent)
+        .where(eq(sheetContent.project_id, projectId))
+    : await db
+        .select({ content_status: sheetContent.content_status, publish_date: sheetContent.publish_date })
+        .from(sheetContent);
 
   let sheetPublished = 0, sheetDrafts = 0, sheetThisMonth = 0;
   for (const r of sheetRows) {
     const status = (r.content_status ?? '').toLowerCase();
-    if (status.includes('published') || status.includes('done') || status.includes('live') || status === 'đã đăng') {
+    if (isPublishedStatus(status)) {
       sheetPublished++;
       if (r.publish_date && r.publish_date.startsWith(monthPrefix)) sheetThisMonth++;
     } else if (status.length > 0) {
@@ -354,20 +337,20 @@ function getContentKpi(projectId?: string): UnifiedDashboardSummary['content'] {
 // Tasks — tasks table (project tasks)
 // ---------------------------------------------------------------------------
 
-function getTasksKpi(projectId?: string): UnifiedDashboardSummary['tasks'] {
+async function getTasksKpi(projectId?: string): Promise<UnifiedDashboardSummary['tasks']> {
   const today = new Date().toISOString().slice(0, 10);
 
   const taskRows = projectId
-    ? db.select({
+    ? await db.select({
         status_content: tasks.status_content,
         category: tasks.category,
         deadline: tasks.deadline,
-      }).from(tasks).where(eq(tasks.project_id, projectId)).all()
-    : db.select({
+      }).from(tasks).where(eq(tasks.project_id, projectId))
+    : await db.select({
         status_content: tasks.status_content,
         category: tasks.category,
         deadline: tasks.deadline,
-      }).from(tasks).all();
+      }).from(tasks);
 
   let done = 0, inProgress = 0, overdue = 0;
   const byCategory: Record<string, { total: number; done: number }> = {};
@@ -379,14 +362,14 @@ function getTasksKpi(projectId?: string): UnifiedDashboardSummary['tasks'] {
     if (!byCategory[cat]) byCategory[cat] = { total: 0, done: 0 };
     byCategory[cat].total++;
 
-    if (status.includes('publish') || status.includes('done') || status.includes('đã đăng') || status.includes('live')) {
+    if (isPublishedStatus(status)) {
       done++;
       byCategory[cat].done++;
     } else if (status.includes('qc') || status.includes('fix') || status.includes('doing') || status.includes('progress') || status.includes('writing')) {
       inProgress++;
     }
 
-    if (t.deadline && t.deadline < today && !status.includes('publish') && !status.includes('done') && !status.includes('live')) {
+    if (t.deadline && t.deadline < today && !isPublishedStatus(status)) {
       overdue++;
     }
   }
@@ -404,18 +387,18 @@ function getTasksKpi(projectId?: string): UnifiedDashboardSummary['tasks'] {
 // Backlinks
 // ---------------------------------------------------------------------------
 
-function getBacklinksKpi(projectId?: string): UnifiedDashboardSummary['backlinks'] {
+async function getBacklinksKpi(projectId?: string): Promise<UnifiedDashboardSummary['backlinks']> {
   const monthPrefix = currentMonthPrefix();
 
   const blRows = projectId
-    ? db.select({
+    ? await db.select({
         status: backlinks.status,
         created_at: backlinks.created_at,
-      }).from(backlinks).where(eq(backlinks.project_id, projectId)).all()
-    : db.select({
+      }).from(backlinks).where(eq(backlinks.project_id, projectId))
+    : await db.select({
         status: backlinks.status,
         created_at: backlinks.created_at,
-      }).from(backlinks).all();
+      }).from(backlinks);
 
   let alive = 0, dead = 0, newThisMonth = 0;
   for (const bl of blRows) {
@@ -425,11 +408,10 @@ function getBacklinksKpi(projectId?: string): UnifiedDashboardSummary['backlinks
   }
 
   // avgDR from notion_backlinks (has dr column, no project_id FK)
-  const drResult = db
+  const drResult = ((await db
     .select({ avgDR: sql<number>`AVG(${notionBacklinks.dr})` })
     .from(notionBacklinks)
-    .where(isNotNull(notionBacklinks.dr))
-    .get() as { avgDR: number | null } | undefined;
+    .where(isNotNull(notionBacklinks.dr)))[0]) as { avgDR: number | null } | undefined;
 
   return {
     total: blRows.length,
@@ -444,21 +426,19 @@ function getBacklinksKpi(projectId?: string): UnifiedDashboardSummary['backlinks
 // SEO Strength — audit scores + cluster completeness
 // ---------------------------------------------------------------------------
 
-function getSeoStrengthKpi(projectId?: string): UnifiedDashboardSummary['seoStrength'] {
+async function getSeoStrengthKpi(projectId?: string): Promise<UnifiedDashboardSummary['seoStrength']> {
   // Latest audit per project
   const auditRows = projectId
-    ? db.select({ project_id: auditResults.project_id, summary: auditResults.summary })
+    ? await db.select({ project_id: auditResults.project_id, summary: auditResults.summary })
         .from(auditResults)
         .where(and(eq(auditResults.project_id, projectId), isNotNull(auditResults.summary)))
         .orderBy(desc(auditResults.created_at))
         .limit(1)
-        .all()
-    : db.select({ project_id: auditResults.project_id, summary: auditResults.summary })
+    : await db.select({ project_id: auditResults.project_id, summary: auditResults.summary })
         .from(auditResults)
         .where(isNotNull(auditResults.summary))
         .orderBy(desc(auditResults.created_at))
-        .limit(20)
-        .all();
+        .limit(20);
 
   // Dedupe by project_id, keep latest
   const latestByProject = new Map<string, { seo_score?: number }>();
@@ -481,13 +461,11 @@ function getSeoStrengthKpi(projectId?: string): UnifiedDashboardSummary['seoStre
 
   // Topic clusters
   const clusterRows = projectId
-    ? db.select({ id: topicClusters.id, target_keyword_count: topicClusters.target_keyword_count })
+    ? await db.select({ id: topicClusters.id, target_keyword_count: topicClusters.target_keyword_count })
         .from(topicClusters)
         .where(eq(topicClusters.project_id, projectId))
-        .all()
-    : db.select({ id: topicClusters.id, target_keyword_count: topicClusters.target_keyword_count })
-        .from(topicClusters)
-        .all();
+    : await db.select({ id: topicClusters.id, target_keyword_count: topicClusters.target_keyword_count })
+        .from(topicClusters);
 
   const clusterCount = clusterRows.length;
 
@@ -497,15 +475,14 @@ function getSeoStrengthKpi(projectId?: string): UnifiedDashboardSummary['seoStre
 
   if (clusterCount > 0) {
     for (const cluster of clusterRows) {
-      const pages = db
+      const pages = await db
         .select({
           has_link_to_pillar: topicClusterPages.has_link_to_pillar,
           has_link_from_pillar: topicClusterPages.has_link_from_pillar,
           role: topicClusterPages.role,
         })
         .from(topicClusterPages)
-        .where(eq(topicClusterPages.cluster_id, cluster.id))
-        .all();
+        .where(eq(topicClusterPages.cluster_id, cluster.id));
 
       if (pages.length === 0) continue;
 
@@ -519,7 +496,7 @@ function getSeoStrengthKpi(projectId?: string): UnifiedDashboardSummary['seoStre
   }
 
   // Orphan pages: cluster pages with neither link direction
-  const orphanResult = db
+  const orphanResult = ((await db
     .select({ count: sql<number>`COUNT(*)` })
     .from(topicClusterPages)
     .where(
@@ -528,8 +505,7 @@ function getSeoStrengthKpi(projectId?: string): UnifiedDashboardSummary['seoStre
         eq(topicClusterPages.has_link_from_pillar, false),
         sql`${topicClusterPages.role} != 'pillar'`
       )
-    )
-    .get() as { count: number } | undefined;
+    ))[0]) as { count: number } | undefined;
 
   return {
     auditScores,
@@ -544,34 +520,29 @@ function getSeoStrengthKpi(projectId?: string): UnifiedDashboardSummary['seoStre
 // Strategy
 // ---------------------------------------------------------------------------
 
-function getStrategyKpi(projectId?: string): UnifiedDashboardSummary['strategy'] {
+async function getStrategyKpi(projectId?: string): Promise<UnifiedDashboardSummary['strategy']> {
   const phaseRows = projectId
-    ? db.select({ id: strategyPhases.id, status: strategyPhases.status })
+    ? await db.select({ id: strategyPhases.id, status: strategyPhases.status })
         .from(strategyPhases)
         .where(eq(strategyPhases.project_id, projectId))
-        .all()
-    : db.select({ id: strategyPhases.id, status: strategyPhases.status })
-        .from(strategyPhases)
-        .all();
+    : await db.select({ id: strategyPhases.id, status: strategyPhases.status })
+        .from(strategyPhases);
 
   const activePhases = phaseRows.filter(p => p.status === 'in_progress').length;
 
   const actionRows = projectId
-    ? db.select({ status: strategyActions.status })
+    ? await db.select({ status: strategyActions.status })
         .from(strategyActions)
         .where(eq(strategyActions.project_id, projectId))
-        .all()
-    : db.select({ status: strategyActions.status })
-        .from(strategyActions)
-        .all();
+    : await db.select({ status: strategyActions.status })
+        .from(strategyActions);
 
-  const totalActions = actionRows.length;
-  const completedActions = actionRows.filter(a => a.status === 'done').length;
+  const { total: totalActions, done: completedActions, rate: completionRate } = computeStrategyCompletion(actionRows);
 
   return {
     totalActions,
     completedActions,
-    completionRate: totalActions > 0 ? Math.round((completedActions / totalActions) * 100) : 0,
+    completionRate,
     activePhases,
   };
 }
@@ -580,29 +551,27 @@ function getStrategyKpi(projectId?: string): UnifiedDashboardSummary['strategy']
 // Per-project summary row
 // ---------------------------------------------------------------------------
 
-function getProjectRows(projectId?: string): UnifiedDashboardSummary['projects'] {
+async function getProjectRows(projectId?: string): Promise<UnifiedDashboardSummary['projects']> {
   const projectList = projectId
-    ? db.select({ id: projects.id, name: projects.name }).from(projects).where(eq(projects.id, projectId)).all()
-    : db.select({ id: projects.id, name: projects.name }).from(projects).all();
+    ? await db.select({ id: projects.id, name: projects.name, domain: projects.domain }).from(projects).where(eq(projects.id, projectId))
+    : await db.select({ id: projects.id, name: projects.name, domain: projects.domain }).from(projects);
 
-  return projectList.map(proj => {
+  return Promise.all(projectList.map(async proj => {
     // Clicks: latest weekly snapshot
-    const snap = db
+    const snap = ((await db
       .select({ clicks: gscSnapshots.clicks })
       .from(gscSnapshots)
       .where(and(eq(gscSnapshots.project_id, proj.id), eq(gscSnapshots.period, 'weekly')))
       .orderBy(desc(gscSnapshots.date))
-      .limit(1)
-      .get() as { clicks: number } | undefined;
+      .limit(1))[0]) as { clicks: number } | undefined;
 
     // KW top10: latest date
-    const latestDateRow = db
+    const latestDateRow = ((await db
       .selectDistinct({ date: keywordRankings.date })
       .from(keywordRankings)
       .where(eq(keywordRankings.project_id, proj.id))
       .orderBy(desc(keywordRankings.date))
-      .limit(1)
-      .get() as { date: string } | undefined;
+      .limit(1))[0]) as { date: string } | undefined;
 
     let kwTop10 = 0;
     let kwTrackedTotal = 0;
@@ -610,7 +579,7 @@ function getProjectRows(projectId?: string): UnifiedDashboardSummary['projects']
     let kwFollowTotal = 0;
     let kwFollowTop10 = 0;
     if (latestDateRow) {
-      const kwResult = db
+      const kwResult = ((await db
         .select({ count: sql<number>`COUNT(*)` })
         .from(keywordRankings)
         .where(
@@ -620,12 +589,11 @@ function getProjectRows(projectId?: string): UnifiedDashboardSummary['projects']
             sql`${keywordRankings.position} > 0`,
             sql`${keywordRankings.position} <= 10`
           )
-        )
-        .get() as { count: number } | undefined;
+        ))[0]) as { count: number } | undefined;
       kwTop10 = kwResult?.count ?? 0;
 
       // Cam kết (tracked) keyword stats — count unique across all dates
-      const trackedStats = db
+      const trackedStats = ((await db
         .select({
           total: sql<number>`COUNT(DISTINCT LOWER(keyword))`,
           top10: sql<number>`SUM(CASE WHEN position > 0 AND position <= 10 THEN 1 ELSE 0 END)`,
@@ -635,15 +603,14 @@ function getProjectRows(projectId?: string): UnifiedDashboardSummary['projects']
           and(
             eq(keywordRankings.project_id, proj.id),
             eq(keywordRankings.date, latestDateRow.date),
-            sql`${keywordRankings.is_tracked} = 1`
+            sql`${keywordRankings.is_tracked} = true`
           )
-        )
-        .get() as { total: number; top10: number } | undefined;
+        ))[0]) as { total: number; top10: number } | undefined;
       kwTrackedTotal = trackedStats?.total ?? 0;
       kwTrackedTop10 = trackedStats?.top10 ?? 0;
 
       // Tự follow keyword stats
-      const followStats = db
+      const followStats = ((await db
         .select({
           total: sql<number>`COUNT(DISTINCT LOWER(keyword))`,
           top10: sql<number>`SUM(CASE WHEN position > 0 AND position <= 10 THEN 1 ELSE 0 END)`,
@@ -653,77 +620,49 @@ function getProjectRows(projectId?: string): UnifiedDashboardSummary['projects']
           and(
             eq(keywordRankings.project_id, proj.id),
             eq(keywordRankings.date, latestDateRow.date),
-            sql`${keywordRankings.is_tracked} = 0`
+            sql`${keywordRankings.is_tracked} = false`
           )
-        )
-        .get() as { total: number; top10: number } | undefined;
+        ))[0]) as { total: number; top10: number } | undefined;
       kwFollowTotal = followStats?.total ?? 0;
       kwFollowTop10 = followStats?.top10 ?? 0;
     }
 
-    // Content published (sheet_content)
-    const contentResult = db
-      .select({ count: sql<number>`COUNT(*)` })
+    // Content published (sheet_content) — filter JS để DRY với isPublishedStatus
+    const contentRows = await db
+      .select({ content_status: sheetContent.content_status })
       .from(sheetContent)
-      .where(
-        and(
-          eq(sheetContent.project_id, proj.id),
-          sql`LOWER(${sheetContent.content_status}) IN ('published', 'done', 'live', 'đã đăng')`
-        )
-      )
-      .get() as { count: number } | undefined;
+      .where(eq(sheetContent.project_id, proj.id));
+    const contentPublishedCount = contentRows.filter((r) => isPublishedStatus(r.content_status)).length;
 
-    // Audit score: latest
-    const auditRow = db
-      .select({ summary: auditResults.summary })
-      .from(auditResults)
-      .where(and(eq(auditResults.project_id, proj.id), isNotNull(auditResults.summary)))
-      .orderBy(desc(auditResults.created_at))
-      .limit(1)
-      .get() as { summary: Record<string, number> | null } | undefined;
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const auditScore = typeof (auditRow?.summary as any)?.seo_score === 'number'
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ? (auditRow!.summary as any).seo_score as number
-      : 0;
+    // Audit/health score: định nghĩa đầy đủ chung (auditor → crawl → on-page)
+    const auditScore = (await getHealthScore(proj.id, proj.domain)).score;
 
     // Strategy progress
-    const allActions = db
+    const allActions = await db
       .select({ status: strategyActions.status })
       .from(strategyActions)
-      .where(eq(strategyActions.project_id, proj.id))
-      .all();
+      .where(eq(strategyActions.project_id, proj.id));
 
-    const doneActions = allActions.filter(a => a.status === 'done').length;
-    const progressPercent = allActions.length > 0
-      ? Math.round((doneActions / allActions.length) * 100)
-      : 0;
+    const { done: doneActions, rate: progressPercent } = computeStrategyCompletion(allActions);
     const strategyRate = progressPercent;
 
     // Tasks per project (status_content holds content task status)
-    const allTasks = db
+    const allTasks = await db
       .select({ status_content: tasks.status_content })
       .from(tasks)
-      .where(eq(tasks.project_id, proj.id))
-      .all();
-    const tasksDone = allTasks.filter(t => {
-      const s = (t.status_content || '').toLowerCase();
-      return s.includes('done') || s.includes('publish') || s.includes('đã đăng') || s.includes('live');
-    }).length;
+      .where(eq(tasks.project_id, proj.id));
+    const tasksDone = allTasks.filter(t => isPublishedStatus(t.status_content)).length;
     const tasksTotal = allTasks.length;
 
     // Backlinks per project
-    const blAliveResult = db
+    const blAliveResult = ((await db
       .select({ count: sql<number>`COUNT(*)` })
       .from(backlinks)
-      .where(and(eq(backlinks.project_id, proj.id), sql`${backlinks.status} = 'alive'`))
-      .get() as { count: number } | undefined;
-    const blTotalResult = db
+      .where(and(eq(backlinks.project_id, proj.id), sql`${backlinks.status} = 'alive'`)))[0]) as { count: number } | undefined;
+    const blTotalResult = ((await db
       .select({ count: sql<number>`COUNT(*)` })
       .from(backlinks)
-      .where(eq(backlinks.project_id, proj.id))
-      .get() as { count: number } | undefined;
+      .where(eq(backlinks.project_id, proj.id)))[0]) as { count: number } | undefined;
 
     return {
       id: proj.id,
@@ -734,7 +673,7 @@ function getProjectRows(projectId?: string): UnifiedDashboardSummary['projects']
       kwTrackedTop10,
       kwFollowTotal,
       kwFollowTop10,
-      contentPublished: contentResult?.count ?? 0,
+      contentPublished: contentPublishedCount,
       auditScore,
       progressPercent,
       tasksDone,
@@ -743,16 +682,16 @@ function getProjectRows(projectId?: string): UnifiedDashboardSummary['projects']
       backlinksTotal: blTotalResult?.count ?? 0,
       strategyRate,
     };
-  });
+  }));
 }
 
 // ---------------------------------------------------------------------------
 // Recent Activity
 // ---------------------------------------------------------------------------
 
-function getRecentActivity(projectId?: string): UnifiedDashboardSummary['recentActivity'] {
+async function getRecentActivity(projectId?: string): Promise<UnifiedDashboardSummary['recentActivity']> {
   const rows = projectId
-    ? db.select({
+    ? await db.select({
         source: activityLog.source,
         action: activityLog.action,
         description: activityLog.description,
@@ -763,8 +702,7 @@ function getRecentActivity(projectId?: string): UnifiedDashboardSummary['recentA
         .where(eq(activityLog.project_id, projectId))
         .orderBy(desc(activityLog.created_at))
         .limit(20)
-        .all()
-    : db.select({
+    : await db.select({
         source: activityLog.source,
         action: activityLog.action,
         description: activityLog.description,
@@ -773,8 +711,7 @@ function getRecentActivity(projectId?: string): UnifiedDashboardSummary['recentA
       })
         .from(activityLog)
         .orderBy(desc(activityLog.created_at))
-        .limit(20)
-        .all();
+        .limit(20);
 
   return rows.map(r => ({
     source: r.source,
@@ -789,25 +726,37 @@ function getRecentActivity(projectId?: string): UnifiedDashboardSummary['recentA
 // Main exported function
 // ---------------------------------------------------------------------------
 
-export function getUnifiedDashboardSummary(projectId?: string): UnifiedDashboardSummary {
+export async function getUnifiedDashboardSummary(projectId?: string): Promise<UnifiedDashboardSummary> {
   // Load project goals from app_config
-  const goalsRow = getAppConfig('project_goals');
+  const goalsRow = await getAppConfig('project_goals');
   const goalsArr: Array<{ project_id: string; start_date: string; deadline: string; targets: { weekly_clicks: number; top10_keywords: number; strategy_completion: number; seo_score: number } }> = goalsRow?.value ? JSON.parse(goalsRow.value) : [];
   const projectGoals: UnifiedDashboardSummary['projectGoals'] = {};
   for (const g of goalsArr) {
     projectGoals[g.project_id] = { start_date: g.start_date, deadline: g.deadline, targets: g.targets };
   }
 
+  const [traffic, keywords, content, taskKpi, backlinksKpi, seoStrength, strategy, projectRows, recentActivityRows] = await Promise.all([
+    getTrafficKpi(projectId),
+    getKeywordsKpi(projectId),
+    getContentKpi(projectId),
+    getTasksKpi(projectId),
+    getBacklinksKpi(projectId),
+    getSeoStrengthKpi(projectId),
+    getStrategyKpi(projectId),
+    getProjectRows(projectId),
+    getRecentActivity(projectId),
+  ]);
+
   return {
-    traffic: getTrafficKpi(projectId),
-    keywords: getKeywordsKpi(projectId),
-    content: getContentKpi(projectId),
-    tasks: getTasksKpi(projectId),
-    backlinks: getBacklinksKpi(projectId),
-    seoStrength: getSeoStrengthKpi(projectId),
-    strategy: getStrategyKpi(projectId),
-    projects: getProjectRows(projectId),
-    recentActivity: getRecentActivity(projectId),
+    traffic,
+    keywords,
+    content,
+    tasks: taskKpi,
+    backlinks: backlinksKpi,
+    seoStrength,
+    strategy,
+    projects: projectRows,
+    recentActivity: recentActivityRows,
     projectGoals,
     meta: {
       generatedAt: new Date().toISOString(),

@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No valid ranking data found', details: errors }, { status: 400 });
     }
 
-    upsertRankingsBatch(rankings);
+    await upsertRankingsBatch(rankings);
 
     return NextResponse.json({
       success: true,

@@ -2,22 +2,23 @@ import { db } from '@/lib/db';
 import { members, tasks } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { AppError } from '@/lib/api-response';
+import { isPublished } from '@/lib/task-helpers';
 
 // ---------------------------------------------------------------------------
 // Members CRUD
 // ---------------------------------------------------------------------------
 
-export function getAllMembers() {
-  return db.select().from(members).all();
+export async function getAllMembers() {
+  return db.select().from(members);
 }
 
-export function getMemberById(id: string) {
-  const member = db.select().from(members).where(eq(members.id, id)).get();
+export async function getMemberById(id: string) {
+  const member = (await db.select().from(members).where(eq(members.id, id)))[0];
   if (!member) throw new AppError('Member not found', 404);
   return member;
 }
 
-export function createMember(data: {
+export async function createMember(data: {
   name: string;
   nickname?: string | null;
   role?: string;
@@ -29,7 +30,7 @@ export function createMember(data: {
   bank_account?: string | null;
   salary_rate?: number;
 }) {
-  return db.insert(members).values({
+  return (await db.insert(members).values({
     name: data.name,
     nickname: data.nickname ?? null,
     role: data.role || 'Content Writer',
@@ -40,29 +41,28 @@ export function createMember(data: {
     bank_name: data.bank_name ?? null,
     bank_account: data.bank_account ?? null,
     salary_rate: data.salary_rate ?? 0,
-  }).returning().get();
+  }).returning())[0];
 }
 
-export function updateMember(id: string, data: Partial<typeof members.$inferInsert>) {
-  const updated = db.update(members).set(data).where(eq(members.id, id)).returning().get();
+export async function updateMember(id: string, data: Partial<typeof members.$inferInsert>) {
+  const updated = (await db.update(members).set(data).where(eq(members.id, id)).returning())[0];
   if (!updated) throw new AppError('Member not found', 404);
   return updated;
 }
 
-export function deleteMember(id: string) {
-  db.delete(members).where(eq(members.id, id)).run();
+export async function deleteMember(id: string) {
+  await db.delete(members).where(eq(members.id, id));
 }
 
 // ---------------------------------------------------------------------------
 // Member stats (GET /api/members)
 // ---------------------------------------------------------------------------
 
-export function getMemberStats(month: number, year: number, viewType: string = 'month') {
-  const allTasks = db.select().from(tasks)
-    .where(and(eq(tasks.month, month), eq(tasks.year, year)))
-    .all();
+export async function getMemberStats(month: number, year: number, viewType: string = 'month') {
+  const allTasks = await db.select().from(tasks)
+    .where(and(eq(tasks.month, month), eq(tasks.year, year)));
 
-  const memberInfos = db.select().from(members).all();
+  const memberInfos = await db.select().from(members);
 
   // Filter tasks by view type
   const now = new Date();
@@ -108,7 +108,7 @@ export function getMemberStats(month: number, year: number, viewType: string = '
     const member = memberMap.get(pic)!;
     member.totalThisMonth++;
 
-    if (task.status_content === '4. Publish') {
+    if (isPublished(task)) {
       member.published++;
       if (task.publish_date && task.deadline) {
         if (new Date(task.publish_date) <= new Date(task.deadline)) member.onTime++;

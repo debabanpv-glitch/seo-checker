@@ -1,12 +1,12 @@
 import { db } from '@/lib/db';
-import { keywordRankings, tasks, seoResults } from '@/lib/db/schema';
-import { eq, and, like, gte, lte, lt, desc, asc, inArray } from 'drizzle-orm';
+import { keywordRankings, keywords, tasks, seoResults } from '@/lib/db/schema';
+import { eq, and, like, gte, lte, lt, desc, asc, inArray, sql } from 'drizzle-orm';
 
 // ---------------------------------------------------------------------------
 // Rankings CRUD (GET /api/keyword-rankings)
 // ---------------------------------------------------------------------------
 
-export function getRankings(filters: {
+export async function getRankings(filters: {
   project_id?: string;
   keyword?: string;
   startDate?: string;
@@ -22,39 +22,37 @@ export function getRankings(filters: {
   return db.select().from(keywordRankings)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(keywordRankings.date), asc(keywordRankings.keyword))
-    .limit(filters.limit ?? 1000)
-    .all();
+    .limit(filters.limit ?? 1000);
 }
 
 // ---------------------------------------------------------------------------
 // Delete rankings
 // ---------------------------------------------------------------------------
 
-export function deleteRankings(params: {
+export async function deleteRankings(params: {
   id?: string;
   project_id?: string;
   keyword?: string;
   deleteAll?: boolean;
 }) {
   if (params.deleteAll) {
-    db.delete(keywordRankings).run();
+    await db.delete(keywordRankings);
     return;
   }
   if (params.id) {
-    db.delete(keywordRankings).where(eq(keywordRankings.id, params.id)).run();
+    await db.delete(keywordRankings).where(eq(keywordRankings.id, params.id));
     return;
   }
   if (params.project_id && !params.keyword) {
-    db.delete(keywordRankings).where(eq(keywordRankings.project_id, params.project_id)).run();
+    await db.delete(keywordRankings).where(eq(keywordRankings.project_id, params.project_id));
     return;
   }
   if (params.project_id && params.keyword) {
-    db.delete(keywordRankings)
+    await db.delete(keywordRankings)
       .where(and(
         eq(keywordRankings.project_id, params.project_id),
         eq(keywordRankings.keyword, params.keyword),
-      ))
-      .run();
+      ));
   }
 }
 
@@ -62,7 +60,7 @@ export function deleteRankings(params: {
 // Batch upsert rankings (POST /api/keyword-rankings/sync)
 // ---------------------------------------------------------------------------
 
-export function upsertRankingsBatch(rows: Array<{
+export async function upsertRankingsBatch(rows: Array<{
   keyword: string;
   url: string;
   position: number;
@@ -71,29 +69,60 @@ export function upsertRankingsBatch(rows: Array<{
   ranking_tier?: string | null;
   keyword_type?: string | null;
 }>) {
-  db.transaction((tx) => {
-    for (const row of rows) {
-      // Delete existing then insert (SQLite doesn't have a unique constraint on keyword+date+project_id)
-      const conditions = [
-        eq(keywordRankings.keyword, row.keyword),
-        eq(keywordRankings.date, row.date),
-      ];
-      if (row.project_id) {
-        conditions.push(eq(keywordRankings.project_id, row.project_id));
-      }
-      tx.delete(keywordRankings).where(and(...conditions)).run();
+  for (const row of rows) {
+    // 1. Upsert master keyword → lấy keyword_id (1 dòng / keyword / project)
+    const keywordId = await getOrCreateKeyword(row.keyword, row.project_id ?? null, row.keyword_type ?? null);
 
-      tx.insert(keywordRankings).values({
-        keyword: row.keyword,
-        url: row.url,
-        position: row.position,
-        date: row.date,
-        project_id: row.project_id ?? null,
-        ranking_tier: row.ranking_tier ?? null,
-        keyword_type: row.keyword_type ?? null,
-      }).run();
+    // 2. Delete existing then insert history (Postgres upsert via delete+insert)
+    const conditions = [
+      eq(keywordRankings.keyword, row.keyword),
+      eq(keywordRankings.date, row.date),
+    ];
+    if (row.project_id) {
+      conditions.push(eq(keywordRankings.project_id, row.project_id));
     }
-  });
+    await db.delete(keywordRankings).where(and(...conditions));
+
+    await db.insert(keywordRankings).values({
+      keyword: row.keyword,
+      url: row.url,
+      position: row.position,
+      date: row.date,
+      project_id: row.project_id ?? null,
+      ranking_tier: row.ranking_tier ?? null,
+      keyword_type: row.keyword_type ?? null,
+      keyword_id: keywordId,
+    });
+  }
+}
+
+// Lấy id master keyword theo (keyword, project_id); tạo mới nếu chưa có.
+// Cập nhật keyword_type nếu master chưa có giá trị.
+async function getOrCreateKeyword(
+  keyword: string,
+  projectId: string | null,
+  keywordType: string | null,
+): Promise<string> {
+  const conds = [eq(keywords.keyword, keyword)];
+  if (projectId) conds.push(eq(keywords.project_id, projectId));
+  else conds.push(sql`${keywords.project_id} is null`);
+
+  const existing = (await db.select({ id: keywords.id, keyword_type: keywords.keyword_type })
+    .from(keywords).where(and(...conds)).limit(1))[0];
+
+  if (existing) {
+    if (keywordType && !existing.keyword_type) {
+      await db.update(keywords).set({ keyword_type: keywordType }).where(eq(keywords.id, existing.id));
+    }
+    return existing.id;
+  }
+
+  const inserted = (await db.insert(keywords).values({
+    keyword,
+    project_id: projectId,
+    keyword_type: keywordType,
+  }).returning({ id: keywords.id }))[0];
+  return inserted.id;
 }
 
 // ---------------------------------------------------------------------------
@@ -110,7 +139,7 @@ interface DailySnapshot {
   uniqueUrls: number;
 }
 
-export function getRankingGrowth(projectId?: string, days: number = 30) {
+export async function getRankingGrowth(projectId?: string, days: number = 30) {
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
   const startStr = startDate.toISOString().split('T')[0];
@@ -118,15 +147,14 @@ export function getRankingGrowth(projectId?: string, days: number = 30) {
   const conditions = [gte(keywordRankings.date, startStr)];
   if (projectId) conditions.push(eq(keywordRankings.project_id, projectId));
 
-  const data = db.select({
+  const data = await db.select({
     keyword: keywordRankings.keyword,
     position: keywordRankings.position,
     date: keywordRankings.date,
     url: keywordRankings.url,
   }).from(keywordRankings)
     .where(and(...conditions))
-    .orderBy(asc(keywordRankings.date))
-    .all();
+    .orderBy(asc(keywordRankings.date));
 
   // Group by date
   const dateMap = new Map<string, { keywords: Map<string, number>; urls: Set<string> }>();
@@ -183,9 +211,9 @@ export function getRankingGrowth(projectId?: string, days: number = 30) {
 // Ranking analysis (GET /api/keyword-rankings/analysis)
 // ---------------------------------------------------------------------------
 
-export function getRankingAnalysis(projectId: string) {
+export async function getRankingAnalysis(projectId: string) {
   // 1. Published tasks
-  const publishedTasks = db.select({
+  const publishedTasks = (await db.select({
     id: tasks.id, link_publish: tasks.link_publish,
     publish_date: tasks.publish_date, month: tasks.month, year: tasks.year,
     parent_keyword: tasks.parent_keyword,
@@ -193,9 +221,7 @@ export function getRankingAnalysis(projectId: string) {
     .where(and(
       eq(tasks.project_id, projectId),
       eq(tasks.status_content, '4. Publish'),
-    ))
-    .all()
-    .filter((t) => t.link_publish);
+    ))).filter((t) => t.link_publish);
 
   const publishedUrls = new Set<string>();
   const tasksByMonth: Record<string, { published: number; urls: string[] }> = {};
@@ -211,37 +237,33 @@ export function getRankingAnalysis(projectId: string) {
   });
 
   // 2. Latest ranking date
-  const latestDateRow = db.select({ date: keywordRankings.date })
+  const latestDateRow = (await db.select({ date: keywordRankings.date })
     .from(keywordRankings)
     .where(eq(keywordRankings.project_id, projectId))
     .orderBy(desc(keywordRankings.date))
-    .limit(1)
-    .get();
+    .limit(1))[0];
   const latestDate = latestDateRow?.date || null;
 
   // 3. Rankings for latest date
   const rankings = latestDate
-    ? db.select({ keyword: keywordRankings.keyword, url: keywordRankings.url, position: keywordRankings.position })
+    ? await db.select({ keyword: keywordRankings.keyword, url: keywordRankings.url, position: keywordRankings.position })
       .from(keywordRankings)
       .where(and(eq(keywordRankings.project_id, projectId), eq(keywordRankings.date, latestDate)))
-      .all()
     : [];
 
   // 4. Previous date rankings
   const prevDateRow = latestDate
-    ? db.select({ date: keywordRankings.date })
+    ? (await db.select({ date: keywordRankings.date })
       .from(keywordRankings)
       .where(and(eq(keywordRankings.project_id, projectId), lt(keywordRankings.date, latestDate)))
       .orderBy(desc(keywordRankings.date))
-      .limit(1)
-      .get()
+      .limit(1))[0]
     : null;
 
   const prevRankings = prevDateRow
-    ? db.select({ keyword: keywordRankings.keyword, position: keywordRankings.position })
+    ? await db.select({ keyword: keywordRankings.keyword, position: keywordRankings.position })
       .from(keywordRankings)
       .where(and(eq(keywordRankings.project_id, projectId), eq(keywordRankings.date, prevDateRow.date)))
-      .all()
     : [];
 
   const prevPositionMap = new Map<string, number>();
@@ -250,10 +272,9 @@ export function getRankingAnalysis(projectId: string) {
   // 5. SEO results for published URLs
   const urlsToCheck = Array.from(publishedUrls);
   const seoData = urlsToCheck.length > 0
-    ? db.select({ url: seoResults.url, score: seoResults.score, max_score: seoResults.max_score })
+    ? await db.select({ url: seoResults.url, score: seoResults.score, max_score: seoResults.max_score })
       .from(seoResults)
       .where(inArray(seoResults.url, urlsToCheck))
-      .all()
     : [];
 
   const seoScoreMap = new Map<string, { score: number; maxScore: number }>();
@@ -352,37 +373,33 @@ export function getRankingAnalysis(projectId: string) {
 // Ranking details (GET /api/keyword-rankings/details)
 // ---------------------------------------------------------------------------
 
-export function getRankingDetails(projectId: string, view: string = 'keywords') {
+export async function getRankingDetails(projectId: string, view: string = 'keywords') {
   // Latest date
-  const latestRow = db.select({ date: keywordRankings.date })
+  const latestRow = (await db.select({ date: keywordRankings.date })
     .from(keywordRankings)
     .where(eq(keywordRankings.project_id, projectId))
     .orderBy(desc(keywordRankings.date))
-    .limit(1)
-    .get();
+    .limit(1))[0];
 
   if (!latestRow) return { keywords: [], urls: [], latestDate: null };
   const latestDate = latestRow.date;
 
-  const rankings = db.select({ keyword: keywordRankings.keyword, url: keywordRankings.url, position: keywordRankings.position })
+  const rankings = await db.select({ keyword: keywordRankings.keyword, url: keywordRankings.url, position: keywordRankings.position })
     .from(keywordRankings)
     .where(and(eq(keywordRankings.project_id, projectId), eq(keywordRankings.date, latestDate)))
-    .orderBy(asc(keywordRankings.position))
-    .all();
+    .orderBy(asc(keywordRankings.position));
 
   // Previous date
-  const prevRow = db.select({ date: keywordRankings.date })
+  const prevRow = (await db.select({ date: keywordRankings.date })
     .from(keywordRankings)
     .where(and(eq(keywordRankings.project_id, projectId), lt(keywordRankings.date, latestDate)))
     .orderBy(desc(keywordRankings.date))
-    .limit(1)
-    .get();
+    .limit(1))[0];
 
   const prevRankings = prevRow
-    ? db.select({ keyword: keywordRankings.keyword, position: keywordRankings.position })
+    ? await db.select({ keyword: keywordRankings.keyword, position: keywordRankings.position })
       .from(keywordRankings)
       .where(and(eq(keywordRankings.project_id, projectId), eq(keywordRankings.date, prevRow.date)))
-      .all()
     : [];
 
   const prevMap = new Map<string, number>();
@@ -417,14 +434,21 @@ export function getRankingDetails(projectId: string, view: string = 'keywords') 
 // Toggle tracked status for a keyword
 // ---------------------------------------------------------------------------
 
-export function toggleTracked(keyword: string, projectId: string, isTracked: boolean) {
-  db.update(keywordRankings)
+export async function toggleTracked(keyword: string, projectId: string, isTracked: boolean) {
+  // Cam kết là thuộc tính của master keyword → cập nhật keywords.is_committed
+  await db.update(keywords)
+    .set({ is_committed: isTracked })
+    .where(and(
+      eq(keywords.keyword, keyword),
+      eq(keywords.project_id, projectId),
+    ));
+  // Giữ đồng bộ is_tracked cũ trong history để UI/aggregator hiện tại không vỡ
+  await db.update(keywordRankings)
     .set({ is_tracked: isTracked })
     .where(and(
       eq(keywordRankings.keyword, keyword),
       eq(keywordRankings.project_id, projectId),
-    ))
-    .run();
+    ));
 }
 
 // ---------------------------------------------------------------------------

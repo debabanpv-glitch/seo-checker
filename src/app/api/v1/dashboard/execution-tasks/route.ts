@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { tasks, notionTasks, projects } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { handleApiError } from '@/lib/api-response';
+import { isPublishedStatus } from '@/lib/task-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,7 +33,7 @@ function normalizeNotionStatus(raw: string): string {
 // Map tasks.status_content → normalized
 function normalizeTaskStatus(raw: string): string {
   const s = raw.toLowerCase();
-  if (s.includes('publish') || s.includes('done') || s.includes('đã đăng') || s.includes('live')) return 'done';
+  if (isPublishedStatus(s)) return 'done';
   if (s.includes('qc') || s.includes('fix') || s.includes('writing') || s.includes('doing')) return 'in_progress';
   return 'pending';
 }
@@ -50,7 +51,7 @@ function normalizeCategory(raw: string): string {
   return raw || 'Content';
 }
 
-export function GET(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     const sp = new URL(request.url).searchParams;
     const projectId = sp.get('project_id') || undefined;
@@ -60,7 +61,7 @@ export function GET(request: NextRequest) {
     // Get project slug for notion_tasks mapping
     let projectSlug: string | undefined;
     if (projectId) {
-      const proj = db.select({ slug: projects.slug }).from(projects).where(eq(projects.id, projectId)).get();
+      const proj = (await db.select({ slug: projects.slug }).from(projects).where(eq(projects.id, projectId)).limit(1))[0];
       projectSlug = proj?.slug ?? undefined;
     }
 
@@ -71,8 +72,8 @@ export function GET(request: NextRequest) {
     if (year) taskConditions.push(eq(tasks.year, year));
 
     const taskRows = taskConditions.length > 0
-      ? db.select().from(tasks).where(and(...taskConditions)).all()
-      : db.select().from(tasks).all();
+      ? await db.select().from(tasks).where(and(...taskConditions))
+      : await db.select().from(tasks);
 
     const items: ExecutionTask[] = [];
 
@@ -93,8 +94,8 @@ export function GET(request: NextRequest) {
 
     // 2. Fetch notion_tasks — filter by deadline month/year if specified
     const allNotionRows = projectSlug
-      ? db.select().from(notionTasks).where(eq(notionTasks.project, projectSlug)).all()
-      : db.select().from(notionTasks).all();
+      ? await db.select().from(notionTasks).where(eq(notionTasks.project, projectSlug))
+      : await db.select().from(notionTasks);
 
     const notionRows = (month && year)
       ? allNotionRows.filter((r) => {
