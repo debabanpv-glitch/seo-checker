@@ -8,7 +8,7 @@ import { handleApiError } from '@/lib/api-response';
 
 export const dynamic = 'force-dynamic';
 
-export function GET(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     const sp = new URL(request.url).searchParams;
     const limit = parseInt(sp.get('limit') ?? '50');
@@ -17,11 +17,11 @@ export function GET(request: NextRequest) {
     const to = sp.get('to');
 
     if (from && to) {
-      const activities = getActivitiesByDateRange(from, to, projectId);
+      const activities = await getActivitiesByDateRange(from, to, projectId);
       return NextResponse.json({ activities });
     }
 
-    const activities = getRecentActivities(limit, projectId);
+    const activities = await getRecentActivities(limit, projectId);
     return NextResponse.json({ activities });
   } catch (error) {
     return handleApiError(error);
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const activity = createActivity({
+    const activity = await createActivity({
       source,
       action,
       description,

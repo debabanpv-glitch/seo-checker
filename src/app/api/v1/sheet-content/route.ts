@@ -8,7 +8,7 @@ import { handleApiError } from '@/lib/api-response';
 
 export const dynamic = 'force-dynamic';
 
-export function GET(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     const sp = new URL(request.url).searchParams;
     const projectId = sp.get('project_id') ?? undefined;
@@ -18,10 +18,10 @@ export function GET(request: NextRequest) {
     const mode = sp.get('mode');
 
     if (mode === 'stats' && projectId) {
-      return NextResponse.json(getSheetContentStats(projectId));
+      return NextResponse.json(await getSheetContentStats(projectId));
     }
 
-    const rows = getSheetContent({ projectId, month, year, status });
+    const rows = await getSheetContent({ projectId, month, year, status });
     return NextResponse.json({ items: rows, total: rows.length });
   } catch (error) {
     return handleApiError(error);
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'data must be a non-empty array' }, { status: 400 });
     }
 
-    const result = upsertSheetContent(project_id, data);
+    const result = await upsertSheetContent(project_id, data);
     return NextResponse.json({ success: true, ...result });
   } catch (error) {
     return handleApiError(error);
